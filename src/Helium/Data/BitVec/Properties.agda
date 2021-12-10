@@ -386,6 +386,174 @@ xor-distribʳ-not (x ∷ xs) (y ∷ ys) = cong₂ _∷_ (bxor-distribʳ-not x y)
     })
 
 
+-- Arithmetic operations
+
+-- +
+
+add-carry-comm : ∀ b (xs ys : BitVec n) → add-carry b xs ys ≡ add-carry b ys xs
+add-carry-comm b [] [] = refl
+add-carry-comm b (x ∷ xs) (y ∷ ys) = cong₂ B._xor_ (cong₂ B._∧_ (add-carry-comm b xs ys) (bxor-comm x y)) (B.∧-comm x y)
+
+add-rem-comm : ∀ b → A.Commutative n (add-rem b)
+add-rem-comm b [] [] = refl
+add-rem-comm b (x ∷ xs) (y ∷ ys) = cong₂ _∷_ (cong₂ B._xor_ (add-carry-comm b xs ys) (bxor-comm x y)) (add-rem-comm b xs ys)
+
++-assoc : A.Associative n _+_
++-assoc [] [] [] = refl
++-assoc (x ∷ xs) (y ∷ ys) (z ∷ zs) = flip (cong₂ _∷_) (+-assoc xs ys zs) (begin
+  add-carry 0# (xs + ys) zs ⊕ (add-carry 0# xs ys ⊕ x ⊕ y) ⊕ z ≡⟨ solve 5 (λ xyz xy x y z → (xyz :+ ((xy :+ (x :+ y)) :+ z)) := ((xyz :+ xy) :+ (x :+ (y :+ z)))) refl (add-carry 0# (xs + ys) zs) (add-carry 0# xs ys) x y z ⟩
+  (add-carry 0# (xs + ys) zs ⊕ add-carry 0# xs ys) ⊕ x ⊕ y ⊕ z ≡⟨ cong (_⊕ (x ⊕ (y ⊕ z))) (helper₁ xs ys zs) ⟩
+  (add-carry 0# xs (ys + zs) ⊕ add-carry 0# ys zs) ⊕ x ⊕ y ⊕ z ≡⟨ solve 5 (λ xyz yz x y z → ((xyz :+ yz) :+ (x :+ (y :+ z))) := (xyz :+ (x :+ (yz :+ (y :+ z))))) refl (add-carry 0# xs (ys + zs)) (add-carry 0# ys zs) x y z ⟩
+  add-carry 0# xs (ys + zs) ⊕ x ⊕ add-carry 0# ys zs ⊕ y ⊕ z ∎)
+  where
+  open ≡-Reasoning
+  import Algebra.Solver.Ring.Simple as Simple
+  import Algebra.Solver.Ring.AlmostCommutativeRing as ARC
+  open import Algebra.Bundles using (CommutativeRing)
+
+  ring = ARC.fromCommutativeRing B.xor-∧-commutativeRing
+  module ring = ARC.AlmostCommutativeRing ring
+  open module Solver = Simple (ARC.fromCommutativeRing B.xor-∧-commutativeRing) B._≟_
+
+  infixr 6 _⊛_
+  infixr 5 _⊕_
+  _⊕_ = B._xor_
+  _⊛_ = B._∧_
+
+  helper₁ : ∀ (xs ys zs : BitVec n) → add-carry 0# (xs + ys) zs B.xor add-carry 0# xs ys ≡ add-carry 0# xs (ys + zs) B.xor add-carry 0# ys zs
+  helper₂ : ∀ (xs ys zs : BitVec n) → add-carry 0# (xs + ys) zs B.∧ add-carry 0# xs ys ≡ add-carry 0# xs (ys + zs) B.∧ add-carry 0# ys zs
+  helper₁ [] [] [] = refl
+  helper₁ (x ∷ xs) (y ∷ ys) (z ∷ zs) with add-carry 0# (xs + ys) zs | add-carry 0# xs (ys + zs) | add-carry 0# xs ys | add-carry 0# ys zs | helper₁ xs ys zs | helper₂ xs ys zs
+  ... | xyz₁ | xyz₂ | xy | yz | eq₁ | eq₂ = begin
+    (xyz₁ ⊛ ((xy ⊕ x ⊕ y) ⊕ z) ⊕ (xy ⊕ x ⊕ y) ⊛ z) ⊕ xy ⊛ (x ⊕ y) ⊕ x ⊛ y ≡⟨ solve 5 eqn₁ refl xyz₁ xy x y z ⟩
+    xyz₁ ⊛ xy ⊕ (xyz₁ ⊕ xy) ⊛ (x ⊕ y ⊕ z) ⊕ x ⊛ (y ⊕ z) ⊕ y ⊛ z ≡⟨ cong₂ _⊕_ eq₂ (cong ((_⊕ x ⊛ (y ⊕ z) ⊕ (y ⊛ z)) ∘′ (_⊛ (x ⊕ y ⊕ z))) eq₁) ⟩
+    xyz₂ ⊛ yz ⊕ (xyz₂ ⊕ yz) ⊛ (x ⊕ y ⊕ z) ⊕ x ⊛ (y ⊕ z) ⊕ y ⊛ z ≡⟨ solve 5 eqn₂ refl xyz₂ yz x y z ⟩
+    (xyz₂ ⊛ (x ⊕ (yz ⊕ y ⊕ z)) ⊕ x ⊛ (yz ⊕ y ⊕ z)) ⊕ yz ⊛ (y ⊕ z) ⊕ y ⊛ z ∎
+    where
+    eqn₁ = λ xyz xy x y z →
+      (((xyz :* ((xy :+ (x :+ y)) :+ z)) :+ ((xy :+ (x :+ y)) :* z)) :+ ((xy :* (x :+ y)) :+ (x :* y))) :=
+      ((xyz :* xy) :+ (((xyz :+ xy) :* (x :+ (y :+ z))) :+ ((x :* (y :+ z)) :+ (y :* z))))
+    eqn₂ = λ xyz yz x y z →
+      ((xyz :* yz) :+ (((xyz :+ yz) :* (x :+ (y :+ z))) :+ ((x :* (y :+ z)) :+ (y :* z)))) :=
+      (((xyz :* (x :+ (yz :+ (y :+ z)))) :+ (x :* (yz :+ (y :+ z)))) :+ ((yz :* (y :+ z)) :+ (y :* z)))
+
+  -- This can be proved algebraically, but enumerating all the cases is more compact and less thought
+  -- It relies on x ⊛ x ≡ x and x ⊕ x ≡ 0#, which are not available in RingSolver
+  helper₂ [] [] [] = refl
+  helper₂ (x ∷ xs) (y ∷ ys) (z ∷ zs) with add-carry 0# (xs + ys) zs | add-carry 0# xs (ys + zs) | add-carry 0# xs ys | add-carry 0# ys zs | helper₁ xs ys zs | helper₂ xs ys zs
+  helper₂ (0# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 0# | 0# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 0# | 0# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 0# | 0# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 0# | 0# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 0# | 1# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 0# | 1# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 0# | 1# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 0# | 1# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 1# | 0# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 1# | 0# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 1# | 0# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 1# | 0# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 1# | 1# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 1# | 1# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 1# | 1# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 1# | 1# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 0# | 0# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 0# | 0# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 0# | 0# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 0# | 0# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 0# | 1# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 0# | 1# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 0# | 1# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 0# | 1# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 1# | 0# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 1# | 0# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 1# | 0# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 1# | 0# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 1# | 1# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 1# | 1# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 1# | 1# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 1# | 1# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 0# | 0# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 0# | 0# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 0# | 0# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 0# | 0# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 0# | 1# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 0# | 1# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 0# | 1# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 0# | 1# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 1# | 0# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 1# | 0# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 1# | 0# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 1# | 0# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 1# | 1# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 1# | 1# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 1# | 1# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 1# | 1# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 0# | 0# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 0# | 0# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 0# | 0# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 0# | 0# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 0# | 1# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 0# | 1# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 1# | 0# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 1# | 0# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 1# | 1# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (0# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 1# | 1# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 0# | 0# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 0# | 0# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 0# | 0# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 0# | 0# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 0# | 1# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 0# | 1# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 0# | 1# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 0# | 1# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 1# | 0# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 1# | 0# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 1# | 0# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 1# | 0# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 1# | 1# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 1# | 1# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 1# | 1# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (0# ∷ zs) | 1# | 1# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 0# | 0# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 0# | 0# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 0# | 0# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 0# | 0# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 0# | 1# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 0# | 1# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 1# | 0# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 1# | 0# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 1# | 1# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (0# ∷ ys) (1# ∷ zs) | 1# | 1# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 0# | 0# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 0# | 0# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 0# | 0# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 0# | 0# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 0# | 1# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 0# | 1# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 1# | 0# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 1# | 0# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 1# | 1# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (0# ∷ zs) | 1# | 1# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 0# | 0# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 0# | 0# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 0# | 1# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 0# | 1# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 1# | 0# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 1# | 0# | 1# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 1# | 1# | 0# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 1# | 1# | 0# | 1# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 1# | 1# | 1# | 0# | eq₁ | eq₂ = refl
+  helper₂ (1# ∷ xs) (1# ∷ ys) (1# ∷ zs) | 1# | 1# | 1# | 1# | eq₁ | eq₂ = refl
+
++-comm : A.Commutative n _+_
++-comm = add-rem-comm 0#
+
++-identityˡ : A.LeftIdentity n zeroes _+_
++-identityˡ [] = refl
++-identityˡ (x ∷ xs) = cong₂ _∷_ {!!} (+-identityˡ xs)
+
+
 -- Conversions
 
 -- bitToFin and finToBit
