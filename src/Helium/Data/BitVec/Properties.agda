@@ -384,3 +384,35 @@ xor-distribʳ-not (x ∷ xs) (y ∷ ys) = cong₂ _∷_ (bxor-distribʳ-not x y)
     { 0# → refl
     ; 1# → refl
     })
+
+
+-- Conversions
+
+-- bitToFin and finToBit
+
+bitToFin-finToBit : ∀ x → bitToFin (finToBit x) ≡ x
+bitToFin-finToBit zero       = refl
+bitToFin-finToBit (suc zero) = refl
+
+finToBit-bitToFin : ∀ x → finToBit (bitToFin x) ≡ x
+finToBit-bitToFin 0# = refl
+finToBit-bitToFin 1# = refl
+
+-- toFin and fromFin
+
+fromFin-toFin : ∀ xs → fromFin {n} (toFin {n} xs) ≡ xs
+fromFin-toFin         []       = refl
+fromFin-toFin {suc n} (x ∷ xs) with quotRem {2} (2 ^ n) (combine (bitToFin x) (toFin xs)) | remQuot-combine (bitToFin x) (toFin xs)
+... | .(toFin xs) , .(bitToFin x) | refl = cong₂ _∷_ (finToBit-bitToFin x) (fromFin-toFin xs)
+
+toFin-fromFin : ∀ x → toFin {n} (fromFin x) ≡ x
+toFin-fromFin {zero}  zero = refl
+toFin-fromFin {suc n} x = begin
+  combine (bitToFin (finToBit (proj₁ rq))) (toFin (fromFin {n} (proj₂ rq))) ≡⟨ eq₁ ⟩
+  combine (proj₁ rq) (proj₂ rq) ≡⟨ combine-remQuot (2 ^ n) x ⟩
+  x ∎
+  where
+  open ≡-Reasoning
+  rq = remQuot {2} (2 ^ n) x
+  eq₁ = cong₂ combine (bitToFin-finToBit (proj₁ rq)) (toFin-fromFin {n} (proj₂ rq))
+
