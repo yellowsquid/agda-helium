@@ -152,6 +152,9 @@ module _
   vadd : VAdd → Procedure 2 (Beat , ElmtMask , _)
   vadd d = vec-op₂ d (λ x y → sliceᶻ _ zero (uint x +ᶻ uint y))
 
+  vsub : VSub → Procedure 2 (Beat , ElmtMask , _)
+  vsub d = vec-op₂ d (λ x y → sliceᶻ _ zero (uint x +ᶻ -ᶻ uint y))
+
   vhsub : VHSub → Procedure 2 (Beat , ElmtMask , _)
   vhsub d = vec-op₂ op₂ (λ x y → sliceᶻ _ (suc zero) (int x +ᶻ -ᶻ int y))
     where open VHSub d ; int = Bool.if unsigned then uint else sint

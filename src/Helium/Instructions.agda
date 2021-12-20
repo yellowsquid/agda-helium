@@ -41,6 +41,8 @@ record VecOp₂ : Set where
 
 VAdd = VecOp₂
 
+VSub = VecOp₂
+
 record VHSub : Set where
   field
     op₂ : VecOp₂
