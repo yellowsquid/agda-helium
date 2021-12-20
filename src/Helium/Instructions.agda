@@ -5,6 +5,7 @@ module Helium.Instructions where
 open import Data.Bool
 open import Data.Fin
 open import Data.Nat
+open import Data.Product using (∃; _,_)
 open import Data.Sum
 open import Relation.Binary.PropositionalEquality
 
@@ -14,78 +15,37 @@ GenReg = Fin 16
 VecReg : Set
 VecReg = Fin 8
 
-module VAdd
-  where
+record VecOp₂ : Set where
+  field
+    size : Fin 3
+    dest : VecReg
+    src₁ : VecReg
+    src₂ : GenReg ⊎ VecReg
 
-  record VAdd : Set where
-    field
-      size : Fin 3
-      dest : VecReg
-      src₁ : VecReg
-      src₂ : GenReg ⊎ VecReg
+  split32 : ∃ λ (elements : Fin 5) → ∃ λ (esize : Fin 33) → toℕ elements * toℕ esize ≡ 32
+  split32 = helper size
+    where
+    helper : _ → _
+    helper zero             = # 4 , # 8 , refl
+    helper (suc zero)       = # 2 , # 16 , refl
+    helper (suc (suc zero)) = # 1 , # 32 , refl
 
-  esize : VAdd → Fin 33
-  esize record { size = zero }             = # 8
-  esize record { size = (suc zero) }       = # 16
-  esize record { size = (suc (suc zero)) } = # 32
+  elements : Fin 5
+  elements with (elmt , _ , _) ← split32 = elmt
 
-  elements : VAdd → Fin 5
-  elements record { size = zero }             = # 4
-  elements record { size = (suc zero) }       = # 2
-  elements record { size = (suc (suc zero)) } = # 1
+  esize : Fin 33
+  esize with (_ , esize , _) ← split32 = esize
 
-  elem*esize≡32 : ∀ d → toℕ (elements d) * toℕ (esize d) ≡ 32
-  elem*esize≡32 record { size = zero }             = refl
-  elem*esize≡32 record { size = (suc zero) }       = refl
-  elem*esize≡32 record { size = (suc (suc zero)) } = refl
+  e*e≡32 : toℕ elements * toℕ esize ≡ 32
+  e*e≡32 with (_ , _ , eq) ← split32 = eq
 
-module VHSub
-  where
+VAdd = VecOp₂
 
-  record VHSub : Set where
-    field
-      unsigned : Bool
-      size : Fin 3
-      dest : VecReg
-      src₁ : VecReg
-      src₂ : GenReg ⊎ VecReg
+record VHSub : Set where
+  field
+    op₂ : VecOp₂
+    unsigned : Bool
 
-  esize : VHSub → Fin 33
-  esize record { size = zero }             = # 8
-  esize record { size = (suc zero) }       = # 16
-  esize record { size = (suc (suc zero)) } = # 32
+  open VecOp₂ op₂ public
 
-  elements : VHSub → Fin 5
-  elements record { size = zero }             = # 4
-  elements record { size = (suc zero) }       = # 2
-  elements record { size = (suc (suc zero)) } = # 1
-
-  elem*esize≡32 : ∀ d → toℕ (elements d) * toℕ (esize d) ≡ 32
-  elem*esize≡32 record { size = zero }             = refl
-  elem*esize≡32 record { size = (suc zero) }       = refl
-  elem*esize≡32 record { size = (suc (suc zero)) } = refl
-
-module VMul
-  where
-
-  record VMul : Set where
-    field
-      size : Fin 3
-      dest : VecReg
-      src₁ : VecReg
-      src₂ : GenReg ⊎ VecReg
-
-  esize : VMul → Fin 33
-  esize record { size = zero }             = # 8
-  esize record { size = (suc zero) }       = # 16
-  esize record { size = (suc (suc zero)) } = # 32
-
-  elements : VMul → Fin 5
-  elements record { size = zero }             = # 4
-  elements record { size = (suc zero) }       = # 2
-  elements record { size = (suc (suc zero)) } = # 1
-
-  elem*esize≡32 : ∀ d → toℕ (elements d) * toℕ (esize d) ≡ 32
-  elem*esize≡32 record { size = zero }             = refl
-  elem*esize≡32 record { size = (suc zero) }       = refl
-  elem*esize≡32 record { size = (suc (suc zero)) } = refl
+VMul = VecOp₂

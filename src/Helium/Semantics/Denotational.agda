@@ -7,6 +7,7 @@ module Helium.Semantics.Denotational
   (pseudocode : RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃)
   where
 
+open import Algebra.Core using (Op₂)
 open import Data.Bool as Bool using (Bool)
 open import Data.Fin as Fin hiding (cast; lift; _+_)
 import Data.Fin.Properties as Finₚ
@@ -115,7 +116,25 @@ copy-masked dest = for 4 (lift (
   else
     skip))
 
--- vec-op₂ : VecReg → GenReg → Op₂ (Bits n)
+module _
+  (d : VecOp₂)
+  where
+
+  open VecOp₂ d
+
+  vec-op₂ : Op₂ (Bits (toℕ esize)) → Procedure 2 (Beat , ElmtMask , _)
+  vec-op₂ op = declare ⦇ zeros ⦈ (declare (! &Q ⦇ src₁ ⦈ (!# 1)) (
+    -- op₁ result beat elmtMask
+    for (toℕ elements) (lift (
+      -- e op₁ result beat elmtMask
+      elem (toℕ esize) (&cast (sym e*e≡32) (var (# 2))) (!# 0) ≔
+      ⦇ op
+        (! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0))
+        ([ (λ src₂ → ! slice (&R ⦇ src₂ ⦈) ⦇ (esize , zero , refl) ⦈)
+         , (λ src₂ → ! elem (toℕ esize) (&cast (sym e*e≡32) (&Q ⦇ src₂ ⦈ (!# 3))) (!# 0))
+         ]′ src₂) ⦈
+    )) ∙
+    ignore (call (copy-masked dest) ⦇ !# 1 , ⦇ !# 2 , !# 3 ⦈ ⦈)))
 
 -- Instruction semantics
 
@@ -130,60 +149,12 @@ module _
 
   open sliceᶻ ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
 
-  vadd : VAdd.VAdd → Procedure 2 (Beat , ElmtMask , _)
-  vadd d = declare ⦇ zeros ⦈ (declare (! &Q ⦇ src₁ ⦈ (!# 1)) (
-    -- op₁ result beat elmtMask
-    for (toℕ elements) (lift (
-      -- e op₁ result beat elmtMask
-      elem (toℕ esize) (&cast (sym e*e≡32) (var (# 2))) (!# 0) ≔
-      ⦇ _+ᵇ_
-        (! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0))
-        ([ (λ src₂ → ! slice (&R ⦇ src₂ ⦈) ⦇ (esize , zero , refl) ⦈)
-         , (λ src₂ → ! elem (toℕ esize) (&cast (sym e*e≡32) (&Q ⦇ src₂ ⦈ (!# 3))) (!# 0))
-         ]′ src₂) ⦈
-    )) ∙
-    ignore (call (copy-masked dest) ⦇ !# 1 , ⦇ !# 2 , !# 3 ⦈ ⦈)))
-    where
-    open VAdd.VAdd d
-    esize = VAdd.esize d
-    elements = VAdd.elements d
-    e*e≡32 = VAdd.elem*esize≡32 d
+  vadd : VAdd → Procedure 2 (Beat , ElmtMask , _)
+  vadd d = vec-op₂ d _+ᵇ_
 
-  vhsub : VHSub.VHSub → Procedure 2 (Beat , ElmtMask , _)
-  vhsub d = declare ⦇ zeros ⦈ (declare (! &Q ⦇ src₁ ⦈ (!# 1)) (
-    -- op₁ result beat elmtMask
-    for (toℕ elements) (lift (
-      -- e op₁ result beat elmtMask
-      elem (toℕ esize) (&cast (sym e*e≡32) (var (# 2))) (!# 0) ≔
-      ⦇ (λ x y → sliceᶻ (suc (toℕ esize)) (suc zero) (int x +ᶻ -ᶻ int y))
-        (! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0))
-        ([ (λ src₂ → ! slice (&R ⦇ src₂ ⦈) ⦇ (esize , zero , refl) ⦈)
-         , (λ src₂ → ! elem (toℕ esize) (&cast (sym e*e≡32) (&Q ⦇ src₂ ⦈ (!# 3))) (!# 0))
-         ]′ src₂) ⦈
-    )) ∙
-    ignore (call (copy-masked dest) ⦇ !# 1 , ⦇ !# 2 , !# 3 ⦈ ⦈)))
-    where
-    open VHSub.VHSub d
-    esize = VHSub.esize d
-    elements = VHSub.elements d
-    e*e≡32 = VHSub.elem*esize≡32 d
-    int = Bool.if unsigned then uint else sint
+  vhsub : VHSub → Procedure 2 (Beat , ElmtMask , _)
+  vhsub d = vec-op₂ op₂ (λ x y → sliceᶻ (suc (toℕ esize)) (suc zero) (int x +ᶻ -ᶻ int y))
+    where open VHSub d ; int = Bool.if unsigned then uint else sint
 
-  vmul : VMul.VMul → Procedure 2 (Beat , ElmtMask , _)
-  vmul d = declare ⦇ zeros ⦈ (declare (! &Q ⦇ src₁ ⦈ (!# 1)) (
-    -- op₁ result beat elmtMask
-    for (toℕ elements) (lift (
-      -- e op₁ result beat elmtMask
-      elem (toℕ esize) (&cast (sym e*e≡32) (var (# 2))) (!# 0) ≔
-      ⦇ (λ x y → sliceᶻ (toℕ esize) zero (sint x *ᶻ sint y))
-        (! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0))
-        ([ (λ src₂ → ! slice (&R ⦇ src₂ ⦈) ⦇ (esize , zero , refl) ⦈)
-         , (λ src₂ → ! elem (toℕ esize) (&cast (sym e*e≡32) (&Q ⦇ src₂ ⦈ (!# 3))) (!# 0))
-         ]′ src₂) ⦈
-    )) ∙
-    ignore (call (copy-masked dest) ⦇ !# 1 , ⦇ !# 2 , !# 3 ⦈ ⦈)))
-    where
-    open VMul.VMul d
-    esize = VMul.esize d
-    elements = VMul.elements d
-    e*e≡32 = VMul.elem*esize≡32 d
+  vmul : VMul → Procedure 2 (Beat , ElmtMask , _)
+  vmul d = vec-op₂ d (λ x y → sliceᶻ (toℕ _) zero (sint x *ᶻ sint y))
