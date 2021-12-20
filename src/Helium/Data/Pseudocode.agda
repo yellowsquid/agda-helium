@@ -136,6 +136,8 @@ record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁
     (*ᶻ-identityʳ : ∀ x → x *ᶻ 1ℤ ≈ᶻ x)
     where
 
+    infix 5 _+ᵇ_
+
     open divmod ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round
     open 2^n≢0 ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round 2^n≢0
 
@@ -165,3 +167,9 @@ record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁
     eq : ∀ {n} (i : Fin n) → toℕ (suc i - inject₁ (strengthen i)) ≡ 1
     eq zero    = refl
     eq (suc i) = eq i
+
+  -- Conveniences
+
+  zeros : ∀ {n} → Bits n
+  zeros {zero}  = []
+  zeros {suc n} = 0b ∶ zeros
