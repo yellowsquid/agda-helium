@@ -117,21 +117,21 @@ module _
   open sliceᶻ ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
 
   vadd : VAdd.VAdd → Procedure 2 (Beat , ElmtMask , _)
-  vadd d = declare ⦇ zeros ⦈ (declare (! &Q ⦇ src₁ ⦈ (!# 1)) (label λ
-    result op₁ beat elmtMask →
-    [ (λ src₂ → for (toℕ elements) (lift (
-         elem (toℕ esize) (&cast (sym e*e≡32) (wknRef result)) (!# 0) ≔
-           ⦇ ! elem (toℕ esize) (&cast (sym e*e≡32) (wknRef op₁)) (!# 0) +ᵇ
-             ! slice (&R ⦇ src₂ ⦈) ⦇ (esize , zero , refl) ⦈ ⦈)) )
-    , (λ src₂ → declare (! &Q ⦇ src₂ ⦈ (! beat)) (for (toℕ elements) (lift (
-         elem (toℕ esize) (&cast (sym e*e≡32) (wknRef (wknRef result))) (!# 0) ≔
-           ⦇ ! elem (toℕ esize) (&cast (sym e*e≡32) (wknRef (wknRef op₁))) (!# 0) +ᵇ
-             ! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0) ⦈))))
-    ]′ src₂ ∙
+  vadd d = declare ⦇ zeros ⦈ (declare (! &Q ⦇ src₁ ⦈ (!# 1)) (
+    -- op₁ result beat elmtMask
+    for (toℕ elements) (lift (
+      -- e op₁ result beat elmtMask
+      elem (toℕ esize) (&cast (sym e*e≡32) (var (# 2))) (!# 0) ≔
+      ⦇ ! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0) +ᵇ
+        ([ (λ src₂ → ! slice (&R ⦇ src₂ ⦈) ⦇ (esize , zero , refl) ⦈)
+         , (λ src₂ → ! elem (toℕ esize) (&cast (sym e*e≡32) (&Q ⦇ src₂ ⦈ (!# 3))) (!# 0))
+         ]′ src₂) ⦈
+    )) ∙
     for 4 (lift (
-      if ⦇ (λ x y → does (getᵇ y x ≟ᵇ 1b)) (! wknRef elmtMask) (!# 0) ⦈
+      -- e op₁ result beat elmtMask
+      if ⦇ (λ x y → does (getᵇ y x ≟ᵇ 1b)) (!# 4) (!# 0) ⦈
       then
-        elem 8 (&Q ⦇ dest ⦈ (! wknRef beat)) (!# 0) ≔ (! elem 8 (wknRef result) (!# 0))
+        elem 8 (&Q ⦇ dest ⦈ (!# 3)) (!# 0) ≔ (! elem 8 (var (# 2)) (!# 0))
       else
         skip))))
     where
