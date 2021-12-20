@@ -7,6 +7,7 @@ module Helium.Semantics.Denotational
   (pseudocode : RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃)
   where
 
+open import Data.Bool as Bool using (Bool)
 open import Data.Fin as Fin hiding (cast; lift; _+_)
 import Data.Fin.Properties as Finₚ
 open import Data.Maybe using (just; nothing; _>>=_)
@@ -103,6 +104,11 @@ elem m &v idx = slice &v λ σ ρ → idx σ ρ >>= λ (σ , i) → just (σ , h
     cast‿- {suc m} {suc n} x       zero    eq = Finₚ.toℕ-cast eq x
     cast‿- {suc m} {suc n} (suc x) (suc y) eq = cast‿- x y (ℕₚ.suc-injective eq)
 
+-- General functions
+
+int : ∀ {n} → Bool → Function 1 (Bits n , _) ℤ
+int b = return ⦇ (Bool.if b then uint else sint) (!# 0) ⦈
+
 -- Instruction semantics
 
 module _
@@ -139,3 +145,29 @@ module _
     esize = VAdd.esize d
     elements = VAdd.elements d
     e*e≡32 = VAdd.elem*esize≡32 d
+
+  vhsub : VHSub.VHSub → Procedure 2 (Beat , ElmtMask , _)
+  vhsub d = declare ⦇ zeros ⦈ (declare (! &Q ⦇ src₁ ⦈ (!# 1)) (
+    -- op₁ result beat elmtMask
+    for (toℕ elements) (lift (
+      -- e op₁ result beat elmtMask
+      elem (toℕ esize) (&cast (sym e*e≡32) (var (# 2))) (!# 0) ≔
+      ⦇ (sliceᶻ (suc (toℕ esize)) (suc zero))
+        ⦇ call (int unsigned) (! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0)) +ᶻ
+          ⦇ -ᶻ (call (int unsigned)
+            ([ (λ src₂ → ! slice (&R ⦇ src₂ ⦈) ⦇ (esize , zero , refl) ⦈)
+             , (λ src₂ → ! elem (toℕ esize) (&cast (sym e*e≡32) (&Q ⦇ src₂ ⦈ (!# 3))) (!# 0))
+             ]′ src₂)) ⦈ ⦈ ⦈
+    )) ∙
+    for 4 (lift (
+      -- e op₁ result beat elmtMask
+      if ⦇ (λ x y → does (getᵇ y x ≟ᵇ 1b)) (!# 4) (!# 0) ⦈
+      then
+        elem 8 (&Q ⦇ dest ⦈ (!# 3)) (!# 0) ≔ (! elem 8 (var (# 2)) (!# 0))
+      else
+        skip))))
+    where
+    open VHSub.VHSub d
+    esize = VHSub.esize d
+    elements = VHSub.elements d
+    e*e≡32 = VHSub.elem*esize≡32 d

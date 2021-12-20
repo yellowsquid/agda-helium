@@ -3,10 +3,11 @@
 module Helium.Data.Pseudocode where
 
 open import Algebra.Core
-open import Data.Bool using (if_then_else_)
+open import Data.Bool using (Bool; if_then_else_)
 open import Data.Fin hiding (_+_; cast)
 import Data.Fin.Properties as Finₚ
 open import Data.Nat using (ℕ; zero; suc; _+_; _^_)
+import Data.Vec as Vec
 open import Level using (_⊔_) renaming (suc to ℓsuc)
 open import Relation.Binary using (REL; Rel; Symmetric; Transitive; Decidable)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym)
@@ -63,8 +64,6 @@ record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁
     _∶_ : ∀ {m n} → Bits m → Bits n → Bits (m + n)
     sliceᵇ  : ∀ {n} (i : Fin (suc n)) j → Bits n → Bits (toℕ (i - j))
     updateᵇ : ∀ {n} (i : Fin (suc n)) j → Bits (toℕ (i - j)) → Op₁ (Bits n)
-    signed : ∀ {n} → Bits n → ℤ
-    unsigned : ∀ {n} → Bits n → ℤ
 
   field
     -- Arithmetic operations
@@ -79,6 +78,53 @@ record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁
     _⁻¹  : ∀ (y : ℝ) → .{False (y ≟ʳ 0ℝ)} → ℝ
 
   -- Convenience operations
+
+  zeros : ∀ {n} → Bits n
+  zeros {zero}  = []
+  zeros {suc n} = 0b ∶ zeros
+
+  _eor_ : ∀ {n} → Op₂ (Bits n)
+  x eor y = (x or y) and not (x and y)
+
+  getᵇ : ∀ {n} → Fin n → Bits n → Bits 1
+  getᵇ i x = cast (eq i) (sliceᵇ (suc i) (inject₁ (strengthen i)) x)
+    where
+    eq : ∀ {n} (i : Fin n) → toℕ (suc i - inject₁ (strengthen i)) ≡ 1
+    eq zero    = refl
+    eq (suc i) = eq i
+
+  setᵇ : ∀ {n} → Fin n → Bits 1 → Op₁ (Bits n)
+  setᵇ i y = updateᵇ (suc i) (inject₁ (strengthen i)) (cast (sym (eq i)) y)
+    where
+    eq : ∀ {n} (i : Fin n) → toℕ (suc i - inject₁ (strengthen i)) ≡ 1
+    eq zero    = refl
+    eq (suc i) = eq i
+
+  hasBit : ∀ {n} → Fin n → Bits n → Bool
+  hasBit i x = does (getᵇ i x ≟ᵇ 1b)
+
+  -- Stray constant cannot live with the others, because + is not defined at that point.
+  2ℤ : ℤ
+  2ℤ = 1ℤ +ᶻ 1ℤ
+
+  _^ᶻ_ : ℤ → ℕ → ℤ
+  x ^ᶻ zero  = 1ℤ
+  x ^ᶻ suc y = x *ᶻ x ^ᶻ y
+
+  _^ʳ_ : ℝ → ℕ → ℝ
+  x ^ʳ zero  = 1ℝ
+  x ^ʳ suc y = x *ʳ x ^ʳ y
+
+  _<<_ : ℤ → ℕ → ℤ
+  x << n = x *ᶻ 2ℤ ^ᶻ n
+
+  uint : ∀ {n} → Bits n → ℤ
+  uint x = Vec.foldr (λ _ → ℤ) _+ᶻ_ 0ℤ (Vec.tabulate (λ i → if hasBit i x then 1ℤ << toℕ i else 0ℤ))
+
+  sint : ∀ {n} → Bits n → ℤ
+  sint {zero}  x = 0ℤ
+  sint {suc n} x = uint x +ᶻ (if hasBit (fromℕ n) x then -ᶻ 1ℤ << suc n else 0ℤ)
+
   module divmod
     (≈ᶻ-trans : Transitive _≈ᶻ_)
     (round∘⟦⟧ : ∀ x → x ≈ᶻ round ⟦ x ⟧)
@@ -95,21 +141,6 @@ record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁
 
     _mod_ : ∀ (x y : ℤ) → .{≢0 : False (y ≟ᶻ 0ℤ)} → ℤ
     (x mod y) {≢0} = x +ᶻ -ᶻ y *ᶻ (x div y) {≢0}
-
-  _^ᶻ_ : ℤ → ℕ → ℤ
-  x ^ᶻ zero  = 1ℤ
-  x ^ᶻ suc y = x *ᶻ x ^ᶻ y
-
-  _^ʳ_ : ℝ → ℕ → ℝ
-  x ^ʳ zero  = 1ℝ
-  x ^ʳ suc y = x *ʳ x ^ʳ y
-
-  -- Stray constant cannot live with the others, because + is not yet defined.
-  2ℤ : ℤ
-  2ℤ = 1ℤ +ᶻ 1ℤ
-
-  _<<_ : ℤ → ℕ → ℤ
-  x << n = x *ᶻ 2ℤ ^ᶻ n
 
   module 2^n≢0
     (≈ᶻ-trans : Transitive _≈ᶻ_)
@@ -149,27 +180,4 @@ record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁
       2≢0 = map-False (≈ᶻ-trans (*ᶻ-identityʳ 2ℤ)) (2^n≢0 1)
 
     _+ᵇ_ : ∀ {n} → Op₂ (Bits n)
-    x +ᵇ y = sliceᶻ _ zero (unsigned x +ᶻ unsigned y)
-
-  _eor_ : ∀ {n} → Op₂ (Bits n)
-  x eor y = (x or y) and not (x and y)
-
-  getᵇ : ∀ {n} → Fin n → Bits n → Bits 1
-  getᵇ i x = cast (eq i) (sliceᵇ (suc i) (inject₁ (strengthen i)) x)
-    where
-    eq : ∀ {n} (i : Fin n) → toℕ (suc i - inject₁ (strengthen i)) ≡ 1
-    eq zero    = refl
-    eq (suc i) = eq i
-
-  setᵇ : ∀ {n} → Fin n → Bits 1 → Op₁ (Bits n)
-  setᵇ i y = updateᵇ (suc i) (inject₁ (strengthen i)) (cast (sym (eq i)) y)
-    where
-    eq : ∀ {n} (i : Fin n) → toℕ (suc i - inject₁ (strengthen i)) ≡ 1
-    eq zero    = refl
-    eq (suc i) = eq i
-
-  -- Conveniences
-
-  zeros : ∀ {n} → Bits n
-  zeros {zero}  = []
-  zeros {suc n} = 0b ∶ zeros
+    x +ᵇ y = sliceᶻ _ zero (uint x +ᶻ uint y)

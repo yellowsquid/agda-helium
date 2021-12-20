@@ -75,8 +75,8 @@ _<*>_ f e σ ρ = f σ ρ >>= λ (σ , f) → apply f e σ ρ
 !_ : ∀ {n ls} {Γ : Sets n ls} → Reference n Γ τ → Expr n Γ τ
 ! r = Reference.get r
 
-call : ∀ {m n ls₁ ls₂} {Γ : Sets m ls₁} {Δ : Sets n ls₂} → Function m Γ τ → Expr n Δ (Product⊤ m Γ) → Expr n Δ τ
-call f e σ ρ = e σ ρ >>= λ (σ , v) → f unknown σ v
+call : ∀ {m n ls₁ ls₂} {Γ : Sets m ls₁} {Δ : Sets n ls₂} → Function m Γ τ → Expr n Δ (Product m Γ) → Expr n Δ τ
+call f e σ ρ = e σ ρ >>= λ (σ , v) → f unknown σ (toProduct⊤ _ v)
 
 -- References
 
