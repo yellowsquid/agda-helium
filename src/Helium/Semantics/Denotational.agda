@@ -106,8 +106,16 @@ elem m &v idx = slice &v λ σ ρ → idx σ ρ >>= λ (σ , i) → just (σ , h
 
 -- General functions
 
-int : ∀ {n} → Bool → Function 1 (Bits n , _) ℤ
-int b = return ⦇ (Bool.if b then uint else sint) (!# 0) ⦈
+copy-masked : VecReg → Procedure 3 (Bits 32 , Beat , ElmtMask , _)
+copy-masked dest = for 4 (lift (
+  -- e result beat elmtMask
+  if ⦇ (λ x y → does (getᵇ y x ≟ᵇ 1b)) (!# 3) (!# 0) ⦈
+  then
+    elem 8 (&Q ⦇ dest ⦈ (!# 2)) (!# 0) ≔ (! elem 8 (var (# 1)) (!# 0))
+  else
+    skip))
+
+-- vec-op₂ : VecReg → GenReg → Op₂ (Bits n)
 
 -- Instruction semantics
 
@@ -128,18 +136,13 @@ module _
     for (toℕ elements) (lift (
       -- e op₁ result beat elmtMask
       elem (toℕ esize) (&cast (sym e*e≡32) (var (# 2))) (!# 0) ≔
-      ⦇ ! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0) +ᵇ
+      ⦇ _+ᵇ_
+        (! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0))
         ([ (λ src₂ → ! slice (&R ⦇ src₂ ⦈) ⦇ (esize , zero , refl) ⦈)
          , (λ src₂ → ! elem (toℕ esize) (&cast (sym e*e≡32) (&Q ⦇ src₂ ⦈ (!# 3))) (!# 0))
          ]′ src₂) ⦈
     )) ∙
-    for 4 (lift (
-      -- e op₁ result beat elmtMask
-      if ⦇ (λ x y → does (getᵇ y x ≟ᵇ 1b)) (!# 4) (!# 0) ⦈
-      then
-        elem 8 (&Q ⦇ dest ⦈ (!# 3)) (!# 0) ≔ (! elem 8 (var (# 2)) (!# 0))
-      else
-        skip))))
+    ignore (call (copy-masked dest) ⦇ !# 1 , ⦇ !# 2 , !# 3 ⦈ ⦈)))
     where
     open VAdd.VAdd d
     esize = VAdd.esize d
@@ -152,22 +155,16 @@ module _
     for (toℕ elements) (lift (
       -- e op₁ result beat elmtMask
       elem (toℕ esize) (&cast (sym e*e≡32) (var (# 2))) (!# 0) ≔
-      ⦇ (sliceᶻ (suc (toℕ esize)) (suc zero))
-        ⦇ call (int unsigned) (! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0)) +ᶻ
-          ⦇ -ᶻ (call (int unsigned)
-            ([ (λ src₂ → ! slice (&R ⦇ src₂ ⦈) ⦇ (esize , zero , refl) ⦈)
-             , (λ src₂ → ! elem (toℕ esize) (&cast (sym e*e≡32) (&Q ⦇ src₂ ⦈ (!# 3))) (!# 0))
-             ]′ src₂)) ⦈ ⦈ ⦈
+      ⦇ (λ x y → sliceᶻ (suc (toℕ esize)) (suc zero) (int x +ᶻ -ᶻ int y))
+        (! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0))
+        ([ (λ src₂ → ! slice (&R ⦇ src₂ ⦈) ⦇ (esize , zero , refl) ⦈)
+         , (λ src₂ → ! elem (toℕ esize) (&cast (sym e*e≡32) (&Q ⦇ src₂ ⦈ (!# 3))) (!# 0))
+         ]′ src₂) ⦈
     )) ∙
-    for 4 (lift (
-      -- e op₁ result beat elmtMask
-      if ⦇ (λ x y → does (getᵇ y x ≟ᵇ 1b)) (!# 4) (!# 0) ⦈
-      then
-        elem 8 (&Q ⦇ dest ⦈ (!# 3)) (!# 0) ≔ (! elem 8 (var (# 2)) (!# 0))
-      else
-        skip))))
+    ignore (call (copy-masked dest) ⦇ !# 1 , ⦇ !# 2 , !# 3 ⦈ ⦈)))
     where
     open VHSub.VHSub d
     esize = VHSub.esize d
     elements = VHSub.elements d
     e*e≡32 = VHSub.elem*esize≡32 d
+    int = Bool.if unsigned then uint else sint

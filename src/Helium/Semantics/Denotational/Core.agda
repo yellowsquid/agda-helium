@@ -102,6 +102,9 @@ infixr 9 _∙_
 skip : ∀ {n ls} {Γ : Sets n ls} → Statement n Γ τ
 skip cont = cont
 
+ignore : ∀ {n ls} {Γ : Sets n ls} → Expr n Γ τ → Statement n Γ τ′
+ignore e cont σ ρ = e σ ρ >>= λ (σ , _) → cont σ ρ
+
 return : ∀ {n ls} {Γ : Sets n ls} → Expr n Γ τ → Statement n Γ τ
 return e _ = e
 
