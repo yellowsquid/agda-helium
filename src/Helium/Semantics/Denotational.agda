@@ -168,3 +168,22 @@ module _
     elements = VHSub.elements d
     e*e≡32 = VHSub.elem*esize≡32 d
     int = Bool.if unsigned then uint else sint
+
+  vmul : VMul.VMul → Procedure 2 (Beat , ElmtMask , _)
+  vmul d = declare ⦇ zeros ⦈ (declare (! &Q ⦇ src₁ ⦈ (!# 1)) (
+    -- op₁ result beat elmtMask
+    for (toℕ elements) (lift (
+      -- e op₁ result beat elmtMask
+      elem (toℕ esize) (&cast (sym e*e≡32) (var (# 2))) (!# 0) ≔
+      ⦇ (λ x y → sliceᶻ (toℕ esize) zero (sint x *ᶻ sint y))
+        (! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0))
+        ([ (λ src₂ → ! slice (&R ⦇ src₂ ⦈) ⦇ (esize , zero , refl) ⦈)
+         , (λ src₂ → ! elem (toℕ esize) (&cast (sym e*e≡32) (&Q ⦇ src₂ ⦈ (!# 3))) (!# 0))
+         ]′ src₂) ⦈
+    )) ∙
+    ignore (call (copy-masked dest) ⦇ !# 1 , ⦇ !# 2 , !# 3 ⦈ ⦈)))
+    where
+    open VMul.VMul d
+    esize = VMul.esize d
+    elements = VMul.elements d
+    e*e≡32 = VMul.elem*esize≡32 d
