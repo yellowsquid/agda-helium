@@ -150,11 +150,11 @@ module _
   open sliceᶻ ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
 
   vadd : VAdd → Procedure 2 (Beat , ElmtMask , _)
-  vadd d = vec-op₂ d _+ᵇ_
+  vadd d = vec-op₂ d (λ x y → sliceᶻ _ zero (uint x +ᶻ uint y))
 
   vhsub : VHSub → Procedure 2 (Beat , ElmtMask , _)
-  vhsub d = vec-op₂ op₂ (λ x y → sliceᶻ (suc (toℕ esize)) (suc zero) (int x +ᶻ -ᶻ int y))
+  vhsub d = vec-op₂ op₂ (λ x y → sliceᶻ _ (suc zero) (int x +ᶻ -ᶻ int y))
     where open VHSub d ; int = Bool.if unsigned then uint else sint
 
   vmul : VMul → Procedure 2 (Beat , ElmtMask , _)
-  vmul d = vec-op₂ d (λ x y → sliceᶻ (toℕ _) zero (sint x *ᶻ sint y))
+  vmul d = vec-op₂ d (λ x y → sliceᶻ _ zero (sint x *ᶻ sint y))

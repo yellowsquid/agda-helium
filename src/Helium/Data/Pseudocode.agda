@@ -167,8 +167,6 @@ record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁
     (*ᶻ-identityʳ : ∀ x → x *ᶻ 1ℤ ≈ᶻ x)
     where
 
-    infix 5 _+ᵇ_
-
     open divmod ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round
     open 2^n≢0 ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round 2^n≢0
 
@@ -178,6 +176,3 @@ record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁
     sliceᶻ (suc n) (suc i) z = sliceᶻ n i ((z div 2ℤ) {2≢0})
       where
       2≢0 = map-False (≈ᶻ-trans (*ᶻ-identityʳ 2ℤ)) (2^n≢0 1)
-
-    _+ᵇ_ : ∀ {n} → Op₂ (Bits n)
-    x +ᵇ y = sliceᶻ _ zero (uint x +ᶻ uint y)
