@@ -95,9 +95,17 @@ wknRef &x = record
   ; set = λ σ (v , ρ) x → Reference.set &x σ ρ x >>= λ (σ , ρ) → just (σ , (v , ρ))
   }
 
+_,′_ : ∀ {n ls} {Γ : Sets n ls} → Reference n Γ τ → Reference n Γ τ′ → Reference n Γ (τ × τ′)
+&x ,′ &y = record
+  { get = λ σ ρ → Reference.get &x σ ρ >>= λ (σ , x) → Reference.get &y σ ρ >>= λ (σ , y) → just (σ , (x , y))
+  ; set = λ σ ρ (x , y) → Reference.set &x σ ρ x >>= λ (σ , ρ) → Reference.set &y σ ρ y
+  }
+
 -- Statements
 
-infixr 9 _∙_
+infixr 1 _∙_
+infix 4 _≔_
+infixl 2 if_then_else_
 
 skip : ∀ {n ls} {Γ : Sets n ls} → Statement n Γ τ
 skip cont = cont

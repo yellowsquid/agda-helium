@@ -8,15 +8,16 @@ module Helium.Semantics.Denotational
   where
 
 open import Algebra.Core using (Op₂)
-open import Data.Bool as Bool using (Bool)
+open import Data.Bool as Bool using (Bool; true; false)
 open import Data.Fin as Fin hiding (cast; lift; _+_)
 import Data.Fin.Properties as Finₚ
 open import Data.Maybe using (just; nothing; _>>=_)
 open import Data.Nat hiding (_⊔_)
 import Data.Nat.Properties as ℕₚ
-open import Data.Product using (∃; _,_; dmap)
+open import Data.Product using (∃; _×_; _,_; dmap)
 open import Data.Sum using ([_,_]′)
 open import Data.Vec.Functional as V using (Vector)
+open import Function using (_$_)
 open import Function.Nary.NonDependent.Base
 open import Helium.Instructions
 import Helium.Semantics.Denotational.Core as Core
@@ -36,6 +37,7 @@ record State : Set ℓ where
   field
     S : Vector (Bits 32) 32
     R : Vector (Bits 32) 16
+    QC : Bits 1
 
 open Core State
 
@@ -61,6 +63,12 @@ ElmtMask = Bits 4
 
 &Q : ∀ {n ls} {Γ : Sets n ls} → Expr n Γ VecReg → Expr n Γ Beat → Reference n Γ (Bits 32)
 &Q reg beat = &S (λ σ ρ → reg σ ρ >>= λ (σ , reg) → beat σ ρ >>= λ (σ , beat) → just (σ , combine reg beat))
+
+&FPSCR-QC : ∀ {n ls} {Γ : Sets n ls} → Reference n Γ (Bits 1)
+&FPSCR-QC = record
+  { get = λ σ ρ → just (σ , State.QC σ)
+  ; set = λ σ ρ x → just (record σ { QC = x } , ρ)
+  }
 
 -- Reference properties
 
@@ -116,6 +124,30 @@ copy-masked dest = for 4 (lift (
   else
     skip))
 
+module fun-sliceᶻ
+  (≈ᶻ-trans : Transitive _≈ᶻ_)
+  (round∘⟦⟧ : ∀ x → x ≈ᶻ round ⟦ x ⟧)
+  (round-cong : ∀ {x y} → x ≈ʳ y → round x ≈ᶻ round y)
+  (0#-homo-round : round 0ℝ ≈ᶻ 0ℤ)
+  (2^n≢0 : ∀ n → False (2ℤ ^ᶻ n ≟ᶻ 0ℤ))
+  (*ᶻ-identityʳ : ∀ x → x *ᶻ 1ℤ ≈ᶻ x)
+  where
+
+  open sliceᶻ ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
+
+  signedSatQ : ∀ n → Function 1 (ℤ , _) (Bits (suc n) × Bool)
+  signedSatQ n =
+    declare ⦇ true ⦈ $ (
+    if ⦇ (λ i → does (1ℤ << n +ᶻ -ᶻ 1ℤ <?ᶻ i)) (!# 1) ⦈
+    then
+      var (# 1) ≔ ⦇ (1ℤ << n +ᶻ -ᶻ 1ℤ) ⦈
+    else if ⦇ (λ i → does (-ᶻ 1ℤ << n <?ᶻ i)) (!# 1) ⦈
+    then
+      var (# 1) ≔ ⦇ (-ᶻ 1ℤ << n) ⦈
+    else
+      var (# 0) ≔ ⦇ false ⦈) ∙
+    return ⦇ ⦇ (sliceᶻ (suc n) zero) (!# 1) ⦈ , !# 0 ⦈
+
 module _
   (d : VecOp₂)
   where
@@ -148,6 +180,7 @@ module _
   where
 
   open sliceᶻ ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
+  open fun-sliceᶻ ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
 
   vadd : VAdd → Procedure 2 (Beat , ElmtMask , _)
   vadd d = vec-op₂ d (λ x y → sliceᶻ _ zero (uint x +ᶻ uint y))
@@ -173,3 +206,25 @@ module _
     eq : ∀ {n} m (i : Fin n) → toℕ i + m ℕ-ℕ inject+ m (strengthen i) ≡ m
     eq m zero    = refl
     eq m (suc i) = eq m i
+
+  vqdmulh : VQDMulH → Procedure 2 (Beat , ElmtMask , _)
+  vqdmulh d = declare ⦇ zeros ⦈ (declare (! &Q ⦇ src₁ ⦈ (!# 1)) (
+    -- op₁ result beat elmtMask
+    for (toℕ elements) (lift (
+      -- e op₁ result beat elmtMask
+      declare
+        ⦇ (λ x y → (2ℤ *ᶻ sint x *ᶻ sint y +ᶻ rval) >> toℕ esize)
+          (! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0))
+          ([ (λ src₂ → ! slice (&R ⦇ src₂ ⦈) ⦇ (esize , zero , refl) ⦈)
+           , (λ src₂ → ! elem (toℕ esize) (&cast (sym e*e≡32) (&Q ⦇ src₂ ⦈ (!# 3))) (!# 0))
+           ]′ src₂) ⦈ $
+      declare ⦇ false ⦈ $
+      -- sat value e op₁ result beat elmtMask
+      elem (toℕ esize) (&cast (sym e*e≡32) (var (# 4))) (!# 2) ,′ var (# 0) ≔
+        call (signedSatQ (toℕ esize-1)) (!# 1) ∙
+      if !# 0 then if ⦇ (λ m e → hasBit (combine e zero) (cast (sym e*e>>3≡4) m)) (!# 6) (!# 2) ⦈ then &FPSCR-QC ≔ ⦇ 1b ⦈ else skip else skip
+    )) ∙
+    ignore (call (copy-masked dest) ⦇ !# 1 , ⦇ !# 2 , !# 3 ⦈ ⦈)))
+    where
+    open VQDMulH d
+    rval = Bool.if rounding then 1ℤ << toℕ esize-1 else 0ℤ

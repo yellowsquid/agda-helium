@@ -21,9 +21,9 @@ private
 record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁ ⊔ b₂ ⊔ i₁ ⊔ i₂ ⊔ i₃ ⊔ r₁ ⊔ r₂ ⊔ r₃)) where
   infix 9 _^ᶻ_ _^ʳ_
   infix 8 _⁻¹
-  infix 7 _*ᶻ_ _*ʳ_
+  infixr 7 _*ᶻ_ _*ʳ_
   infix 6 -ᶻ_ -ʳ_
-  infix 5 _+ᶻ_ _+ʳ_
+  infixr 5 _+ᶻ_ _+ʳ_
   infix 4 _≈ᵇ_ _≟ᵇ_ _≈ᶻ_ _≟ᶻ_ _<ᶻ_ _<?ᶻ_ _≈ʳ_ _≟ʳ_ _<ʳ_ _<?ʳ_
 
   field
@@ -150,7 +150,7 @@ record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁
     (2^n≢0 : ∀ n → False (2ℤ ^ᶻ n ≟ᶻ 0ℤ))
     where
 
-    open divmod ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round
+    open divmod ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round public
 
     _>>_ : ℤ → ℕ → ℤ
     x >> n = (x div (2ℤ ^ᶻ n)) {2^n≢0 n}
@@ -167,8 +167,7 @@ record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁
     (*ᶻ-identityʳ : ∀ x → x *ᶻ 1ℤ ≈ᶻ x)
     where
 
-    open divmod ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round
-    open 2^n≢0 ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round 2^n≢0
+    open 2^n≢0 ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round 2^n≢0 public
 
     sliceᶻ : ∀ n i → ℤ → Bits (n ℕ-ℕ i)
     sliceᶻ zero    zero    z = []
