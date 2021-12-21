@@ -37,12 +37,26 @@ record State : Set ℓ where
   field
     S : Vector (Bits 32) 32
     R : Vector (Bits 32) 16
+    P0 : Bits 16
+    mask : Bits 8
     QC : Bits 1
+    advanceVPT : Bool
 
 open Core State
 
 Beat : Set
 Beat = Fin 4
+
+hilow : Beat → Fin 2
+hilow zero          = zero
+hilow (suc zero)    = zero
+hilow (suc (suc _)) = suc zero
+
+oddeven : Beat → Fin 2
+oddeven zero                   = zero
+oddeven (suc zero)             = suc zero
+oddeven (suc (suc zero))       = zero
+oddeven (suc (suc (suc zero))) = suc zero
 
 ElmtMask : Set b₁
 ElmtMask = Bits 4
@@ -68,6 +82,24 @@ ElmtMask = Bits 4
 &FPSCR-QC = record
   { get = λ σ ρ → just (σ , State.QC σ)
   ; set = λ σ ρ x → just (record σ { QC = x } , ρ)
+  }
+
+&VPR-P0 : ∀ {n ls} {Γ : Sets n ls} → Reference n Γ (Bits 16)
+&VPR-P0 = record
+  { get = λ σ ρ → just (σ , State.P0 σ)
+  ; set = λ σ ρ x → just (record σ { P0 = x } , ρ)
+  }
+
+&VPR-mask : ∀ {n ls} {Γ : Sets n ls} → Reference n Γ (Bits 8)
+&VPR-mask = record
+  { get = λ σ ρ → just (σ , State.mask σ)
+  ; set = λ σ ρ x → just (record σ { mask = x } , ρ)
+  }
+
+&AdvanceVPT : ∀ {n ls} {Γ : Sets n ls} → Reference n Γ Bool
+&AdvanceVPT = record
+  { get = λ σ ρ → just (σ , State.advanceVPT σ)
+  ; set = λ σ ρ x → just (record σ { advanceVPT = x } , ρ)
   }
 
 -- Reference properties
@@ -115,8 +147,8 @@ elem m &v idx = slice &v λ σ ρ → idx σ ρ >>= λ (σ , i) → just (σ , h
 
 -- General functions
 
-copy-masked : VecReg → Procedure 3 (Bits 32 , Beat , ElmtMask , _)
-copy-masked dest = for 4 (lift (
+copyMasked : VecReg → Procedure 3 (Bits 32 , Beat , ElmtMask , _)
+copyMasked dest = for 4 (lift (
   -- e result beat elmtMask
   if ⦇ (λ x y → does (getᵇ y x ≟ᵇ 1b)) (!# 3) (!# 0) ⦈
   then
@@ -148,6 +180,31 @@ module fun-sliceᶻ
       var (# 0) ≔ ⦇ false ⦈) ∙
     return ⦇ ⦇ (sliceᶻ (suc n) zero) (!# 1) ⦈ , !# 0 ⦈
 
+advanceVPT : Procedure 1 (Beat , _)
+advanceVPT = declare (! elem 4 &VPR-mask ⦇ hilow (!# 0) ⦈)  $
+  if ⦇ (λ x → does (x ≟ᵇ 1b ∶ 0b ∶ 0b ∶ 0b)) (!# 0) ⦈
+  then
+    var (# 0) ≔ ⦇ zeros ⦈
+  else if ⦇ (λ x → does (x ≟ᵇ zeros {4})) (!# 0) ⦈
+  then skip
+  else
+    (if ⦇ (hasBit (# 3)) (!# 0) ⦈ then
+       elem 4 &VPR-P0 (!# 1) ⟵ not
+     else skip ∙
+     var (# 0) ⟵ λ x → sliceᵇ (# 3) zero x ∶ 0b) ∙
+  if ⦇ (λ x → does (oddeven x Finₚ.≟ # 1)) (!# 1) ⦈
+  then
+    elem 4 &VPR-mask ⦇ hilow (!# 1) ⦈ ≔ !# 0
+  else skip
+
+execBeats : Procedure 2 (Beat , ElmtMask , _) → Procedure 0 _
+execBeats inst = for 4 (lift (
+  declare ⦇ ones ⦈ $
+  if ⦇ (λ x → does (x ≟ᵇ zeros {4})) (! elem 4 &VPR-mask ⦇ hilow (!# 1) ⦈) ⦈ then skip else var (# 0) ≔ ! elem 4 &VPR-P0 (!# 1) ∙
+  &AdvanceVPT ≔ ⦇ true ⦈ ∙
+  ignore (call inst (⦇ !# 1 , !# 0 ⦈)) ∙
+  if ! &AdvanceVPT then ignore (call advanceVPT (!# 1)) else skip))
+
 module _
   (d : VecOp₂)
   where
@@ -166,7 +223,7 @@ module _
          , (λ src₂ → ! elem (toℕ esize) (&cast (sym e*e≡32) (&Q ⦇ src₂ ⦈ (!# 3))) (!# 0))
          ]′ src₂) ⦈
     )) ∙
-    ignore (call (copy-masked dest) ⦇ !# 1 , ⦇ !# 2 , !# 3 ⦈ ⦈)))
+    ignore (call (copyMasked dest) ⦇ !# 1 , ⦇ !# 2 , !# 3 ⦈ ⦈)))
 
 -- Instruction semantics
 
@@ -224,7 +281,7 @@ module _
         call (signedSatQ (toℕ esize-1)) (!# 1) ∙
       if !# 0 then if ⦇ (λ m e → hasBit (combine e zero) (cast (sym e*e>>3≡4) m)) (!# 6) (!# 2) ⦈ then &FPSCR-QC ≔ ⦇ 1b ⦈ else skip else skip
     )) ∙
-    ignore (call (copy-masked dest) ⦇ !# 1 , ⦇ !# 2 , !# 3 ⦈ ⦈)))
+    ignore (call (copyMasked dest) ⦇ !# 1 , ⦇ !# 2 , !# 3 ⦈ ⦈)))
     where
     open VQDMulH d
     rval = Bool.if rounding then 1ℤ << toℕ esize-1 else 0ℤ

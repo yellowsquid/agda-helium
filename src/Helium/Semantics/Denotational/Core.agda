@@ -104,7 +104,7 @@ _,′_ : ∀ {n ls} {Γ : Sets n ls} → Reference n Γ τ → Reference n Γ τ
 -- Statements
 
 infixr 1 _∙_
-infix 4 _≔_
+infix 4 _≔_ _⟵_
 infixl 2 if_then_else_
 
 skip : ∀ {n ls} {Γ : Sets n ls} → Statement n Γ τ
@@ -118,6 +118,9 @@ return e _ = e
 
 _≔_ : ∀ {n ls} {Γ : Sets n ls} → Reference n Γ τ → Expr n Γ τ → Statement n Γ τ′
 (ref ≔ e) cont σ ρ = e σ ρ >>= λ (σ , v) → Reference.set ref σ ρ v >>= λ (σ , v) → cont σ v
+
+_⟵_ : ∀ {n ls} {Γ : Sets n ls} → Reference n Γ τ → Op₁ τ → Statement n Γ τ′
+ref ⟵ e = ref ≔ ⦇ e (! ref) ⦈
 
 label : ∀ {n ls} {Γ : Sets n ls} → smap _ (Reference n Γ) n Γ ⇉ Statement n Γ τ → Statement n Γ τ
 label {n = n} s = uncurry⊤ₙ n s vars

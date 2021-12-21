@@ -23,7 +23,7 @@ record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁
   infix 8 _⁻¹
   infixr 7 _*ᶻ_ _*ʳ_
   infix 6 -ᶻ_ -ʳ_
-  infixr 5 _+ᶻ_ _+ʳ_
+  infixr 5 _+ᶻ_ _+ʳ_ _∶_
   infix 4 _≈ᵇ_ _≟ᵇ_ _≈ᶻ_ _≟ᶻ_ _<ᶻ_ _<?ᶻ_ _≈ʳ_ _≟ʳ_ _<ʳ_ _<?ʳ_
 
   field
@@ -82,6 +82,10 @@ record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁
   zeros : ∀ {n} → Bits n
   zeros {zero}  = []
   zeros {suc n} = 0b ∶ zeros
+
+  ones : ∀ {n} → Bits n
+  ones {zero}  = []
+  ones {suc n} = 1b ∶ ones
 
   _eor_ : ∀ {n} → Op₂ (Bits n)
   x eor y = (x or y) and not (x and y)
