@@ -161,3 +161,15 @@ module _
 
   vmul : VMul → Procedure 2 (Beat , ElmtMask , _)
   vmul d = vec-op₂ d (λ x y → sliceᶻ _ zero (sint x *ᶻ sint y))
+
+  vmulh : VMulH → Procedure 2 (Beat , ElmtMask , _)
+  vmulh d = vec-op₂ op₂ (λ x y → cast (eq _ esize) (sliceᶻ 2esize esize′ (int x *ᶻ int y +ᶻ rval)))
+    where
+    open VMulH d
+    int = Bool.if unsigned then uint else sint
+    rval = Bool.if rounding then 1ℤ << toℕ esize-1 else 0ℤ
+    2esize = toℕ esize + toℕ esize
+    esize′ = inject+ _ (strengthen esize)
+    eq : ∀ {n} m (i : Fin n) → toℕ i + m ℕ-ℕ inject+ m (strengthen i) ≡ m
+    eq m zero    = refl
+    eq m (suc i) = eq m i
