@@ -1,3 +1,9 @@
+------------------------------------------------------------------------
+-- Agda Helium
+--
+-- Definitions of a subset of Armv8-M instructions.
+------------------------------------------------------------------------
+
 {-# OPTIONS --safe --without-K #-}
 
 module Helium.Instructions where

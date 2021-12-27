@@ -1,3 +1,9 @@
+------------------------------------------------------------------------
+-- Agda Helium
+--
+-- Definition of types and operations used by the Armv8-M pseudocode.
+------------------------------------------------------------------------
+
 {-# OPTIONS --safe --without-K #-}
 
 module Helium.Data.Pseudocode where

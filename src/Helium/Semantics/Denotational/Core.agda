@@ -1,6 +1,10 @@
-{-# OPTIONS --safe --without-K #-}
+------------------------------------------------------------------------
+-- Agda Helium
+--
+-- Base definitions for the denotational semantics.
+------------------------------------------------------------------------
 
-open import Helium.Data.Pseudocode
+{-# OPTIONS --safe --without-K #-}
 
 module Helium.Semantics.Denotational.Core
   {ℓ′}

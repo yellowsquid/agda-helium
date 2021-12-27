@@ -1,0 +1,3 @@
+name: agda-helium-0.1
+depend: standard-library-1.7.1
+include: src
