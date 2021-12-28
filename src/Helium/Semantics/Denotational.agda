@@ -23,7 +23,7 @@ import Data.Nat.Properties as ℕₚ
 open import Data.Product using (∃; _×_; _,_; dmap)
 open import Data.Sum using ([_,_]′)
 open import Data.Vec.Functional as V using (Vector)
-open import Function using (_$_)
+open import Function using (_$_; _∘₂_)
 open import Function.Nary.NonDependent.Base
 open import Helium.Instructions
 import Helium.Semantics.Denotational.Core as Core
@@ -69,61 +69,63 @@ ElmtMask = Bits 4
 
 -- State properties
 
-&R : ∀ {n ls} {Γ : Sets n ls} → Expr n Γ (Fin 16) → Reference n Γ (Bits 32)
+&R : ∀ {n ls} {Γ : Sets n ls} → PureExpr n Γ (Fin 16) → Reference n Γ (Bits 32)
 &R e = record
-  { get = λ σ ρ → e σ ρ >>= λ (σ , i) → just (σ , State.R σ i)
-  ; set = λ σ ρ x → e σ ρ >>= λ (σ , i) → just (record σ { R = V.updateAt i (λ _ → x) (State.R σ) } , ρ)
+  { get = λ σ ρ → State.R σ (e σ ρ)
+  ; set = λ x σ ρ → record σ { R = V.updateAt (e σ ρ) (λ _ → x) (State.R σ) } , ρ
   }
 
-&S : ∀ {n ls} {Γ : Sets n ls} → Expr n Γ (Fin 32) → Reference n Γ (Bits 32)
+&S : ∀ {n ls} {Γ : Sets n ls} → PureExpr n Γ (Fin 32) → Reference n Γ (Bits 32)
 &S e = record
-  { get = λ σ ρ → e σ ρ >>= λ (σ , i) → just (σ , State.S σ i)
-  ; set = λ σ ρ x → e σ ρ >>= λ (σ , i) → just (record σ { S = V.updateAt i (λ _ → x) (State.S σ) } , ρ)
+  { get = λ σ ρ → State.S σ (e σ ρ)
+  ; set = λ x σ ρ → record σ { S = V.updateAt (e σ ρ) (λ _ → x) (State.S σ) } , ρ
   }
 
-&Q : ∀ {n ls} {Γ : Sets n ls} → Expr n Γ VecReg → Expr n Γ Beat → Reference n Γ (Bits 32)
-&Q reg beat = &S (λ σ ρ → reg σ ρ >>= λ (σ , reg) → beat σ ρ >>= λ (σ , beat) → just (σ , combine reg beat))
+&Q : ∀ {n ls} {Γ : Sets n ls} → PureExpr n Γ VecReg → PureExpr n Γ Beat → Reference n Γ (Bits 32)
+&Q reg beat = &S λ σ ρ → combine (reg σ ρ) (beat σ ρ)
 
 &FPSCR-QC : ∀ {n ls} {Γ : Sets n ls} → Reference n Γ (Bits 1)
 &FPSCR-QC = record
-  { get = λ σ ρ → just (σ , State.QC σ)
-  ; set = λ σ ρ x → just (record σ { QC = x } , ρ)
+  { get = λ σ ρ → State.QC σ
+  ; set = λ x σ ρ → record σ { QC = x } , ρ
   }
 
 &VPR-P0 : ∀ {n ls} {Γ : Sets n ls} → Reference n Γ (Bits 16)
 &VPR-P0 = record
-  { get = λ σ ρ → just (σ , State.P0 σ)
-  ; set = λ σ ρ x → just (record σ { P0 = x } , ρ)
+  { get = λ σ ρ → State.P0 σ
+  ; set = λ x σ ρ → record σ { P0 = x } , ρ
   }
 
 &VPR-mask : ∀ {n ls} {Γ : Sets n ls} → Reference n Γ (Bits 8)
 &VPR-mask = record
-  { get = λ σ ρ → just (σ , State.mask σ)
-  ; set = λ σ ρ x → just (record σ { mask = x } , ρ)
+  { get = λ σ ρ → State.mask σ
+  ; set = λ x σ ρ → record σ { mask = x } , ρ
   }
 
 &AdvanceVPT : ∀ {n ls} {Γ : Sets n ls} → Reference n Γ Bool
 &AdvanceVPT = record
-  { get = λ σ ρ → just (σ , State.advanceVPT σ)
-  ; set = λ σ ρ x → just (record σ { advanceVPT = x } , ρ)
+  { get = λ σ ρ → State.advanceVPT σ
+  ; set = λ x σ ρ → record σ { advanceVPT = x } , ρ
   }
 
 -- Reference properties
 
 &cast : ∀ {k m n ls} {Γ : Sets n ls} → .(eq : k ≡ m) → Reference n Γ (Bits k) → Reference n Γ (Bits m)
 &cast eq &v = record
-  { get = λ σ ρ → Reference.get &v σ ρ >>= λ (σ , v) → just (σ , cast eq v)
-  ; set = λ σ ρ x → Reference.set &v σ ρ (cast (sym eq) x)
+  { get = λ σ ρ → cast eq (Reference.get &v σ ρ)
+  ; set = λ x σ ρ → Reference.set &v (cast (sym eq) x) σ ρ
   }
 
-slice : ∀ {k m n ls} {Γ : Sets n ls} → Reference n Γ (Bits m) → Expr n Γ (∃ λ (i : Fin (suc m)) → ∃ λ j → toℕ (i - j) ≡ k) → Reference n Γ (Bits k)
+slice : ∀ {k m n ls} {Γ : Sets n ls} → Reference n Γ (Bits m) → PureExpr n Γ (∃ λ (i : Fin (suc m)) → ∃ λ j → toℕ (i - j) ≡ k) → Reference n Γ (Bits k)
 slice &v idx = record
-  { get = λ σ ρ → Reference.get &v σ ρ >>= λ (σ , v) → idx σ ρ >>= λ (σ , i , j , i-j≡k) → just (σ , cast i-j≡k (sliceᵇ i j v))
-  ; set = λ σ ρ v → Reference.get &v σ ρ >>= λ (σ , v′) → idx σ ρ >>= λ (σ , i , j , i-j≡k) → Reference.set &v σ ρ (updateᵇ i j (cast (sym i-j≡k) v) v′)
+  { get = λ σ ρ → let (i , j , i-j≡k) = idx σ ρ in cast i-j≡k (sliceᵇ i j (Reference.get &v σ ρ))
+  ; set = λ v σ ρ →
+    let (i , j , i-j≡k) = idx σ ρ in
+    Reference.set &v (updateᵇ i j (cast (sym (i-j≡k)) v) (Reference.get &v σ ρ)) σ ρ
   }
 
-elem : ∀ {k n ls} {Γ : Sets n ls} m → Reference n Γ (Bits (k * m)) → Expr n Γ (Fin k) → Reference n Γ (Bits m)
-elem m &v idx = slice &v λ σ ρ → idx σ ρ >>= λ (σ , i) → just (σ , helper _ _ i)
+elem : ∀ {k n ls} {Γ : Sets n ls} m → Reference n Γ (Bits (k * m)) → PureExpr n Γ (Fin k) → Reference n Γ (Bits m)
+elem m &v idx = slice &v (λ σ ρ → helper _ _ (idx σ ρ))
   where
   helper : ∀ m n → Fin m → ∃ λ (i : Fin (suc (m * n))) → ∃ λ j → toℕ (i - j) ≡ n
   helper (suc m) n zero    = inject+ (m * n) (fromℕ n) , # 0 , eq
@@ -154,13 +156,14 @@ elem m &v idx = slice &v λ σ ρ → idx σ ρ >>= λ (σ , i) → just (σ , h
 -- General functions
 
 copyMasked : VecReg → Procedure 3 (Bits 32 , Beat , ElmtMask , _)
-copyMasked dest = for 4 (lift (
-  -- e result beat elmtMask
-  if ⦇ (λ x y → does (getᵇ y x ≟ᵇ 1b)) (!# 3) (!# 0) ⦈
-  then
-    elem 8 (&Q ⦇ dest ⦈ (!# 2)) (!# 0) ≔ (! elem 8 (var (# 1)) (!# 0))
-  else
-    skip))
+copyMasked dest =
+  for 4 (
+    -- 0:e 1:result 2:beat 3:elmtMask
+    if ⦇ (λ x y → does (getᵇ y x ≟ᵇ 1b)) (↓ !# 3) (↓ !# 0) ⦈
+    then
+      elem 8 (&Q (pure′ dest) (!# 2)) (!# 0) ≔ ↓! elem 8 (var (# 1)) (!# 0)
+    else skip) ∙
+  ⦇ _ ⦈
 
 module fun-sliceᶻ
   (≈ᶻ-trans : Transitive _≈ᶻ_)
@@ -174,42 +177,54 @@ module fun-sliceᶻ
   open sliceᶻ ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
 
   signedSatQ : ∀ n → Function 1 (ℤ , _) (Bits (suc n) × Bool)
-  signedSatQ n =
-    declare ⦇ true ⦈ $ (
-    if ⦇ (λ i → does (1ℤ << n +ᶻ -ᶻ 1ℤ <?ᶻ i)) (!# 1) ⦈
+  signedSatQ n = declare ⦇ true ⦈ $
+    -- 0:sat 1:x
+    if ⦇ (λ i → does (1ℤ << n +ᶻ -ᶻ 1ℤ <?ᶻ i)) (↓ !# 1) ⦈
     then
       var (# 1) ≔ ⦇ (1ℤ << n +ᶻ -ᶻ 1ℤ) ⦈
-    else if ⦇ (λ i → does (-ᶻ 1ℤ << n <?ᶻ i)) (!# 1) ⦈
+    else if ⦇ (λ i → does (-ᶻ 1ℤ << n <?ᶻ i)) (↓ !# 1) ⦈
     then
       var (# 1) ≔ ⦇ (-ᶻ 1ℤ << n) ⦈
     else
-      var (# 0) ≔ ⦇ false ⦈) ∙
-    return ⦇ ⦇ (sliceᶻ (suc n) zero) (!# 1) ⦈ , !# 0 ⦈
+      var (# 0) ≔ ⦇ false ⦈ ∙
+    ⦇ ⦇ (sliceᶻ (suc n) zero) (↓ !# 1) ⦈ , (↓ !# 0) ⦈
 
 advanceVPT : Procedure 1 (Beat , _)
-advanceVPT = declare (! elem 4 &VPR-mask ⦇ hilow (!# 0) ⦈)  $
-  if ⦇ (λ x → does (x ≟ᵇ 1b ∶ 0b ∶ 0b ∶ 0b)) (!# 0) ⦈
+advanceVPT = declare (↓! elem 4 &VPR-mask (hilow ∘₂ !# 0)) $
+  -- 0:vptState 1:beat
+  if ⦇ (λ x → does (x ≟ᵇ 1b ∶ 0b ∶ 0b ∶ 0b)) (↓ !# 0) ⦈
   then
     var (# 0) ≔ ⦇ zeros ⦈
-  else if ⦇ (λ x → does (x ≟ᵇ zeros {4})) (!# 0) ⦈
+  else if ⦇ (λ x → does (x ≟ᵇ zeros {4})) (↓ !# 0) ⦈
   then skip
-  else
-    (if ⦇ (hasBit (# 3)) (!# 0) ⦈ then
-       elem 4 &VPR-P0 (!# 1) ⟵ not
-     else skip ∙
-     var (# 0) ⟵ λ x → sliceᵇ (# 3) zero x ∶ 0b) ∙
-  if ⦇ (λ x → does (oddeven x Finₚ.≟ # 1)) (!# 1) ⦈
+  else (
+    if ⦇ (hasBit (# 3)) (↓ !# 0) ⦈
+    then
+      elem 4 &VPR-P0 (!# 1) ⟵ not
+    else skip ∙
+    (var (# 0) ⟵ λ x → sliceᵇ (# 3) zero x ∶ 0b)) ∙
+  if ⦇ (λ x → does (oddeven x Finₚ.≟ # 1)) (↓ !# 1) ⦈
   then
-    elem 4 &VPR-mask ⦇ hilow (!# 1) ⦈ ≔ !# 0
-  else skip
+    elem 4 &VPR-mask (hilow ∘₂ !# 1) ≔ ↓ !# 0
+  else skip ∙
+  ⦇ _ ⦈
 
 execBeats : Procedure 2 (Beat , ElmtMask , _) → Procedure 0 _
-execBeats inst = for 4 (lift (
-  declare ⦇ ones ⦈ $
-  if ⦇ (λ x → does (x ≟ᵇ zeros {4})) (! elem 4 &VPR-mask ⦇ hilow (!# 1) ⦈) ⦈ then skip else var (# 0) ≔ ! elem 4 &VPR-P0 (!# 1) ∙
-  &AdvanceVPT ≔ ⦇ true ⦈ ∙
-  ignore (call inst (⦇ !# 1 , !# 0 ⦈)) ∙
-  if ! &AdvanceVPT then ignore (call advanceVPT (!# 1)) else skip))
+execBeats inst = declare ⦇ ones ⦈ $
+  for 4 (
+    -- 0:beat 1:elmtMask
+    if ⦇ (λ x → does (x ≟ᵇ zeros {4})) (↓! elem 4 &VPR-mask (hilow ∘₂ !# 0)) ⦈
+    then
+      var (# 1) ≔ ⦇ ones ⦈
+    else
+      var (# 1) ≔ ↓! elem 4 &VPR-P0 (!# 0) ∙
+    &AdvanceVPT ≔ ⦇ true ⦈ ∙
+    invoke inst ⦇ ↓ !# 0 , ↓ !# 1 ⦈ ∙
+    if ↓! &AdvanceVPT
+    then
+      invoke advanceVPT (↓ !# 0)
+    else skip) ∙
+  ⦇ _ ⦈
 
 module _
   (d : VecOp₂)
@@ -218,18 +233,17 @@ module _
   open VecOp₂ d
 
   vec-op₂ : Op₂ (Bits (toℕ esize)) → Procedure 2 (Beat , ElmtMask , _)
-  vec-op₂ op = declare ⦇ zeros ⦈ (declare (! &Q ⦇ src₁ ⦈ (!# 1)) (
-    -- op₁ result beat elmtMask
-    for (toℕ elements) (lift (
-      -- e op₁ result beat elmtMask
+  vec-op₂ op = declare ⦇ zeros ⦈ $ declare (↓! &Q (pure′ src₁) (!# 1)) $
+    for (toℕ elements) (
+      -- 0:e 1:op₁ 2:result 3:beat 4:elmntMask
       elem (toℕ esize) (&cast (sym e*e≡32) (var (# 2))) (!# 0) ≔
-      ⦇ op
-        (! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0))
-        ([ (λ src₂ → ! slice (&R ⦇ src₂ ⦈) ⦇ (esize , zero , refl) ⦈)
-         , (λ src₂ → ! elem (toℕ esize) (&cast (sym e*e≡32) (&Q ⦇ src₂ ⦈ (!# 3))) (!# 0))
-         ]′ src₂) ⦈
-    )) ∙
-    ignore (call (copyMasked dest) ⦇ !# 1 , ⦇ !# 2 , !# 3 ⦈ ⦈)))
+        (⦇ op
+           (↓! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0))
+           ([ (λ src₂ → ↓! slice (&R (pure′ src₂)) (pure′ (esize , zero , refl)))
+            , (λ src₂ → ↓! elem (toℕ esize) (&cast (sym e*e≡32) (&Q (pure′ src₂) (!# 3))) (!# 0))
+            ]′ src₂) ⦈)) ∙
+    invoke (copyMasked dest) ⦇ ↓ !# 1 , ⦇ ↓ !# 2 , ↓ !# 3 ⦈ ⦈ ∙
+    ⦇ _ ⦈
 
 -- Instruction semantics
 
@@ -271,23 +285,24 @@ module _
     eq m (suc i) = eq m i
 
   vqdmulh : VQDMulH → Procedure 2 (Beat , ElmtMask , _)
-  vqdmulh d = declare ⦇ zeros ⦈ (declare (! &Q ⦇ src₁ ⦈ (!# 1)) (
-    -- op₁ result beat elmtMask
-    for (toℕ elements) (lift (
-      -- e op₁ result beat elmtMask
-      declare
-        ⦇ (λ x y → (2ℤ *ᶻ sint x *ᶻ sint y +ᶻ rval) >> toℕ esize)
-          (! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0))
-          ([ (λ src₂ → ! slice (&R ⦇ src₂ ⦈) ⦇ (esize , zero , refl) ⦈)
-           , (λ src₂ → ! elem (toℕ esize) (&cast (sym e*e≡32) (&Q ⦇ src₂ ⦈ (!# 3))) (!# 0))
-           ]′ src₂) ⦈ $
-      declare ⦇ false ⦈ $
-      -- sat value e op₁ result beat elmtMask
-      elem (toℕ esize) (&cast (sym e*e≡32) (var (# 4))) (!# 2) ,′ var (# 0) ≔
-        call (signedSatQ (toℕ esize-1)) (!# 1) ∙
-      if !# 0 then if ⦇ (λ m e → hasBit (combine e zero) (cast (sym e*e>>3≡4) m)) (!# 6) (!# 2) ⦈ then &FPSCR-QC ≔ ⦇ 1b ⦈ else skip else skip
-    )) ∙
-    ignore (call (copyMasked dest) ⦇ !# 1 , ⦇ !# 2 , !# 3 ⦈ ⦈)))
+  vqdmulh d = declare ⦇ zeros ⦈ $ declare (↓! &Q (pure′ src₁) (!# 1)) $ declare ⦇ false ⦈ $
+    for (toℕ elements) (
+      -- 0:e 1:sat 2:op₁ 3:result 4:beat 5:elmntMask
+      elem (toℕ esize) (&cast (sym e*e≡32) (var (# 3))) (!# 0) ,′ var (# 1) ≔
+      call (signedSatQ (toℕ esize-1))
+           ⦇ (λ x y → (2ℤ *ᶻ sint x *ᶻ sint y +ᶻ rval) >> toℕ esize)
+             (↓! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 2))) (!# 0))
+             ([ (λ src₂ → ↓! slice (&R (pure′ src₂)) (pure′ (esize , zero , refl)))
+              , (λ src₂ → ↓! elem (toℕ esize) (&cast (sym e*e≡32) (&Q (pure′ src₂) (!# 4))) (!# 0))
+              ]′ src₂) ⦈ ∙
+      if ↓ !# 1
+      then if ⦇ (λ m e → hasBit (combine e zero) (cast (sym e*e>>3≡4) m)) (↓ !# 5) (↓ !# 0) ⦈
+      then
+        &FPSCR-QC ≔ ⦇ 1b ⦈
+      else skip
+      else skip) ∙
+    invoke (copyMasked dest) ⦇ ↓ !# 2 , ⦇ ↓ !# 3 , ↓ !# 4 ⦈ ⦈ ∙
+    ⦇ _ ⦈
     where
     open VQDMulH d
     rval = Bool.if rounding then 1ℤ << toℕ esize-1 else 0ℤ
