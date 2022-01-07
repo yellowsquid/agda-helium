@@ -167,14 +167,14 @@ copyMasked dest =
 
 module fun-sliceᶻ
   (≈ᶻ-trans : Transitive _≈ᶻ_)
-  (round∘⟦⟧ : ∀ x → x ≈ᶻ round ⟦ x ⟧)
+  (round∘float : ∀ x → x ≈ᶻ round (float x))
   (round-cong : ∀ {x y} → x ≈ʳ y → round x ≈ᶻ round y)
   (0#-homo-round : round 0ℝ ≈ᶻ 0ℤ)
   (2^n≢0 : ∀ n → False (2ℤ ^ᶻ n ≟ᶻ 0ℤ))
   (*ᶻ-identityʳ : ∀ x → x *ᶻ 1ℤ ≈ᶻ x)
   where
 
-  open sliceᶻ ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
+  open sliceᶻ ≈ᶻ-trans round∘float round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
 
   signedSatQ : ∀ n → Function 1 (ℤ , _) (Bits (suc n) × Bool)
   signedSatQ n = declare ⦇ true ⦈ $
@@ -249,15 +249,15 @@ module _
 
 module _
   (≈ᶻ-trans : Transitive _≈ᶻ_)
-  (round∘⟦⟧ : ∀ x → x ≈ᶻ round ⟦ x ⟧)
+  (round∘float : ∀ x → x ≈ᶻ round (float x))
   (round-cong : ∀ {x y} → x ≈ʳ y → round x ≈ᶻ round y)
   (0#-homo-round : round 0ℝ ≈ᶻ 0ℤ)
   (2^n≢0 : ∀ n → False (2ℤ ^ᶻ n ≟ᶻ 0ℤ))
   (*ᶻ-identityʳ : ∀ x → x *ᶻ 1ℤ ≈ᶻ x)
   where
 
-  open sliceᶻ ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
-  open fun-sliceᶻ ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
+  open sliceᶻ ≈ᶻ-trans round∘float round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
+  open fun-sliceᶻ ≈ᶻ-trans round∘float round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
 
   vadd : VAdd → Procedure 2 (Beat , ElmtMask , _)
   vadd d = vec-op₂ d (λ x y → sliceᶻ _ zero (uint x +ᶻ uint y))

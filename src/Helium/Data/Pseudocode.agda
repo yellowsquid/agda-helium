@@ -73,7 +73,7 @@ record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁
 
   field
     -- Arithmetic operations
-    ⟦_⟧ : ℤ → ℝ
+    float : ℤ → ℝ
     round : ℝ → ℤ
     _+ᶻ_ : Op₂ ℤ
     _+ʳ_ : Op₂ ℝ
@@ -137,7 +137,7 @@ record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁
 
   module divmod
     (≈ᶻ-trans : Transitive _≈ᶻ_)
-    (round∘⟦⟧ : ∀ x → x ≈ᶻ round ⟦ x ⟧)
+    (round∘float : ∀ x → x ≈ᶻ round (float x))
     (round-cong : ∀ {x y} → x ≈ʳ y → round x ≈ᶻ round y)
     (0#-homo-round : round 0ℝ ≈ᶻ 0ℤ)
     where
@@ -146,21 +146,21 @@ record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁
 
     _div_ : ∀ (x y : ℤ) → .{≢0 : False (y ≟ᶻ 0ℤ)} → ℤ
     (x div y) {≢0} =
-      let f = (λ y≈0 → ≈ᶻ-trans (round∘⟦⟧ y) (≈ᶻ-trans (round-cong y≈0) 0#-homo-round)) in
-      round (⟦ x ⟧ *ʳ (⟦ y ⟧ ⁻¹) {map-False f ≢0})
+      let f = (λ y≈0 → ≈ᶻ-trans (round∘float y) (≈ᶻ-trans (round-cong y≈0) 0#-homo-round)) in
+      round (float x *ʳ (float y ⁻¹) {map-False f ≢0})
 
     _mod_ : ∀ (x y : ℤ) → .{≢0 : False (y ≟ᶻ 0ℤ)} → ℤ
     (x mod y) {≢0} = x +ᶻ -ᶻ y *ᶻ (x div y) {≢0}
 
   module 2^n≢0
     (≈ᶻ-trans : Transitive _≈ᶻ_)
-    (round∘⟦⟧ : ∀ x → x ≈ᶻ round ⟦ x ⟧)
+    (round∘float : ∀ x → x ≈ᶻ round (float x))
     (round-cong : ∀ {x y} → x ≈ʳ y → round x ≈ᶻ round y)
     (0#-homo-round : round 0ℝ ≈ᶻ 0ℤ)
     (2^n≢0 : ∀ n → False (2ℤ ^ᶻ n ≟ᶻ 0ℤ))
     where
 
-    open divmod ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round public
+    open divmod ≈ᶻ-trans round∘float round-cong 0#-homo-round public
 
     _>>_ : ℤ → ℕ → ℤ
     x >> n = (x div (2ℤ ^ᶻ n)) {2^n≢0 n}
@@ -170,14 +170,14 @@ record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁
 
   module sliceᶻ
     (≈ᶻ-trans : Transitive _≈ᶻ_)
-    (round∘⟦⟧ : ∀ x → x ≈ᶻ round ⟦ x ⟧)
+    (round∘float : ∀ x → x ≈ᶻ round (float x))
     (round-cong : ∀ {x y} → x ≈ʳ y → round x ≈ᶻ round y)
     (0#-homo-round : round 0ℝ ≈ᶻ 0ℤ)
     (2^n≢0 : ∀ n → False (2ℤ ^ᶻ n ≟ᶻ 0ℤ))
     (*ᶻ-identityʳ : ∀ x → x *ᶻ 1ℤ ≈ᶻ x)
     where
 
-    open 2^n≢0 ≈ᶻ-trans round∘⟦⟧ round-cong 0#-homo-round 2^n≢0 public
+    open 2^n≢0 ≈ᶻ-trans round∘float round-cong 0#-homo-round 2^n≢0 public
 
     sliceᶻ : ∀ n i → ℤ → Bits (n ℕ-ℕ i)
     sliceᶻ zero    zero    z = []
