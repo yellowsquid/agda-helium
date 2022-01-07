@@ -248,3 +248,37 @@ record Field c ℓ : Set (suc (c ⊔ ℓ)) where
     ( *-commutativeMagma; *-commutativeSemigroup; *-commutativeMonoid
     ; commutativeSemiringWithoutOne; commutativeSemiring
     )
+
+-- Missing from standard library
+
+record RawBooleanAlgebra c ℓ : Set (suc (c ⊔ ℓ)) where
+  infix  8 ¬_
+  infixr 7 _∧_
+  infixr 6 _∨_
+  infix  4 _≈_
+  field
+    Carrier          : Set c
+    _≈_              : Rel Carrier ℓ
+    _∨_              : Op₂ Carrier
+    _∧_              : Op₂ Carrier
+    ¬_               : Op₁ Carrier
+    ⊤                : Carrier
+    ⊥                : Carrier
+
+  rawLattice : RawLattice _ _
+  rawLattice = record { _≈_ = _≈_ ; _∧_ = _∧_ ; _∨_ = _∨_ }
+
+  ∨-rawGroup : RawGroup _ _
+  ∨-rawGroup = record { _≈_ = _≈_ ; _∙_ = _∨_ ; ε = ⊥ ; _⁻¹ = ¬_ }
+
+  ∧-rawGroup : RawGroup _ _
+  ∧-rawGroup = record { _≈_ = _≈_ ; _∙_ = _∧_ ; ε = ⊤ ; _⁻¹ = ¬_ }
+
+  open RawLattice rawLattice public
+    using (_≉_; ∨-rawMagma; ∧-rawMagma)
+
+  open RawGroup ∨-rawGroup public
+    using () renaming (rawMonoid to ∨-rawMonoid)
+
+  open RawGroup ∧-rawGroup public
+    using () renaming (rawMonoid to ∧-rawMonoid)
