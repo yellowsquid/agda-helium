@@ -17,7 +17,7 @@ open import Algebra.Core using (Op₂)
 open import Data.Bool as Bool using (Bool; true; false)
 open import Data.Fin as Fin hiding (cast; lift; _+_)
 import Data.Fin.Properties as Finₚ
-open import Data.Maybe using (just; nothing; _>>=_)
+open import Data.List using (List; []; _∷_)
 open import Data.Nat hiding (_⊔_)
 import Data.Nat.Properties as ℕₚ
 open import Data.Product using (∃; _×_; _,_; dmap)
@@ -25,7 +25,7 @@ open import Data.Sum using ([_,_]′)
 open import Data.Vec.Functional as V using (Vector)
 open import Function using (_$_; _∘₂_)
 open import Function.Nary.NonDependent.Base
-open import Helium.Instructions
+import Helium.Instructions as Instr
 import Helium.Semantics.Denotational.Core as Core
 open import Level hiding (lift; zero; suc)
 open import Relation.Binary using (Transitive)
@@ -81,7 +81,7 @@ ElmtMask = Bits 4
   ; set = λ x σ ρ → record σ { S = V.updateAt (e σ ρ) (λ _ → x) (State.S σ) } , ρ
   }
 
-&Q : ∀ {n ls} {Γ : Sets n ls} → PureExpr n Γ VecReg → PureExpr n Γ Beat → Reference n Γ (Bits 32)
+&Q : ∀ {n ls} {Γ : Sets n ls} → PureExpr n Γ Instr.VecReg → PureExpr n Γ Beat → Reference n Γ (Bits 32)
 &Q reg beat = &S λ σ ρ → combine (reg σ ρ) (beat σ ρ)
 
 &FPSCR-QC : ∀ {n ls} {Γ : Sets n ls} → Reference n Γ (Bits 1)
@@ -155,7 +155,7 @@ elem m &v idx = slice &v (λ σ ρ → helper _ _ (idx σ ρ))
 
 -- General functions
 
-copyMasked : VecReg → Procedure 3 (Bits 32 , Beat , ElmtMask , _)
+copyMasked : Instr.VecReg → Procedure 3 (Bits 32 , Beat , ElmtMask , _)
 copyMasked dest =
   for 4 (
     -- 0:e 1:result 2:beat 3:elmtMask
@@ -227,10 +227,10 @@ execBeats inst = declare ⦇ ones ⦈ $
   ⦇ _ ⦈
 
 module _
-  (d : VecOp₂)
+  (d : Instr.VecOp₂)
   where
 
-  open VecOp₂ d
+  open Instr.VecOp₂ d
 
   vec-op₂ : Op₂ (Bits (toℕ esize)) → Procedure 2 (Beat , ElmtMask , _)
   vec-op₂ op = declare ⦇ zeros ⦈ $ declare (↓! &Q (pure′ src₁) (!# 1)) $
@@ -259,23 +259,23 @@ module _
   open sliceᶻ ≈ᶻ-trans round∘float round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
   open fun-sliceᶻ ≈ᶻ-trans round∘float round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
 
-  vadd : VAdd → Procedure 2 (Beat , ElmtMask , _)
+  vadd : Instr.VAdd → Procedure 2 (Beat , ElmtMask , _)
   vadd d = vec-op₂ d (λ x y → sliceᶻ _ zero (uint x +ᶻ uint y))
 
-  vsub : VSub → Procedure 2 (Beat , ElmtMask , _)
+  vsub : Instr.VSub → Procedure 2 (Beat , ElmtMask , _)
   vsub d = vec-op₂ d (λ x y → sliceᶻ _ zero (uint x +ᶻ -ᶻ uint y))
 
-  vhsub : VHSub → Procedure 2 (Beat , ElmtMask , _)
+  vhsub : Instr.VHSub → Procedure 2 (Beat , ElmtMask , _)
   vhsub d = vec-op₂ op₂ (λ x y → sliceᶻ _ (suc zero) (int x +ᶻ -ᶻ int y))
-    where open VHSub d ; int = Bool.if unsigned then uint else sint
+    where open Instr.VHSub d ; int = Bool.if unsigned then uint else sint
 
-  vmul : VMul → Procedure 2 (Beat , ElmtMask , _)
+  vmul : Instr.VMul → Procedure 2 (Beat , ElmtMask , _)
   vmul d = vec-op₂ d (λ x y → sliceᶻ _ zero (sint x *ᶻ sint y))
 
-  vmulh : VMulH → Procedure 2 (Beat , ElmtMask , _)
+  vmulh : Instr.VMulH → Procedure 2 (Beat , ElmtMask , _)
   vmulh d = vec-op₂ op₂ (λ x y → cast (eq _ esize) (sliceᶻ 2esize esize′ (int x *ᶻ int y +ᶻ rval)))
     where
-    open VMulH d
+    open Instr.VMulH d
     int = Bool.if unsigned then uint else sint
     rval = Bool.if rounding then 1ℤ << toℕ esize-1 else 0ℤ
     2esize = toℕ esize + toℕ esize
@@ -284,7 +284,7 @@ module _
     eq m zero    = refl
     eq m (suc i) = eq m i
 
-  vqdmulh : VQDMulH → Procedure 2 (Beat , ElmtMask , _)
+  vqdmulh : Instr.VQDMulH → Procedure 2 (Beat , ElmtMask , _)
   vqdmulh d = declare ⦇ zeros ⦈ $ declare (↓! &Q (pure′ src₁) (!# 1)) $ declare ⦇ false ⦈ $
     for (toℕ elements) (
       -- 0:e 1:sat 2:op₁ 3:result 4:beat 5:elmntMask
@@ -304,5 +304,16 @@ module _
     invoke (copyMasked dest) ⦇ ↓ !# 2 , ⦇ ↓ !# 3 , ↓ !# 4 ⦈ ⦈ ∙
     ⦇ _ ⦈
     where
-    open VQDMulH d
+    open Instr.VQDMulH d
     rval = Bool.if rounding then 1ℤ << toℕ esize-1 else 0ℤ
+
+  ⟦_⟧₁ : Instr.Instruction → Procedure 0 _
+  ⟦ Instr.vadd x ⟧₁ = execBeats (vadd x)
+  ⟦ Instr.vsub x ⟧₁ = execBeats (vsub x)
+  ⟦ Instr.vmul x ⟧₁ = execBeats (vmul x)
+  ⟦ Instr.vmulh x ⟧₁ = execBeats (vmulh x)
+  ⟦ Instr.vqdmulh x ⟧₁ = execBeats (vqdmulh x)
+
+  ⟦_⟧ : List (Instr.Instruction) → Procedure 0 _
+  ⟦ [] ⟧     = ⦇ _ ⦈
+  ⟦ i ∷ is ⟧ = invoke ⟦ i ⟧₁ ⦇ _ ⦈ ∙ ⟦ is ⟧

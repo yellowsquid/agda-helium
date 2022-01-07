@@ -88,3 +88,10 @@ record VQDMulH : Set where
     rounding : Bool
 
   open VecOp₂ op₂ public
+
+data Instruction : Set where
+  vadd : VAdd → Instruction
+  vsub : VSub → Instruction
+  vmul : VMul → Instruction
+  vmulh : VMulH → Instruction
+  vqdmulh : VQDMulH → Instruction
