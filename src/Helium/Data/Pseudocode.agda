@@ -8,180 +8,179 @@
 
 module Helium.Data.Pseudocode where
 
+open import Algebra.Bundles using (RawRing)
 open import Algebra.Core
-open import Data.Bool using (Bool; if_then_else_)
-open import Data.Fin hiding (_+_; cast)
-import Data.Fin.Properties as Finₚ
-open import Data.Nat using (ℕ; zero; suc; _+_; _^_)
-import Data.Vec as Vec
+import Algebra.Definitions.RawSemiring as RS
+open import Data.Bool.Base using (Bool; if_then_else_)
+open import Data.Fin.Base as Fin hiding (cast)
+import Data.Fin.Properties as Fₚ
+import Data.Fin.Induction as Induction
+open import Data.Nat.Base using (ℕ; zero; suc)
+open import Data.Vec.Functional
+open import Data.Vec.Functional.Relation.Binary.Pointwise using (Pointwise)
+import Data.Vec.Functional.Relation.Binary.Pointwise.Properties as Pwₚ
+open import Function using (_$_; _∘′_; id)
+open import Helium.Algebra.Bundles using (RawField; RawBooleanAlgebra)
 open import Level using (_⊔_) renaming (suc to ℓsuc)
-open import Relation.Binary using (REL; Rel; Symmetric; Transitive; Decidable)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym)
-open import Relation.Nullary using (Dec; does)
-open import Relation.Nullary.Decidable
-
-private
-  map-False : ∀ {p q} {P : Set p} {Q : Set q} {P? : Dec P} {Q? : Dec Q} → (P → Q) → False Q? → False P?
-  map-False ⇒ f = fromWitnessFalse (λ x → toWitnessFalse f (⇒ x))
+open import Relation.Binary.Core using (Rel)
+open import Relation.Binary.Definitions using (Decidable)
+open import Relation.Binary.PropositionalEquality as P using (_≡_)
+open import Relation.Nullary using (does)
+open import Relation.Nullary.Decidable.Core using (False; toWitnessFalse)
 
 record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁ ⊔ b₂ ⊔ i₁ ⊔ i₂ ⊔ i₃ ⊔ r₁ ⊔ r₂ ⊔ r₃)) where
-  infix 9 _^ᶻ_ _^ʳ_
-  infix 8 _⁻¹
-  infixr 7 _*ᶻ_ _*ʳ_
-  infix 6 -ᶻ_ -ʳ_
-  infixr 5 _+ᶻ_ _+ʳ_ _∶_
-  infix 4 _≈ᵇ_ _≟ᵇ_ _≈ᶻ_ _≟ᶻ_ _<ᶻ_ _<?ᶻ_ _≈ʳ_ _≟ʳ_ _<ʳ_ _<?ʳ_
+  infix 6 _-ᶻ_
+  infix 4 _≟ᵇ_ _≟ᶻ_ _<ᶻ_ _<ᶻ?_ _≟ʳ_ _<ʳ_ _<ʳ?_
 
   field
-    -- Types
-    Bits : ℕ → Set b₁
-    ℤ    : Set i₁
-    ℝ    : Set r₁
+    bitRawBooleanAlgebra : RawBooleanAlgebra b₁ b₂
+    integerRawRing : RawRing i₁ i₂
+    realRawField : RawField r₁ r₂
+
+  open RawBooleanAlgebra bitRawBooleanAlgebra public
+    using ()
+    renaming (Carrier to Bit; _≈_ to _≈ᵇ₁_; _≉_ to _≉ᵇ₁_; ⊤ to 1𝔹; ⊥ to 0𝔹)
+
+  module bitsRawBooleanAlgebra {n} = RawBooleanAlgebra record
+    { _≈_ = Pointwise (RawBooleanAlgebra._≈_ bitRawBooleanAlgebra) {n}
+    ; _∨_ = zipWith (RawBooleanAlgebra._∨_ bitRawBooleanAlgebra)
+    ; _∧_ = zipWith (RawBooleanAlgebra._∧_ bitRawBooleanAlgebra)
+    ; ¬_ = map (RawBooleanAlgebra.¬_ bitRawBooleanAlgebra)
+    ; ⊤ = replicate (RawBooleanAlgebra.⊤ bitRawBooleanAlgebra)
+    ; ⊥ = replicate (RawBooleanAlgebra.⊥ bitRawBooleanAlgebra)
+    }
+
+  open bitsRawBooleanAlgebra public
+    hiding (Carrier)
+    renaming (_≈_ to _≈ᵇ_; _≉_ to _≉ᵇ_; ⊤ to ones; ⊥ to zeros)
+
+  Bits = λ n → bitsRawBooleanAlgebra.Carrier {n}
+
+  open RawRing integerRawRing public
+    renaming
+    ( Carrier to ℤ; _≈_ to _≈ᶻ_; _≉_ to _≉ᶻ_
+    ; _+_ to _+ᶻ_; _*_ to _*ᶻ_; -_ to -ᶻ_; 0# to 0ℤ; 1# to 1ℤ
+    ; rawSemiring to integerRawSemiring
+    ; +-rawMagma to +ᶻ-rawMagma; +-rawMonoid to +ᶻ-rawMonoid
+    ; *-rawMagma to *ᶻ-rawMagma; *-rawMonoid to *ᶻ-rawMonoid
+    ; +-rawGroup to +ᶻ-rawGroup
+    )
+
+  _-ᶻ_ : Op₂ ℤ
+  x -ᶻ y = x +ᶻ -ᶻ y
+
+  open RS integerRawSemiring public using ()
+    renaming
+    ( _×_ to _×ᶻ_; _×′_ to _×′ᶻ_; sum to sumᶻ
+    ; _^_ to _^ᶻ_; _^′_ to _^′ᶻ_; product to productᶻ
+    )
+
+  open RawField realRawField public
+    renaming
+    ( Carrier to ℝ; _≈_ to _≈ʳ_; _≉_ to _≉ʳ_
+    ; _+_ to _+ʳ_; _*_ to _*ʳ_; -_ to -ʳ_; 0# to 0ℝ; 1# to 1ℝ; _-_ to _-ʳ_
+    ; rawSemiring to realRawSemiring; rawRing to realRawRing
+    ; +-rawMagma to +ʳ-rawMagma; +-rawMonoid to +ʳ-rawMonoid
+    ; *-rawMagma to *ʳ-rawMagma; *-rawMonoid to *ʳ-rawMonoid
+    ; +-rawGroup to +ʳ-rawGroup; *-rawAlmostGroup to *ʳ-rawAlmostGroup
+    )
+
+  open RS realRawSemiring public using ()
+    renaming
+    ( _×_ to _×ʳ_; _×′_ to _×′ʳ_; sum to sumʳ
+    ; _^_ to _^ʳ_; _^′_ to _^′ʳ_; product to productʳ
+    )
 
   field
-    -- Relations
-    _≈ᵇ_ : ∀ {m n} → REL (Bits m) (Bits n) b₂
-    _≟ᵇ_ : ∀ {m n} → Decidable (_≈ᵇ_ {m} {n})
-    _≈ᶻ_ : Rel ℤ i₂
-    _≟ᶻ_ : Decidable _≈ᶻ_
-    _<ᶻ_ : Rel ℤ i₃
-    _<?ᶻ_ : Decidable _<ᶻ_
-    _≈ʳ_ : Rel ℝ r₂
-    _≟ʳ_ : Decidable _≈ʳ_
-    _<ʳ_ : Rel ℝ r₃
-    _<?ʳ_ : Decidable _<ʳ_
+    _≟ᶻ_  : Decidable _≈ᶻ_
+    _<ᶻ_  : Rel ℤ i₃
+    _<ᶻ?_ : Decidable _<ᶻ_
 
-    -- Constants
-    [] : Bits 0
-    0b : Bits 1
-    1b : Bits 1
-    0ℤ : ℤ
-    1ℤ : ℤ
-    0ℝ : ℝ
-    1ℝ : ℝ
+    _≟ʳ_  : Decidable _≈ʳ_
+    _<ʳ_  : Rel ℝ r₃
+    _<ʳ?_ : Decidable _<ʳ_
+
+    _≟ᵇ₁_ : Decidable _≈ᵇ₁_
+
+  _≟ᵇ_ : ∀ {n} → Decidable (_≈ᵇ_ {n})
+  _≟ᵇ_ = Pwₚ.decidable _≟ᵇ₁_
 
   field
-    -- Bitstring operations
-    ofFin : ∀ {n} → Fin (2 ^ n) → Bits n
-    cast  : ∀ {m n} → .(eq : m ≡ n) → Bits m → Bits n
-    not   : ∀ {n} → Op₁ (Bits n)
-    _and_ : ∀ {n} → Op₂ (Bits n)
-    _or_  : ∀ {n} → Op₂ (Bits n)
-    _∶_ : ∀ {m n} → Bits m → Bits n → Bits (m + n)
-    sliceᵇ  : ∀ {n} (i : Fin (suc n)) j → Bits n → Bits (toℕ (i - j))
-    updateᵇ : ∀ {n} (i : Fin (suc n)) j → Bits (toℕ (i - j)) → Op₁ (Bits n)
-
-  field
-    -- Arithmetic operations
     float : ℤ → ℝ
     round : ℝ → ℤ
-    _+ᶻ_ : Op₂ ℤ
-    _+ʳ_ : Op₂ ℝ
-    _*ᶻ_ : Op₂ ℤ
-    _*ʳ_ : Op₂ ℝ
-    -ᶻ_  : Op₁ ℤ
-    -ʳ_  : Op₁ ℝ
-    _⁻¹  : ∀ (y : ℝ) → .{False (y ≟ʳ 0ℝ)} → ℝ
 
-  -- Convenience operations
+  cast : ∀ {m n} → .(eq : m ≡ n) → Bits m → Bits n
+  cast eq x i = x $ Fin.cast (P.sym eq) i
 
-  zeros : ∀ {n} → Bits n
-  zeros {zero}  = []
-  zeros {suc n} = 0b ∶ zeros
+  2ℤ : ℤ
+  2ℤ = 2 ×′ᶻ 1ℤ
 
-  ones : ∀ {n} → Bits n
-  ones {zero}  = []
-  ones {suc n} = 1b ∶ ones
+  getᵇ : ∀ {n} → Fin n → Bits n → Bit
+  getᵇ i x = x (opposite i)
 
-  _eor_ : ∀ {n} → Op₂ (Bits n)
-  x eor y = (x or y) and not (x and y)
+  setᵇ : ∀ {n} → Fin n → Bit → Op₁ (Bits n)
+  setᵇ i b = updateAt (opposite i) λ _ → b
 
-  getᵇ : ∀ {n} → Fin n → Bits n → Bits 1
-  getᵇ i x = cast (eq i) (sliceᵇ (suc i) (inject₁ (strengthen i)) x)
+  sliceᵇ : ∀ {n} (i : Fin (suc n)) j → Bits n → Bits (toℕ (i - j))
+  sliceᵇ         zero    zero    x = []
+  sliceᵇ {suc n} (suc i) zero    x = getᵇ i x ∷ sliceᵇ i zero (tail x)
+  sliceᵇ {suc n} (suc i) (suc j) x = sliceᵇ i j (tail x)
+
+  updateᵇ : ∀ {n} (i : Fin (suc n)) j → Bits (toℕ (i - j)) → Op₁ (Bits n)
+  updateᵇ {n} = Induction.<-weakInduction P (λ _ _ → id) helper
     where
-    eq : ∀ {n} (i : Fin n) → toℕ (suc i - inject₁ (strengthen i)) ≡ 1
-    eq zero    = refl
-    eq (suc i) = eq i
+    P : Fin (suc n) → Set b₁
+    P i = ∀ j → Bits (toℕ (i - j)) → Op₁ (Bits n)
 
-  setᵇ : ∀ {n} → Fin n → Bits 1 → Op₁ (Bits n)
-  setᵇ i y = updateᵇ (suc i) (inject₁ (strengthen i)) (cast (sym (eq i)) y)
-    where
-    eq : ∀ {n} (i : Fin n) → toℕ (suc i - inject₁ (strengthen i)) ≡ 1
-    eq zero    = refl
-    eq (suc i) = eq i
+    eq : ∀ {n} {i : Fin n} → toℕ i ≡ toℕ (inject₁ i)
+    eq = P.sym $ Fₚ.toℕ-inject₁ _
+
+    eq′ : ∀ {n} {i : Fin n} j → toℕ (i - j) ≡ toℕ (inject₁ i - Fin.cast eq j)
+    eq′             zero    = eq
+    eq′ {i = suc _} (suc j) = eq′ j
+
+    helper : ∀ i → P (inject₁ i) → P (suc i)
+    helper i rec zero    y = rec zero (cast eq (tail y)) ∘′ setᵇ i (y zero)
+    helper i rec (suc j) y = rec (Fin.cast eq j) (cast (eq′ j) y)
 
   hasBit : ∀ {n} → Fin n → Bits n → Bool
-  hasBit i x = does (getᵇ i x ≟ᵇ 1b)
+  hasBit i x = does (getᵇ i x ≟ᵇ₁ 1𝔹)
 
-  -- Stray constant cannot live with the others, because + is not defined at that point.
-  2ℤ : ℤ
-  2ℤ = 1ℤ +ᶻ 1ℤ
+  infixl 7 _div_ _mod_
 
-  _^ᶻ_ : ℤ → ℕ → ℤ
-  x ^ᶻ zero  = 1ℤ
-  x ^ᶻ suc y = x *ᶻ x ^ᶻ y
+  _div_ : ∀ (x y : ℤ) → {y≉0 : False (float y ≟ʳ 0ℝ)} → ℤ
+  (x div y) {y≉0} = round (float x *ʳ toWitnessFalse y≉0 ⁻¹)
 
-  _^ʳ_ : ℝ → ℕ → ℝ
-  x ^ʳ zero  = 1ℝ
-  x ^ʳ suc y = x *ʳ x ^ʳ y
+  _mod_ : ∀ (x y : ℤ) → {y≉0 : False (float y ≟ʳ 0ℝ)} → ℤ
+  (x mod y) {y≉0} = x -ᶻ y *ᶻ (x div y) {y≉0}
 
+  infixl 5 _<<_
   _<<_ : ℤ → ℕ → ℤ
-  x << n = x *ᶻ 2ℤ ^ᶻ n
+  x << n = x *ᶻ 2ℤ ^′ᶻ n
+
+  module ShiftNotZero
+    (1<<n≉0 : ∀ n → False (float (1ℤ << n) ≟ʳ 0ℝ))
+    where
+
+    infixl 5 _>>_
+    _>>_ : ℤ → ℕ → ℤ
+    x >> zero  = x
+    x >> suc n = (x div (1ℤ << suc n)) {1<<n≉0 (suc n)}
+
+    getᶻ : ℕ → ℤ → Bit
+    getᶻ n x =
+      if does ((x mod (1ℤ << suc n)) {1<<n≉0 (suc n)} <ᶻ? 1ℤ << n)
+      then 1𝔹
+      else 0𝔹
+
+    sliceᶻ : ∀ n i → ℤ → Bits (n ℕ-ℕ i)
+    sliceᶻ zero    zero    x = []
+    sliceᶻ (suc n) zero    x = getᶻ n x ∷ sliceᶻ n zero x
+    sliceᶻ (suc n) (suc i) x = sliceᶻ n i (x >> 1)
 
   uint : ∀ {n} → Bits n → ℤ
-  uint x = Vec.foldr (λ _ → ℤ) _+ᶻ_ 0ℤ (Vec.tabulate (λ i → if hasBit i x then 1ℤ << toℕ i else 0ℤ))
+  uint x = sumᶻ λ i → if hasBit i x then 1ℤ << toℕ i else 0ℤ
 
   sint : ∀ {n} → Bits n → ℤ
   sint {zero}  x = 0ℤ
-  sint {suc n} x = uint x +ᶻ (if hasBit (fromℕ n) x then -ᶻ 1ℤ << suc n else 0ℤ)
-
-  module divmod
-    (≈ᶻ-trans : Transitive _≈ᶻ_)
-    (round∘float : ∀ x → x ≈ᶻ round (float x))
-    (round-cong : ∀ {x y} → x ≈ʳ y → round x ≈ᶻ round y)
-    (0#-homo-round : round 0ℝ ≈ᶻ 0ℤ)
-    where
-
-    infix 7 _div_ _mod_
-
-    _div_ : ∀ (x y : ℤ) → .{≢0 : False (y ≟ᶻ 0ℤ)} → ℤ
-    (x div y) {≢0} =
-      let f = (λ y≈0 → ≈ᶻ-trans (round∘float y) (≈ᶻ-trans (round-cong y≈0) 0#-homo-round)) in
-      round (float x *ʳ (float y ⁻¹) {map-False f ≢0})
-
-    _mod_ : ∀ (x y : ℤ) → .{≢0 : False (y ≟ᶻ 0ℤ)} → ℤ
-    (x mod y) {≢0} = x +ᶻ -ᶻ y *ᶻ (x div y) {≢0}
-
-  module 2^n≢0
-    (≈ᶻ-trans : Transitive _≈ᶻ_)
-    (round∘float : ∀ x → x ≈ᶻ round (float x))
-    (round-cong : ∀ {x y} → x ≈ʳ y → round x ≈ᶻ round y)
-    (0#-homo-round : round 0ℝ ≈ᶻ 0ℤ)
-    (2^n≢0 : ∀ n → False (2ℤ ^ᶻ n ≟ᶻ 0ℤ))
-    where
-
-    open divmod ≈ᶻ-trans round∘float round-cong 0#-homo-round public
-
-    _>>_ : ℤ → ℕ → ℤ
-    x >> n = (x div (2ℤ ^ᶻ n)) {2^n≢0 n}
-
-    getᶻ : ℕ → ℤ → Bits 1
-    getᶻ i x = if (does ((x mod (2ℤ ^ᶻ suc i)) {2^n≢0 (suc i)} <?ᶻ 2ℤ ^ᶻ i)) then 0b else 1b
-
-  module sliceᶻ
-    (≈ᶻ-trans : Transitive _≈ᶻ_)
-    (round∘float : ∀ x → x ≈ᶻ round (float x))
-    (round-cong : ∀ {x y} → x ≈ʳ y → round x ≈ᶻ round y)
-    (0#-homo-round : round 0ℝ ≈ᶻ 0ℤ)
-    (2^n≢0 : ∀ n → False (2ℤ ^ᶻ n ≟ᶻ 0ℤ))
-    (*ᶻ-identityʳ : ∀ x → x *ᶻ 1ℤ ≈ᶻ x)
-    where
-
-    open 2^n≢0 ≈ᶻ-trans round∘float round-cong 0#-homo-round 2^n≢0 public
-
-    sliceᶻ : ∀ n i → ℤ → Bits (n ℕ-ℕ i)
-    sliceᶻ zero    zero    z = []
-    sliceᶻ (suc n) zero    z = getᶻ n z ∶ sliceᶻ n zero z
-    sliceᶻ (suc n) (suc i) z = sliceᶻ n i ((z div 2ℤ) {2≢0})
-      where
-      2≢0 = map-False (≈ᶻ-trans (*ᶻ-identityʳ 2ℤ)) (2^n≢0 1)
+  sint {suc n} x = uint x -ᶻ (if hasBit (fromℕ n) x then 1ℤ << suc n else 0ℤ)

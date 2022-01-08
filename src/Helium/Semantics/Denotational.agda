@@ -17,20 +17,19 @@ open import Algebra.Core using (Op₂)
 open import Data.Bool as Bool using (Bool; true; false)
 open import Data.Fin as Fin hiding (cast; lift; _+_)
 import Data.Fin.Properties as Finₚ
-open import Data.List using (List; []; _∷_)
+import Data.List as List
 open import Data.Nat hiding (_⊔_)
 import Data.Nat.Properties as ℕₚ
 open import Data.Product using (∃; _×_; _,_; dmap)
 open import Data.Sum using ([_,_]′)
-open import Data.Vec.Functional as V using (Vector)
+open import Data.Vec.Functional as V using (Vector; []; _∷_)
 open import Function using (_$_; _∘₂_)
 open import Function.Nary.NonDependent.Base
 import Helium.Instructions as Instr
 import Helium.Semantics.Denotational.Core as Core
-open import Level hiding (lift; zero; suc)
-open import Relation.Binary using (Transitive)
-open import Relation.Binary.PropositionalEquality
-open import Relation.Nullary
+open import Level using (Level; _⊔_)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; trans; cong)
+open import Relation.Nullary using (does)
 open import Relation.Nullary.Decidable
 
 open RawPseudocode pseudocode
@@ -45,7 +44,7 @@ record State : Set ℓ where
     R : Vector (Bits 32) 16
     P0 : Bits 16
     mask : Bits 8
-    QC : Bits 1
+    QC : Bit
     advanceVPT : Bool
 
 open Core State
@@ -84,7 +83,7 @@ ElmtMask = Bits 4
 &Q : ∀ {n ls} {Γ : Sets n ls} → PureExpr n Γ Instr.VecReg → PureExpr n Γ Beat → Reference n Γ (Bits 32)
 &Q reg beat = &S λ σ ρ → combine (reg σ ρ) (beat σ ρ)
 
-&FPSCR-QC : ∀ {n ls} {Γ : Sets n ls} → Reference n Γ (Bits 1)
+&FPSCR-QC : ∀ {n ls} {Γ : Sets n ls} → Reference n Γ Bit
 &FPSCR-QC = record
   { get = λ σ ρ → State.QC σ
   ; set = λ x σ ρ → record σ { QC = x } , ρ
@@ -159,30 +158,25 @@ copyMasked : Instr.VecReg → Procedure 3 (Bits 32 , Beat , ElmtMask , _)
 copyMasked dest =
   for 4 (
     -- 0:e 1:result 2:beat 3:elmtMask
-    if ⦇ (λ x y → does (getᵇ y x ≟ᵇ 1b)) (↓ !# 3) (↓ !# 0) ⦈
+    if ⦇ hasBit (↓ !# 0) (↓ !# 3) ⦈
     then
       elem 8 (&Q (pure′ dest) (!# 2)) (!# 0) ≔ ↓! elem 8 (var (# 1)) (!# 0)
     else skip) ∙
   ⦇ _ ⦈
 
 module fun-sliceᶻ
-  (≈ᶻ-trans : Transitive _≈ᶻ_)
-  (round∘float : ∀ x → x ≈ᶻ round (float x))
-  (round-cong : ∀ {x y} → x ≈ʳ y → round x ≈ᶻ round y)
-  (0#-homo-round : round 0ℝ ≈ᶻ 0ℤ)
-  (2^n≢0 : ∀ n → False (2ℤ ^ᶻ n ≟ᶻ 0ℤ))
-  (*ᶻ-identityʳ : ∀ x → x *ᶻ 1ℤ ≈ᶻ x)
+  (1<<n≉0 : ∀ n → False (float (1ℤ << n) ≟ʳ 0ℝ))
   where
 
-  open sliceᶻ ≈ᶻ-trans round∘float round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
+  open ShiftNotZero 1<<n≉0
 
   signedSatQ : ∀ n → Function 1 (ℤ , _) (Bits (suc n) × Bool)
   signedSatQ n = declare ⦇ true ⦈ $
     -- 0:sat 1:x
-    if ⦇ (λ i → does (1ℤ << n +ᶻ -ᶻ 1ℤ <?ᶻ i)) (↓ !# 1) ⦈
+    if ⦇ (λ i → does ((1ℤ << n) +ᶻ -ᶻ 1ℤ <ᶻ? i)) (↓ !# 1) ⦈
     then
-      var (# 1) ≔ ⦇ (1ℤ << n +ᶻ -ᶻ 1ℤ) ⦈
-    else if ⦇ (λ i → does (-ᶻ 1ℤ << n <?ᶻ i)) (↓ !# 1) ⦈
+      var (# 1) ≔ ⦇ ((1ℤ << n) +ᶻ -ᶻ 1ℤ) ⦈
+    else if ⦇ (λ i → does (-ᶻ 1ℤ << n <ᶻ? i)) (↓ !# 1) ⦈
     then
       var (# 1) ≔ ⦇ (-ᶻ 1ℤ << n) ⦈
     else
@@ -192,17 +186,17 @@ module fun-sliceᶻ
 advanceVPT : Procedure 1 (Beat , _)
 advanceVPT = declare (↓! elem 4 &VPR-mask (hilow ∘₂ !# 0)) $
   -- 0:vptState 1:beat
-  if ⦇ (λ x → does (x ≟ᵇ 1b ∶ 0b ∶ 0b ∶ 0b)) (↓ !# 0) ⦈
+  if ⦇ (λ x → does (x ≟ᵇ 1𝔹 ∷ zeros)) (↓ !# 0) ⦈
   then
     var (# 0) ≔ ⦇ zeros ⦈
-  else if ⦇ (λ x → does (x ≟ᵇ zeros {4})) (↓ !# 0) ⦈
+  else if ⦇ (λ x → does (x ≟ᵇ zeros)) (↓ !# 0) ⦈
   then skip
   else (
     if ⦇ (hasBit (# 3)) (↓ !# 0) ⦈
     then
-      elem 4 &VPR-P0 (!# 1) ⟵ not
+      elem 4 &VPR-P0 (!# 1) ⟵ (¬_)
     else skip ∙
-    (var (# 0) ⟵ λ x → sliceᵇ (# 3) zero x ∶ 0b)) ∙
+    (var (# 0) ⟵ λ x → sliceᵇ (# 3) zero x V.++ 0𝔹 ∷ [])) ∙
   if ⦇ (λ x → does (oddeven x Finₚ.≟ # 1)) (↓ !# 1) ⦈
   then
     elem 4 &VPR-mask (hilow ∘₂ !# 1) ≔ ↓ !# 0
@@ -213,7 +207,7 @@ execBeats : Procedure 2 (Beat , ElmtMask , _) → Procedure 0 _
 execBeats inst = declare ⦇ ones ⦈ $
   for 4 (
     -- 0:beat 1:elmtMask
-    if ⦇ (λ x → does (x ≟ᵇ zeros {4})) (↓! elem 4 &VPR-mask (hilow ∘₂ !# 0)) ⦈
+    if ⦇ (λ x → does (x ≟ᵇ zeros)) (↓! elem 4 &VPR-mask (hilow ∘₂ !# 0)) ⦈
     then
       var (# 1) ≔ ⦇ ones ⦈
     else
@@ -248,16 +242,11 @@ module _
 -- Instruction semantics
 
 module _
-  (≈ᶻ-trans : Transitive _≈ᶻ_)
-  (round∘float : ∀ x → x ≈ᶻ round (float x))
-  (round-cong : ∀ {x y} → x ≈ʳ y → round x ≈ᶻ round y)
-  (0#-homo-round : round 0ℝ ≈ᶻ 0ℤ)
-  (2^n≢0 : ∀ n → False (2ℤ ^ᶻ n ≟ᶻ 0ℤ))
-  (*ᶻ-identityʳ : ∀ x → x *ᶻ 1ℤ ≈ᶻ x)
+  (1<<n≉0 : ∀ n → False (float (1ℤ << n) ≟ʳ 0ℝ))
   where
 
-  open sliceᶻ ≈ᶻ-trans round∘float round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
-  open fun-sliceᶻ ≈ᶻ-trans round∘float round-cong 0#-homo-round 2^n≢0 *ᶻ-identityʳ
+  open ShiftNotZero 1<<n≉0
+  open fun-sliceᶻ 1<<n≉0
 
   vadd : Instr.VAdd → Procedure 2 (Beat , ElmtMask , _)
   vadd d = vec-op₂ d (λ x y → sliceᶻ _ zero (uint x +ᶻ uint y))
@@ -298,7 +287,7 @@ module _
       if ↓ !# 1
       then if ⦇ (λ m e → hasBit (combine e zero) (cast (sym e*e>>3≡4) m)) (↓ !# 5) (↓ !# 0) ⦈
       then
-        &FPSCR-QC ≔ ⦇ 1b ⦈
+        &FPSCR-QC ≔ ⦇ 1𝔹 ⦈
       else skip
       else skip) ∙
     invoke (copyMasked dest) ⦇ ↓ !# 2 , ⦇ ↓ !# 3 , ↓ !# 4 ⦈ ⦈ ∙
@@ -313,6 +302,8 @@ module _
   ⟦ Instr.vmul x ⟧₁ = execBeats (vmul x)
   ⟦ Instr.vmulh x ⟧₁ = execBeats (vmulh x)
   ⟦ Instr.vqdmulh x ⟧₁ = execBeats (vqdmulh x)
+
+  open List using (List; []; _∷_)
 
   ⟦_⟧ : List (Instr.Instruction) → Procedure 0 _
   ⟦ [] ⟧     = ⦇ _ ⦈
