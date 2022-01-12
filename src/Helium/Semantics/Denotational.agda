@@ -23,7 +23,7 @@ import Data.Nat.Properties as ℕₚ
 open import Data.Product using (∃; _×_; _,_; dmap)
 open import Data.Sum using ([_,_]′)
 open import Data.Vec.Functional as V using (Vector; []; _∷_)
-open import Function using (_$_; _∘₂_)
+open import Function using (_|>_; _$_; _∘₂_)
 open import Function.Nary.NonDependent.Base
 import Helium.Instructions as Instr
 import Helium.Semantics.Denotational.Core as Core
@@ -68,19 +68,19 @@ ElmtMask = Bits 4
 
 -- State properties
 
-&R : ∀ {n ls} {Γ : Sets n ls} → PureExpr n Γ (Fin 16) → Reference n Γ (Bits 32)
+&R : ∀ {n ls} {Γ : Sets n ls} → Expr n Γ (Fin 16) → Reference n Γ (Bits 32)
 &R e = record
   { get = λ σ ρ → State.R σ (e σ ρ)
   ; set = λ x σ ρ → record σ { R = V.updateAt (e σ ρ) (λ _ → x) (State.R σ) } , ρ
   }
 
-&S : ∀ {n ls} {Γ : Sets n ls} → PureExpr n Γ (Fin 32) → Reference n Γ (Bits 32)
+&S : ∀ {n ls} {Γ : Sets n ls} → Expr n Γ (Fin 32) → Reference n Γ (Bits 32)
 &S e = record
   { get = λ σ ρ → State.S σ (e σ ρ)
   ; set = λ x σ ρ → record σ { S = V.updateAt (e σ ρ) (λ _ → x) (State.S σ) } , ρ
   }
 
-&Q : ∀ {n ls} {Γ : Sets n ls} → PureExpr n Γ Instr.VecReg → PureExpr n Γ Beat → Reference n Γ (Bits 32)
+&Q : ∀ {n ls} {Γ : Sets n ls} → Expr n Γ Instr.VecReg → Expr n Γ Beat → Reference n Γ (Bits 32)
 &Q reg beat = &S λ σ ρ → combine (reg σ ρ) (beat σ ρ)
 
 &FPSCR-QC : ∀ {n ls} {Γ : Sets n ls} → Reference n Γ Bit
@@ -115,7 +115,7 @@ ElmtMask = Bits 4
   ; set = λ x σ ρ → Reference.set &v (cast (sym eq) x) σ ρ
   }
 
-slice : ∀ {k m n ls} {Γ : Sets n ls} → Reference n Γ (Bits m) → PureExpr n Γ (∃ λ (i : Fin (suc m)) → ∃ λ j → toℕ (i - j) ≡ k) → Reference n Γ (Bits k)
+slice : ∀ {k m n ls} {Γ : Sets n ls} → Reference n Γ (Bits m) → Expr n Γ (∃ λ (i : Fin (suc m)) → ∃ λ j → toℕ (i - j) ≡ k) → Reference n Γ (Bits k)
 slice &v idx = record
   { get = λ σ ρ → let (i , j , i-j≡k) = idx σ ρ in cast i-j≡k (sliceᵇ i j (Reference.get &v σ ρ))
   ; set = λ v σ ρ →
@@ -123,7 +123,7 @@ slice &v idx = record
     Reference.set &v (updateᵇ i j (cast (sym (i-j≡k)) v) (Reference.get &v σ ρ)) σ ρ
   }
 
-elem : ∀ {k n ls} {Γ : Sets n ls} m → Reference n Γ (Bits (k * m)) → PureExpr n Γ (Fin k) → Reference n Γ (Bits m)
+elem : ∀ {k n ls} {Γ : Sets n ls} m → Reference n Γ (Bits (k * m)) → Expr n Γ (Fin k) → Reference n Γ (Bits m)
 elem m &v idx = slice &v (λ σ ρ → helper _ _ (idx σ ρ))
   where
   helper : ∀ m n → Fin m → ∃ λ (i : Fin (suc (m * n))) → ∃ λ j → toℕ (i - j) ≡ n
@@ -158,11 +158,11 @@ copyMasked : Instr.VecReg → Procedure 3 (Bits 32 , Beat , ElmtMask , _)
 copyMasked dest =
   for 4 (
     -- 0:e 1:result 2:beat 3:elmtMask
-    if ⦇ hasBit (↓ !# 0) (↓ !# 3) ⦈
+    if ⦇ hasBit (!# 0) (!# 3) ⦈
     then
-      elem 8 (&Q (pure′ dest) (!# 2)) (!# 0) ≔ ↓! elem 8 (var (# 1)) (!# 0)
-    else skip) ∙
-  ⦇ _ ⦈
+      elem 8 (&Q ⦇ dest ⦈ (!# 2)) (!# 0) ≔ ! elem 8 (var (# 1)) (!# 0)
+    else skip)
+  ∙end
 
 module fun-sliceᶻ
   (1<<n≉0 : ∀ n → False (float (1ℤ << n) ≟ʳ 0ℝ))
@@ -173,52 +173,52 @@ module fun-sliceᶻ
   signedSatQ : ∀ n → Function 1 (ℤ , _) (Bits (suc n) × Bool)
   signedSatQ n = declare ⦇ true ⦈ $
     -- 0:sat 1:x
-    if ⦇ (λ i → does ((1ℤ << n) +ᶻ -ᶻ 1ℤ <ᶻ? i)) (↓ !# 1) ⦈
+    if ⦇ (λ i → does ((1ℤ << n) +ᶻ -ᶻ 1ℤ <ᶻ? i)) (!# 1) ⦈
     then
       var (# 1) ≔ ⦇ ((1ℤ << n) +ᶻ -ᶻ 1ℤ) ⦈
-    else if ⦇ (λ i → does (-ᶻ 1ℤ << n <ᶻ? i)) (↓ !# 1) ⦈
+    else if ⦇ (λ i → does (-ᶻ 1ℤ << n <ᶻ? i)) (!# 1) ⦈
     then
       var (# 1) ≔ ⦇ (-ᶻ 1ℤ << n) ⦈
     else
-      var (# 0) ≔ ⦇ false ⦈ ∙
-    ⦇ ⦇ (sliceᶻ (suc n) zero) (↓ !# 1) ⦈ , (↓ !# 0) ⦈
+      var (# 0) ≔ ⦇ false ⦈
+    ∙return ⦇ ⦇ (sliceᶻ (suc n) zero) (!# 1) ⦈ , (!# 0) ⦈
 
 advanceVPT : Procedure 1 (Beat , _)
-advanceVPT = declare (↓! elem 4 &VPR-mask (hilow ∘₂ !# 0)) $
+advanceVPT = declare (! elem 4 &VPR-mask (hilow ∘₂ !# 0)) $
   -- 0:vptState 1:beat
-  if ⦇ (λ x → does (x ≟ᵇ 1𝔹 ∷ zeros)) (↓ !# 0) ⦈
+  if ⦇ (λ x → does (x ≟ᵇ 1𝔹 ∷ zeros)) (!# 0) ⦈
   then
     var (# 0) ≔ ⦇ zeros ⦈
-  else if ⦇ (λ x → does (x ≟ᵇ zeros)) (↓ !# 0) ⦈
+  else if ⦇ (λ x → does (x ≟ᵇ zeros)) (!# 0) ⦈
   then skip
   else (
-    if ⦇ (hasBit (# 3)) (↓ !# 0) ⦈
+    if ⦇ (hasBit (# 3)) (!# 0) ⦈
     then
       elem 4 &VPR-P0 (!# 1) ⟵ (¬_)
     else skip ∙
     (var (# 0) ⟵ λ x → sliceᵇ (# 3) zero x V.++ 0𝔹 ∷ [])) ∙
-  if ⦇ (λ x → does (oddeven x Finₚ.≟ # 1)) (↓ !# 1) ⦈
+  if ⦇ (λ x → does (oddeven x Finₚ.≟ # 1)) (!# 1) ⦈
   then
-    elem 4 &VPR-mask (hilow ∘₂ !# 1) ≔ ↓ !# 0
-  else skip ∙
-  ⦇ _ ⦈
+    elem 4 &VPR-mask (hilow ∘₂ !# 1) ≔ !# 0
+  else skip
+  ∙end
 
 execBeats : Procedure 2 (Beat , ElmtMask , _) → Procedure 0 _
 execBeats inst = declare ⦇ ones ⦈ $
   for 4 (
     -- 0:beat 1:elmtMask
-    if ⦇ (λ x → does (x ≟ᵇ zeros)) (↓! elem 4 &VPR-mask (hilow ∘₂ !# 0)) ⦈
+    if ⦇ (λ x → does (x ≟ᵇ zeros)) (! elem 4 &VPR-mask (hilow ∘₂ !# 0)) ⦈
     then
       var (# 1) ≔ ⦇ ones ⦈
     else
-      var (# 1) ≔ ↓! elem 4 &VPR-P0 (!# 0) ∙
+      var (# 1) ≔ ! elem 4 &VPR-P0 (!# 0) ∙
     &AdvanceVPT ≔ ⦇ true ⦈ ∙
-    invoke inst ⦇ ↓ !# 0 , ↓ !# 1 ⦈ ∙
-    if ↓! &AdvanceVPT
+    invoke inst ⦇ !# 0 , !# 1 ⦈ ∙
+    if ! &AdvanceVPT
     then
-      invoke advanceVPT (↓ !# 0)
-    else skip) ∙
-  ⦇ _ ⦈
+      invoke advanceVPT (!# 0)
+    else skip)
+  ∙end
 
 module _
   (d : Instr.VecOp₂)
@@ -227,17 +227,17 @@ module _
   open Instr.VecOp₂ d
 
   vec-op₂ : Op₂ (Bits (toℕ esize)) → Procedure 2 (Beat , ElmtMask , _)
-  vec-op₂ op = declare ⦇ zeros ⦈ $ declare (↓! &Q (pure′ src₁) (!# 1)) $
+  vec-op₂ op = declare ⦇ zeros ⦈ $ declare (! &Q ⦇ src₁ ⦈ (!# 1)) $
     for (toℕ elements) (
       -- 0:e 1:op₁ 2:result 3:beat 4:elmntMask
       elem (toℕ esize) (&cast (sym e*e≡32) (var (# 2))) (!# 0) ≔
         (⦇ op
-           (↓! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0))
-           ([ (λ src₂ → ↓! slice (&R (pure′ src₂)) (pure′ (esize , zero , refl)))
-            , (λ src₂ → ↓! elem (toℕ esize) (&cast (sym e*e≡32) (&Q (pure′ src₂) (!# 3))) (!# 0))
+           (! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 1))) (!# 0))
+           ([ (λ src₂ → ! slice (&R ⦇ src₂ ⦈) ⦇ (esize , zero , refl) ⦈)
+            , (λ src₂ → ! elem (toℕ esize) (&cast (sym e*e≡32) (&Q ⦇ src₂ ⦈ (!# 3))) (!# 0))
             ]′ src₂) ⦈)) ∙
-    invoke (copyMasked dest) ⦇ ↓ !# 1 , ⦇ ↓ !# 2 , ↓ !# 3 ⦈ ⦈ ∙
-    ⦇ _ ⦈
+    invoke (copyMasked dest) ⦇ !# 1 , ⦇ !# 2 , !# 3 ⦈ ⦈
+    ∙end
 
 -- Instruction semantics
 
@@ -274,24 +274,24 @@ module _
     eq m (suc i) = eq m i
 
   vqdmulh : Instr.VQDMulH → Procedure 2 (Beat , ElmtMask , _)
-  vqdmulh d = declare ⦇ zeros ⦈ $ declare (↓! &Q (pure′ src₁) (!# 1)) $ declare ⦇ false ⦈ $
+  vqdmulh d = declare ⦇ zeros ⦈ $ declare (! &Q ⦇ src₁ ⦈ (!# 1)) $ declare ⦇ false ⦈ $
     for (toℕ elements) (
       -- 0:e 1:sat 2:op₁ 3:result 4:beat 5:elmntMask
       elem (toℕ esize) (&cast (sym e*e≡32) (var (# 3))) (!# 0) ,′ var (# 1) ≔
       call (signedSatQ (toℕ esize-1))
            ⦇ (λ x y → (2ℤ *ᶻ sint x *ᶻ sint y +ᶻ rval) >> toℕ esize)
-             (↓! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 2))) (!# 0))
-             ([ (λ src₂ → ↓! slice (&R (pure′ src₂)) (pure′ (esize , zero , refl)))
-              , (λ src₂ → ↓! elem (toℕ esize) (&cast (sym e*e≡32) (&Q (pure′ src₂) (!# 4))) (!# 0))
+             (! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 2))) (!# 0))
+             ([ (λ src₂ → ! slice (&R ⦇ src₂ ⦈) ⦇ (esize , zero , refl) ⦈)
+              , (λ src₂ → ! elem (toℕ esize) (&cast (sym e*e≡32) (&Q ⦇ src₂ ⦈ (!# 4))) (!# 0))
               ]′ src₂) ⦈ ∙
-      if ↓ !# 1
-      then if ⦇ (λ m e → hasBit (combine e zero) (cast (sym e*e>>3≡4) m)) (↓ !# 5) (↓ !# 0) ⦈
+      if !# 1
+      then if ⦇ (λ m e → hasBit (combine e zero) (cast (sym e*e>>3≡4) m)) (!# 5) (!# 0) ⦈
       then
         &FPSCR-QC ≔ ⦇ 1𝔹 ⦈
       else skip
       else skip) ∙
-    invoke (copyMasked dest) ⦇ ↓ !# 2 , ⦇ ↓ !# 3 , ↓ !# 4 ⦈ ⦈ ∙
-    ⦇ _ ⦈
+    invoke (copyMasked dest) ⦇ !# 2 , ⦇ !# 3 , !# 4 ⦈ ⦈
+    ∙end
     where
     open Instr.VQDMulH d
     rval = Bool.if rounding then 1ℤ << toℕ esize-1 else 0ℤ
@@ -306,5 +306,5 @@ module _
   open List using (List; []; _∷_)
 
   ⟦_⟧ : List (Instr.Instruction) → Procedure 0 _
-  ⟦ [] ⟧     = ⦇ _ ⦈
-  ⟦ i ∷ is ⟧ = invoke ⟦ i ⟧₁ ⦇ _ ⦈ ∙ ⟦ is ⟧
+  ⟦ [] ⟧     = skip ∙end
+  ⟦ i ∷ is ⟧ = invoke ⟦ i ⟧₁ ⦇ _ ⦈ ∙ invoke ⟦ is ⟧ ⦇ _ ⦈ ∙end
