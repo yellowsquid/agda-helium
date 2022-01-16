@@ -23,6 +23,17 @@ import Helium.Algebra.Core
 -- More properties of functions
 import Helium.Algebra.Definitions
 
+-- Ordering properties of functions
+import Helium.Algebra.Ordered.Definitions
+
+-- Definitions of ordered algebraic structures like monoids and rings
+-- (packed in records together with sets, operations, etc.)
+import Helium.Algebra.Ordered.StrictTotal.Bundles
+
+-- Some ordered algebraic structures (not packed up with sets,
+-- operations, etc.)
+import Helium.Algebra.Ordered.StrictTotal.Structures
+
 -- Some more algebraic structures
 import Helium.Algebra.Structures
 
