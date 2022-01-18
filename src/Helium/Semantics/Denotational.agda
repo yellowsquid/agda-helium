@@ -165,7 +165,7 @@ copyMasked dest =
   ∙end
 
 module fun-sliceᶻ
-  (1<<n≉0 : ∀ n → False (float (1ℤ << n) ≟ʳ 0ℝ))
+  (1<<n≉0 : ∀ n → False ((1ℤ << n) /1 ≟ʳ 0ℝ))
   where
 
   open ShiftNotZero 1<<n≉0
@@ -173,12 +173,12 @@ module fun-sliceᶻ
   signedSatQ : ∀ n → Function 1 (ℤ , _) (Bits (suc n) × Bool)
   signedSatQ n = declare ⦇ true ⦈ $
     -- 0:sat 1:x
-    if ⦇ (λ i → does ((1ℤ << n) +ᶻ -ᶻ 1ℤ <ᶻ? i)) (!# 1) ⦈
+    if ⦇ (λ i → does ((1ℤ << n) ℤ.+ ℤ.- 1ℤ <ᶻ? i)) (!# 1) ⦈
     then
-      var (# 1) ≔ ⦇ ((1ℤ << n) +ᶻ -ᶻ 1ℤ) ⦈
-    else if ⦇ (λ i → does (-ᶻ 1ℤ << n <ᶻ? i)) (!# 1) ⦈
+      var (# 1) ≔ ⦇ ((1ℤ << n) ℤ.+ ℤ.- 1ℤ) ⦈
+    else if ⦇ (λ i → does (ℤ.- 1ℤ << n <ᶻ? i)) (!# 1) ⦈
     then
-      var (# 1) ≔ ⦇ (-ᶻ 1ℤ << n) ⦈
+      var (# 1) ≔ ⦇ (ℤ.- 1ℤ << n) ⦈
     else
       var (# 0) ≔ ⦇ false ⦈
     ∙return ⦇ ⦇ (sliceᶻ (suc n) zero) (!# 1) ⦈ , (!# 0) ⦈
@@ -194,7 +194,7 @@ advanceVPT = declare (! elem 4 &VPR-mask (hilow ∘₂ !# 0)) $
   else (
     if ⦇ (hasBit (# 3)) (!# 0) ⦈
     then
-      elem 4 &VPR-P0 (!# 1) ⟵ (¬_)
+      elem 4 &VPR-P0 (!# 1) ⟵ (Bits.¬_)
     else skip ∙
     (var (# 0) ⟵ λ x → sliceᵇ (# 3) zero x V.++ 0𝔹 ∷ [])) ∙
   if ⦇ (λ x → does (oddeven x Finₚ.≟ # 1)) (!# 1) ⦈
@@ -242,27 +242,27 @@ module _
 -- Instruction semantics
 
 module _
-  (1<<n≉0 : ∀ n → False (float (1ℤ << n) ≟ʳ 0ℝ))
+  (1<<n≉0 : ∀ n → False ((1ℤ << n) /1 ≟ʳ 0ℝ))
   where
 
   open ShiftNotZero 1<<n≉0
   open fun-sliceᶻ 1<<n≉0
 
   vadd : Instr.VAdd → Procedure 2 (Beat , ElmtMask , _)
-  vadd d = vec-op₂ d (λ x y → sliceᶻ _ zero (uint x +ᶻ uint y))
+  vadd d = vec-op₂ d (λ x y → sliceᶻ _ zero (uint x ℤ.+ uint y))
 
   vsub : Instr.VSub → Procedure 2 (Beat , ElmtMask , _)
-  vsub d = vec-op₂ d (λ x y → sliceᶻ _ zero (uint x +ᶻ -ᶻ uint y))
+  vsub d = vec-op₂ d (λ x y → sliceᶻ _ zero (uint x ℤ.+ ℤ.- uint y))
 
   vhsub : Instr.VHSub → Procedure 2 (Beat , ElmtMask , _)
-  vhsub d = vec-op₂ op₂ (λ x y → sliceᶻ _ (suc zero) (int x +ᶻ -ᶻ int y))
+  vhsub d = vec-op₂ op₂ (λ x y → sliceᶻ _ (suc zero) (int x ℤ.+ ℤ.- int y))
     where open Instr.VHSub d ; int = Bool.if unsigned then uint else sint
 
   vmul : Instr.VMul → Procedure 2 (Beat , ElmtMask , _)
-  vmul d = vec-op₂ d (λ x y → sliceᶻ _ zero (sint x *ᶻ sint y))
+  vmul d = vec-op₂ d (λ x y → sliceᶻ _ zero (sint x ℤ.* sint y))
 
   vmulh : Instr.VMulH → Procedure 2 (Beat , ElmtMask , _)
-  vmulh d = vec-op₂ op₂ (λ x y → cast (eq _ esize) (sliceᶻ 2esize esize′ (int x *ᶻ int y +ᶻ rval)))
+  vmulh d = vec-op₂ op₂ (λ x y → cast (eq _ esize) (sliceᶻ 2esize esize′ (int x ℤ.* int y ℤ.+ rval)))
     where
     open Instr.VMulH d
     int = Bool.if unsigned then uint else sint
@@ -279,7 +279,7 @@ module _
       -- 0:e 1:sat 2:op₁ 3:result 4:beat 5:elmntMask
       elem (toℕ esize) (&cast (sym e*e≡32) (var (# 3))) (!# 0) ,′ var (# 1) ≔
       call (signedSatQ (toℕ esize-1))
-           ⦇ (λ x y → (2ℤ *ᶻ sint x *ᶻ sint y +ᶻ rval) >> toℕ esize)
+           ⦇ (λ x y → (2ℤ ℤ.* sint x ℤ.* sint y ℤ.+ rval) >> toℕ esize)
              (! elem (toℕ esize) (&cast (sym e*e≡32) (var (# 2))) (!# 0))
              ([ (λ src₂ → ! slice (&R ⦇ src₂ ⦈) ⦇ (esize , zero , refl) ⦈)
               , (λ src₂ → ! elem (toℕ esize) (&cast (sym e*e≡32) (&Q ⦇ src₂ ⦈ (!# 4))) (!# 0))

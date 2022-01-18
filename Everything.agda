@@ -14,14 +14,25 @@ import Helium.Algebra.Bundles
 -- Relations between properties of functions when the underlying relation is a setoid
 import Helium.Algebra.Consequences.Setoid
 
--- Construct algebras of vectors in a pointwise manner
-import Helium.Algebra.Construct.Pointwise
-
 -- More core algebraic definitions
 import Helium.Algebra.Core
 
+-- Definitions of decidable algebraic structures like monoids and rings
+-- (packed in records together with sets, operations, etc.)
+import Helium.Algebra.Decidable.Bundles
+
+-- Construct decidable algebras of vectors in a pointwise manner
+import Helium.Algebra.Decidable.Construct.Pointwise
+
+-- Some decidable algebraic structures (not packed up with sets,
+-- operations, etc.)
+import Helium.Algebra.Decidable.Structures
+
 -- More properties of functions
 import Helium.Algebra.Definitions
+
+-- Redefine Ring monomorphisms to resolve problems with overloading.
+import Helium.Algebra.Morphism.Structures
 
 -- Ordering properties of functions
 import Helium.Algebra.Ordered.Definitions
