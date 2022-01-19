@@ -6,7 +6,7 @@
 
 {-# OPTIONS --safe --without-K #-}
 
-module Helium.Data.Pseudocode where
+module Helium.Data.Pseudocode.Types where
 
 open import Algebra.Core
 import Algebra.Definitions.RawSemiring as RS

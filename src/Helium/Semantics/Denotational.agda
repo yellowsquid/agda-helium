@@ -6,7 +6,7 @@
 
 {-# OPTIONS --safe --without-K #-}
 
-open import Helium.Data.Pseudocode
+open import Helium.Data.Pseudocode.Types
 
 module Helium.Semantics.Denotational
   {b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃}

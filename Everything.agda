@@ -49,7 +49,7 @@ import Helium.Algebra.Ordered.StrictTotal.Structures
 import Helium.Algebra.Structures
 
 -- Definition of types and operations used by the Armv8-M pseudocode.
-import Helium.Data.Pseudocode
+import Helium.Data.Pseudocode.Types
 
 -- Definitions of a subset of Armv8-M instructions.
 import Helium.Instructions
