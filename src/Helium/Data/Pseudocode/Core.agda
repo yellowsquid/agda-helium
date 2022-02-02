@@ -96,6 +96,7 @@ data Literal : Type → Set where
   _′r : ℕ → Literal real
   _′x : ∀ {n} → Vec Bool n → Literal (bits n)
   _′e : ∀ {n} → Fin n → Literal (enum n)
+  _′a : ∀ {n t} → Vec (Literal t) n → Literal (array t n)
 
 --- Expressions, references, statements, functions and procedures
 
@@ -147,6 +148,7 @@ module Code {o} (Σ : Vec Type o) where
     head  : ∀ {m t ts} → Expression Γ (tuple (suc m) (t ∷ ts)) → Expression Γ t
     tail  : ∀ {m t ts} → Expression Γ (tuple (suc m) (t ∷ ts)) → Expression Γ (tuple m ts)
     call  : ∀ {t m Δ} → Function Δ t → Expression Γ (tuple m Δ) → Expression Γ t
+    if_then_else_ : ∀ {t} → Expression Γ bool → Expression Γ t → Expression Γ t → Expression Γ t
 
   data CanAssign {n} {Γ} where
     state : ∀ {i} {i<o : True (i ℕ.<? o)} → CanAssign (state i {i<o})
@@ -193,6 +195,7 @@ module Code {o} (Σ : Vec Type o) where
   canAssign? (head e)     = map′ head (λ { (head e) → e }) (canAssign? e)
   canAssign? (tail e)     = map′ tail (λ { (tail e) → e }) (canAssign? e)
   canAssign? (call x e)   = no λ ()
+  canAssign? (if e then e₁ else e₂) = no λ ()
 
   canAssignAll? []       = yes []
   canAssignAll? (e ∷ es) = map′ (uncurry _∷_) (λ { (e ∷ es) → e , es }) (canAssign? e ×-dec canAssignAll? es)
@@ -218,3 +221,14 @@ module Code {o} (Σ : Vec Type o) where
   data Procedure Γ where
     _∙end   : Statement Γ unit → Procedure Γ
     declare : ∀ {t} → Expression Γ t → Procedure (t ∷ Γ) → Procedure Γ
+
+  infixl  6 _<<_ _>>_
+  infixl 5 _-_
+  _-_   : ∀ {n Γ t₁ t₂} {isNumeric₁ : True (isNumeric? t₁)} {isNumeric₂ : True (isNumeric? t₂)} → Expression {n} Γ t₁ → Expression Γ t₂ → Expression Γ (combineNumeric t₁ t₂ {isNumeric₁} {isNumeric₂})
+  _-_ {isNumeric₂ = isNumeric₂} x y = x + (-_ {isNumeric = isNumeric₂} y)
+
+  _<<_ : ∀ {n Γ} → Expression {n} Γ int → Expression Γ int → Expression Γ int
+  x << n = rnd (x * lit (2 ′r) ^ n)
+
+  _>>_ : ∀ {n Γ} → Expression {n} Γ int → Expression Γ int → Expression Γ int
+  x >> n = rnd (x * lit (2 ′r) ^ - n)

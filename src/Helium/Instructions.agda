@@ -21,45 +21,42 @@ GenReg = Fin 16
 VecReg : Set
 VecReg = Fin 8
 
-record VecOp₂ : Set where
-  field
-    size : Fin 3
-    dest : VecReg
-    src₁ : VecReg
-    src₂ : GenReg ⊎ VecReg
+data VecOpSize : Set where
+  8bit  : VecOpSize
+  16bit : VecOpSize
+  32bit : VecOpSize
 
-  private
-    split32 : ∃ λ (elements : Fin 5) → ∃ λ (esize>>3-1 : Fin 4) → ∃ λ (esize-1 : Fin 32) → (8 * toℕ (suc esize>>3-1) ≡ toℕ (suc esize-1)) × (toℕ elements * toℕ (suc esize-1) ≡ 32) × (toℕ elements * toℕ (suc esize>>3-1) ≡ 4)
-    split32 = helper size
-      where
-      helper : _ → _
-      helper zero             = # 4 , # 0 , # 7 , refl , refl , refl
-      helper (suc zero)       = # 2 , # 1 , # 15 , refl , refl , refl
-      helper (suc (suc zero)) = # 1 , # 3 , # 31 , refl , refl , refl
+module Size (size : VecOpSize) where
+  elements-1 : Fin 4
+  elements-1 = helper size
+    where
+    helper : VecOpSize → Fin 4
+    helper 8bit  = # 3
+    helper 16bit = # 1
+    helper 32bit = # 0
 
   elements : Fin 5
-  elements with (elmt , _ ) ← split32 = elmt
-
-  esize>>3-1 : Fin 4
-  esize>>3-1 with (_ , esize>>3-1 , _) ← split32 = esize>>3-1
-
-  esize>>3 : Fin 5
-  esize>>3 = suc esize>>3-1
+  elements = suc elements-1
 
   esize-1 : Fin 32
-  esize-1 with (_ , _ , esize-1 , _) ← split32 = esize-1
+  esize-1 = helper size
+    where
+    helper : VecOpSize → Fin 32
+    helper 8bit  = # 7
+    helper 16bit = # 15
+    helper 32bit = # 31
 
   esize : Fin 33
   esize = suc esize-1
 
-  8*e>>3≡e : 8 * toℕ esize>>3 ≡ toℕ esize
-  8*e>>3≡e with (_ , _ , _ , eq , _) ← split32 = eq
+record VecOp₂ : Set where
+  field
+    size : VecOpSize
+    dest : VecReg
+    src₁ : VecReg
+    src₂ : GenReg ⊎ VecReg
 
-  e*e≡32 : toℕ elements * toℕ esize ≡ 32
-  e*e≡32 with (_ , _ , _ , _ , eq , _) ← split32 = eq
-
-  e*e>>3≡4 : toℕ elements * toℕ esize>>3 ≡ 4
-  e*e>>3≡4 with (_ , _ , _ , _ , _ , eq) ← split32 = eq
+  open Size size public
 
 VAdd = VecOp₂
 
@@ -78,16 +75,18 @@ record VMulH : Set where
   field
     op₂ : VecOp₂
     unsigned : Bool
-    rounding : Bool
 
   open VecOp₂ op₂ public
 
-record VQDMulH : Set where
+record VRMulH : Set where
   field
     op₂ : VecOp₂
-    rounding : Bool
+    unsigned : Bool
 
   open VecOp₂ op₂ public
+
+VQDMulH = VecOp₂
+VQRDMulH = VecOp₂
 
 data Instruction : Set where
   vadd : VAdd → Instruction
