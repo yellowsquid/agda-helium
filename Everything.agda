@@ -48,6 +48,9 @@ import Helium.Algebra.Ordered.StrictTotal.Structures
 -- Some more algebraic structures
 import Helium.Algebra.Structures
 
+-- Definition of instructions using the Armv8-M pseudocode.
+import Helium.Data.Pseudocode
+
 -- Definition of the Armv8-M pseudocode.
 import Helium.Data.Pseudocode.Core
 
