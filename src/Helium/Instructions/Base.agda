@@ -12,7 +12,7 @@ open import Data.Bool as Bool using (true; false)
 open import Data.Fin as Fin using (Fin; Fin′; zero; suc; toℕ)
 open import Data.Nat as ℕ using (ℕ; zero; suc)
 import Data.Nat.Properties as ℕₚ
-open import Data.Sum using ([_,_]′)
+open import Data.Sum using ([_,_]′; inj₂)
 open import Data.Vec as Vec using (Vec; []; _∷_)
 open import Data.Vec.Relation.Unary.All using (All; []; _∷_)
 open import Function using (_$_)
@@ -268,6 +268,14 @@ vrmulh : Instr.VRMulH → Procedure []
 vrmulh d = vec-op₂ op₂ (skip ∙return sliceⁱ (toℕ esize) (toInt (var 0) * toInt (var 1) + lit (1 ′i) << toℕ esize-1))
   where
   open Instr.VRMulH d; toInt = λ i → call Int (tup (i ∷ lit (unsigned ′b) ∷ []))
+
+vmla : Instr.VMlA → Procedure []
+vmla d = vec-op₂ op₂ (skip ∙return sliceⁱ (toℕ esize) (toInt (var 0) * element₂ + toInt (var 1)))
+  where
+  open Instr.VMlA d
+  op₂ = record { size = size ; dest = acc ; src₁ = src₁ ; src₂ = inj₂ acc }
+  toInt = λ i → call Int (tup (i ∷ lit (unsigned ′b) ∷ []))
+  element₂ = toInt (index (from32 size (index R (lit (src₂ ′f)))) (lit (zero ′f)))
 
 private
   vqr?dmulh : Instr.VQDMulH → Function (int ∷ int ∷ []) int → Procedure []

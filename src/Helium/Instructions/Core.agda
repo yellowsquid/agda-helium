@@ -85,6 +85,16 @@ record VRMulH : Set where
 
   open VecOp₂ op₂ public
 
+record VMlA : Set where
+  field
+    size     : VecOpSize
+    unsigned : Bool
+    acc      : VecReg
+    src₁     : VecReg
+    src₂     : GenReg
+
+  open Size size public
+
 VQDMulH = VecOp₂
 VQRDMulH = VecOp₂
 
