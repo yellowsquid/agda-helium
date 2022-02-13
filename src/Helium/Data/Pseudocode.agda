@@ -71,19 +71,15 @@ BeatId = state 6
 
 -- Indirect
 
-tup⇒array : ∀ {n Γ t m} → Expression {n} Γ (tuple (suc m) (Vec.replicate t)) → Expression Γ (array t (suc m))
-tup⇒array {m = zero}  xs = [ head xs ]
-tup⇒array {m = suc m} xs = [ head xs ] ∶ tup⇒array (tail xs)
-
 group : ∀ {n Γ t k} m → Expression {n} Γ (asType t (k ℕ.* suc m)) → Expression Γ (array (asType t k) (suc m))
 group {k = k} zero    x = [ cast (P.trans (ℕₚ.*-comm k 1) (ℕₚ.+-comm k 0)) x ]
-group {k = k} (suc m) x = [ slice (cast (ℕₚ.+-comm k _) x′) (lit (zero ′f)) ] ∶ group m (slice (cast (P.cong (k ℕ.+_) (ℕₚ.*-comm (suc m) k)) x′) (lit (Fin.fromℕ k ′f)))
+group {k = k} (suc m) x = group m (slice x′ (lit (Fin.fromℕ k ′f))) ∶ [ slice (cast (ℕₚ.+-comm k _) x′) (lit (zero ′f))  ]
   where
-  x′ = cast (ℕₚ.*-comm k (suc (suc m))) x
+  x′ = cast (P.trans (ℕₚ.*-comm k _) (P.cong (k ℕ.+_) (ℕₚ.*-comm _ k))) x
 
 join : ∀ {n Γ t k m} → Expression {n} Γ (array (asType t k) (suc m)) → Expression Γ (asType t (k ℕ.* suc m))
 join {k = k} {zero}  x = cast (P.trans (ℕₚ.+-comm 0 k) (ℕₚ.*-comm 1 k)) (unbox x)
-join {k = k} {suc m} x = cast eq (unbox (slice {i = suc m} (cast (ℕₚ.+-comm 1 (suc m)) x) (lit (zero ′f))) ∶ join (slice x (lit (Fin.fromℕ 1 ′f))))
+join {k = k} {suc m} x = cast eq (join (slice x (lit (Fin.fromℕ 1 ′f))) ∶ unbox (slice {i = suc m} (cast (ℕₚ.+-comm 1 _) x) (lit (zero ′f))))
   where
   eq = P.trans (P.cong (k ℕ.+_) (ℕₚ.*-comm k (suc m))) (ℕₚ.*-comm (suc (suc m)) k)
 
@@ -106,7 +102,7 @@ hasBit {n} x i = index x i ≟ lit ((true ∷ []) ′x)
 
 sliceⁱ : ∀ {n Γ m} → ℕ → Expression {n} Γ int → Expression Γ (bits m)
 sliceⁱ {m = zero}  n i = lit ([] ′x)
-sliceⁱ {m = suc m} n i = get (m ℕ.+ n) i ∶ sliceⁱ n i
+sliceⁱ {m = suc m} n i = sliceⁱ (suc n) i ∶ get n i
 
 --- Functions
 
@@ -126,18 +122,18 @@ SignedSatQ n = declare (lit (true ′b)) (
     var 0 ≔ lit (false ′b)
   ∙return tup (sliceⁱ 0 (var 1) ∷ var 0 ∷ []))
   where
-  max = lit (2 ′i) ^ lit (n ′i) + - lit (1 ′i)
-  min = - (lit (2 ′i) ^ lit (n ′i))
+  max = lit (2 ′i) ^ n + - lit (1 ′i)
+  min = - (lit (2 ′i) ^ n)
 
 -- actual shift if 'shift + 1'
 LSL-C : ∀ {n} (shift : ℕ) → Function (bits n ∷ []) (tuple 2 (bits n ∷ bit ∷ []))
 LSL-C {n} shift = declare (var 0 ∶ lit ((Vec.replicate {n = (suc shift)} false) ′x))
   (skip ∙return tup
-    ( slice (cast (ℕₚ.+-comm n _) (var 0)) (lit (zero ′f))
-    ∷ slice (cast eq₂ (var 0)) (lit (Fin.inject+ shift (Fin.fromℕ n) ′f))
+    ( slice (var 0) (lit (zero ′f))
+    ∷ slice (cast eq (var 0)) (lit (Fin.inject+ shift (Fin.fromℕ n) ′f))
     ∷ []))
   where
-  eq₂ = P.trans (P.cong (n ℕ.+_) (ℕₚ.+-comm 1 shift)) (P.sym (ℕₚ.+-assoc n shift 1))
+  eq = P.trans (ℕₚ.+-comm 1 (shift ℕ.+ n)) (P.cong (ℕ._+ 1) (ℕₚ.+-comm shift n))
 
 --- Procedures
 
@@ -229,7 +225,7 @@ module _ (d : Instr.VecOp₂) where
     declare (lit (Vec.replicate false ′x)) (
     -- 0:elmtMask 1:curBeat
     tup (var 1 ∷ var 0 ∷ []) ≔ call GetCurInstrBeat (tup []) ∙
-    declare (lit (Vec.replicate (Vec.replicate false ′x) ′a)) (
+    declare (lit ((Vec.replicate false ′x) ′a)) (
     declare (from32 size (index (index Q (lit (src₁ ′f))) (var 2))) (
     -- 0:op₁ 1:result 2:elmtMask 3:curBeat
     for (toℕ elements) (
@@ -266,7 +262,7 @@ vmulh d = vec-op₂ op₂ (skip ∙return sliceⁱ (toℕ esize) (toInt (var 0) 
   open Instr.VMulH d; toInt = λ i → call Int (tup (i ∷ lit (unsigned ′b) ∷ []))
 
 vrmulh : Instr.VRMulH → Procedure []
-vrmulh d = vec-op₂ op₂ (skip ∙return sliceⁱ (toℕ esize) (toInt (var 0) * toInt (var 1) + lit (1 ′i) << lit (toℕ esize-1 ′i)))
+vrmulh d = vec-op₂ op₂ (skip ∙return sliceⁱ (toℕ esize) (toInt (var 0) * toInt (var 1) + lit (1 ′i) << toℕ esize-1))
   where
   open Instr.VRMulH d; toInt = λ i → call Int (tup (i ∷ lit (unsigned ′b) ∷ []))
 
@@ -277,7 +273,7 @@ private
     declare (lit (Vec.replicate false ′x)) (
     -- 0:elmtMask 1:curBeat
     tup (var 1 ∷ var 0 ∷ []) ≔ call GetCurInstrBeat (tup []) ∙
-    declare (lit (Vec.replicate (Vec.replicate false ′x) ′a)) (
+    declare (lit ((Vec.replicate false ′x) ′a)) (
     declare (from32 size (index (index Q (lit (src₁ ′f))) (var 2))) (
     -- 0:op₁ 1:result 2:elmtMask 3:curBeat
     for (toℕ elements) (
@@ -313,9 +309,9 @@ private
         helper Instr.32bit i = Fin.combine i zero
 
 vqdmulh : Instr.VQDMulH → Procedure []
-vqdmulh d = vqr?dmulh d (skip ∙return lit (2 ′i) * var 0 * var 1 >> lit (toℕ esize ′i))
+vqdmulh d = vqr?dmulh d (skip ∙return lit (2 ′i) * var 0 * var 1 >> toℕ esize)
   where open Instr.VecOp₂ d using (esize)
 
 vqrdmulh : Instr.VQRDMulH → Procedure []
-vqrdmulh d = vqr?dmulh d (skip ∙return (lit (2 ′i) * var 0 * var 1 + lit (1 ′i) << lit (toℕ esize-1 ′i)) >> lit (toℕ esize ′i))
+vqrdmulh d = vqr?dmulh d (skip ∙return lit (2 ′i) * var 0 * var 1 + lit (1 ′i) << toℕ esize-1 >> toℕ esize)
   where open Instr.VecOp₂ d using (esize; esize-1)
