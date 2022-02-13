@@ -219,9 +219,9 @@ to32 Instr.32bit = join
 module _ (d : Instr.VecOp₂) where
   open Instr.VecOp₂ d
 
-  vec-op₂ : Function (bits (toℕ esize) ∷ bits (toℕ esize) ∷ []) (bits (toℕ esize)) → Procedure []
-  vec-op₂ op =
-    declare (lit (zero ′f)) (
+  -- op₁, op₂, e, elmtMask -> result
+  vec-op₂′ : Function (bits (toℕ esize) ∷ bits (toℕ esize) ∷ fin (toℕ elements) ∷ elmtMask ∷ []) (bits (toℕ esize)) → Procedure []
+  vec-op₂′ op = declare (lit (zero ′f)) (
     declare (lit (Vec.replicate false ′x)) (
     -- 0:elmtMask 1:curBeat
     tup (var 1 ∷ var 0 ∷ []) ≔ call GetCurInstrBeat (tup []) ∙
@@ -232,7 +232,7 @@ module _ (d : Instr.VecOp₂) where
        -- 0:e 1:op₁ 2:result 3:elmtMask 4:curBeat
       declare op₂ (
       -- 0:op₂ 1:e 2:op₁ 3:result 4:elmtMask 5:curBeat
-      index (var 3) (var 1) ≔ call op (tup (index (var 2) (var 1) ∷ var 0 ∷ [])))) ∙
+      index (var 3) (var 1) ≔ call op (tup (index (var 2) (var 1) ∷ var 0 ∷ var 1 ∷ var 4 ∷ [])))) ∙
     -- 0:op₁ 1:result 2:elmtMask 3:curBeat
     invoke copyMasked (tup (lit (dest ′f) ∷ to32 size (var 1) ∷ var 3 ∷ var 2 ∷ []))))
     ∙end))
@@ -242,6 +242,9 @@ module _ (d : Instr.VecOp₂) where
       [ (λ src₂ → index (from32 size (index R (lit (src₂ ′f)))) (lit (zero ′f)))
       , (λ src₂ → index (from32 size (index (index Q (lit (src₂ ′f))) (var 4))) (var 0))
       ]′ src₂
+
+  vec-op₂ : Function (bits (toℕ esize) ∷ bits (toℕ esize) ∷ []) (bits (toℕ esize)) → Procedure []
+  vec-op₂ op = vec-op₂′ (skip ∙return call op (tup (var 0 ∷ var 1 ∷ [])))
 
 vadd : Instr.VAdd → Procedure []
 vadd d = vec-op₂ d (skip ∙return sliceⁱ 0 (uint (var 0) + uint (var 1)))
@@ -268,45 +271,29 @@ vrmulh d = vec-op₂ op₂ (skip ∙return sliceⁱ (toℕ esize) (toInt (var 0)
 
 private
   vqr?dmulh : Instr.VQDMulH → Function (int ∷ int ∷ []) int → Procedure []
-  vqr?dmulh d f =
-    declare (lit (zero ′f)) (
+  vqr?dmulh d f = vec-op₂′ d (
+    -- 0:op₁ 1:op₂ 2:e 3:elmtMask
+    declare (call f (tup (sint (var 0) ∷ sint (var 1) ∷ []))) (
     declare (lit (Vec.replicate false ′x)) (
-    -- 0:elmtMask 1:curBeat
-    tup (var 1 ∷ var 0 ∷ []) ≔ call GetCurInstrBeat (tup []) ∙
-    declare (lit ((Vec.replicate false ′x) ′a)) (
-    declare (from32 size (index (index Q (lit (src₁ ′f))) (var 2))) (
-    -- 0:op₁ 1:result 2:elmtMask 3:curBeat
-    for (toℕ elements) (
-       -- 0:e 1:op₁ 2:result 3:elmtMask 4:curBeat
-      declare op₂ (
-      -- 0:op₂ 1:e 2:op₁ 3:result 4:elmtMask 5:curBeat
-      declare (call f (tup (sint (index (var 2) (var 1)) ∷ sint (var 0) ∷ []))) (
-      -- 0:value 1:op₂ 2:e 3:op₁ 4:result 5:elmtMask 6:curBeat
-      declare (lit (false ′b)) (
-      -- 0:sat 1:value 2:op₂ 3:e 4:op₁ 5:result 6:elmtMask 7:curBeat
-      tup (index (var 5) (var 3) ∷ var 0 ∷ []) ≔ call (SignedSatQ (toℕ esize-1)) (tup (var 1 ∷ [])) ∙
-      if var 0 && hasBit (var 6) (fin e*esize>>3 (tup (var 3 ∷ [])))
+    declare (lit (false ′b)) (
+      -- 0:sat 1:result 2:value 3:op₁ 4:op₂ 5:e 6:elmtMask
+      tup (var 1 ∷ var 0 ∷ []) ≔ call (SignedSatQ (toℕ esize-1)) (tup (var 2 ∷ [])) ∙
+      if var 0 && hasBit (var 6) (fin e*esize>>3 (tup (var 5 ∷ [])))
       then
         FPSCR-QC ≔ lit ((true ∷ []) ′x)
-      else skip)))) ∙
-    -- 0:op₁ 1:result 2:elmtMask 3:curBeat
-    invoke copyMasked (tup (lit (dest ′f) ∷ to32 size (var 1) ∷ var 3 ∷ var 2 ∷ []))))
-    ∙end))
-      where
-      open Instr.VecOp₂ d
-      -- 0:e 1:op₁ 2:result 3:elmtMask 4:curBeat
-      op₂ =
-        [ (λ src₂ → index (from32 size (index R (lit (src₂ ′f)))) (lit (zero ′f)))
-        , (λ src₂ → index (from32 size (index (index Q (lit (src₂ ′f))) (var 4))) (var 0))
-        ]′ src₂
+      else skip
+      ∙return var 1
+    ))))
+    where
+    open Instr.VecOp₂ d
 
-      e*esize>>3 : All Fin (toℕ elements ∷ []) → Fin 4
-      e*esize>>3 (x ∷ []) = helper size x
-        where
-        helper : ∀ size → Fin′ (Instr.Size.elements size) → Fin 4
-        helper Instr.8bit  i = Fin.combine i (zero {0})
-        helper Instr.16bit i = Fin.combine i (zero {1})
-        helper Instr.32bit i = Fin.combine i zero
+    e*esize>>3 : All Fin (toℕ elements ∷ []) → Fin 4
+    e*esize>>3 (x ∷ []) = helper size x
+      where
+      helper : ∀ size → Fin′ (Instr.Size.elements size) → Fin 4
+      helper Instr.8bit  i = Fin.combine i (zero {0})
+      helper Instr.16bit i = Fin.combine i (zero {1})
+      helper Instr.32bit i = Fin.combine i zero
 
 vqdmulh : Instr.VQDMulH → Procedure []
 vqdmulh d = vqr?dmulh d (skip ∙return lit (2 ′i) * var 0 * var 1 >> toℕ esize)
