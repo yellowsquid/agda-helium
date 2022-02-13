@@ -60,5 +60,8 @@ import Helium.Instructions.Base
 -- Definitions of the data for a subset of Armv8-M instructions.
 import Helium.Instructions.Core
 
+-- Implementation of Barrett reduction.
+import Helium.Instructions.Instances.Barrett
+
 -- Base definitions for the denotational semantics.
 import Helium.Semantics.Denotational.Core
