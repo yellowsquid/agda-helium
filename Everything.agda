@@ -48,20 +48,17 @@ import Helium.Algebra.Ordered.StrictTotal.Structures
 -- Some more algebraic structures
 import Helium.Algebra.Structures
 
--- Definition of instructions using the Armv8-M pseudocode.
-import Helium.Data.Pseudocode
-
 -- Definition of the Armv8-M pseudocode.
 import Helium.Data.Pseudocode.Core
 
 -- Definition of types and operations used by the Armv8-M pseudocode.
 import Helium.Data.Pseudocode.Types
 
--- Definitions of a subset of Armv8-M instructions.
-import Helium.Instructions
+-- Definition of instructions using the Armv8-M pseudocode.
+import Helium.Instructions.Base
 
--- Denotational semantics of Armv8-M instructions.
-import Helium.Semantics.Denotational
+-- Definitions of the data for a subset of Armv8-M instructions.
+import Helium.Instructions.Core
 
 -- Base definitions for the denotational semantics.
 import Helium.Semantics.Denotational.Core

@@ -1,12 +1,12 @@
 ------------------------------------------------------------------------
 -- Agda Helium
 --
--- Definitions of a subset of Armv8-M instructions.
+-- Definitions of the data for a subset of Armv8-M instructions.
 ------------------------------------------------------------------------
 
 {-# OPTIONS --safe --without-K #-}
 
-module Helium.Instructions where
+module Helium.Instructions.Core where
 
 open import Data.Bool
 open import Data.Fin

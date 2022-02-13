@@ -6,7 +6,7 @@
 
 {-# OPTIONS --safe --without-K #-}
 
-module Helium.Data.Pseudocode where
+module Helium.Instructions.Base where
 
 open import Data.Bool as Bool using (true; false)
 open import Data.Fin as Fin using (Fin; Fin′; zero; suc; toℕ)
@@ -18,7 +18,7 @@ open import Data.Vec.Relation.Unary.All using (All; []; _∷_)
 open import Function using (_$_)
 open import Helium.Data.Pseudocode.Core as Core public
   hiding (module Code)
-import Helium.Instructions as Instr
+import Helium.Instructions.Core as Instr
 import Relation.Binary.PropositionalEquality as P
 open import Relation.Nullary.Decidable.Core using (True)
 
