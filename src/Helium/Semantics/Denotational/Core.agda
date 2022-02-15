@@ -182,121 +182,71 @@ module Expression
 
   open Code Σ
 
-  ⟦_⟧ᵉ : ∀ {n} {Γ : Vec Type n} {t} → Expression Γ t → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ t ⟧ₜ
+  ⟦_⟧ᵉ : ∀ {n} {Γ : Vec Type n} {t} → Expression Γ t → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ t ⟧ₜ
   ⟦_⟧ˢ : ∀ {n} {Γ : Vec Type n} → Statement Γ → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′
-  ⟦_⟧ᶠ : ∀ {n} {Γ : Vec Type n} {ret} → Function Γ ret → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ ret ⟧ₜ
+  ⟦_⟧ᶠ : ∀ {n} {Γ : Vec Type n} {ret} → Function Γ ret → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ ret ⟧ₜ
   ⟦_⟧ᵖ : ∀ {n} {Γ : Vec Type n} → Procedure Γ → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′
   update : ∀ {n Γ t e} → CanAssign {n} {Γ} {t} e → ⟦ t ⟧ₜ → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′
 
-  ⟦ lit x ⟧ᵉ σ γ = σ , 𝒦 x
-  ⟦ state i ⟧ᵉ σ γ = σ , fetch Σ σ (# i)
-  ⟦_⟧ᵉ {Γ = Γ} (var i) σ γ = σ , fetch Γ γ (# i)
-  ⟦ abort e ⟧ᵉ σ γ = case P.proj₂ (⟦ e ⟧ᵉ σ γ) of λ ()
-  ⟦ _≟_ {hasEquality = hasEq} e e₁ ⟧ᵉ σ γ = do
-    let σ′ , x = ⟦ e ⟧ᵉ σ γ
-    let σ′′ , y = ⟦ e ⟧ᵉ σ′ γ
-    σ′′ , equal (toWitness hasEq) x y
-  ⟦ _<?_ {isNumeric = isNum} e e₁ ⟧ᵉ σ γ = do
-    let σ′ , x = ⟦ e ⟧ᵉ σ γ
-    let σ′′ , y = ⟦ e ⟧ᵉ σ′ γ
-    σ′′ , comp (toWitness isNum) x y
-  ⟦ inv e ⟧ᵉ σ γ = P.map₂ Bool.not (⟦ e ⟧ᵉ σ γ)
-  ⟦ e && e₁ ⟧ᵉ σ γ = do
-    let σ′ , x = ⟦ e ⟧ᵉ σ γ
-    Bool.if x then ⟦ e₁ ⟧ᵉ σ′ γ else σ′ , false
-  ⟦ e || e₁ ⟧ᵉ σ γ = do
-    let σ′ , x = ⟦ e ⟧ᵉ σ γ
-    Bool.if x then σ′ , true else ⟦ e₁ ⟧ᵉ σ′ γ
-  ⟦ not e ⟧ᵉ σ γ = P.map₂ Bits.¬_ (⟦ e ⟧ᵉ σ γ)
-  ⟦ e and e₁ ⟧ᵉ σ γ = do
-    let σ′ , x = ⟦ e ⟧ᵉ σ γ
-    let σ′′ , y = ⟦ e₁ ⟧ᵉ σ′ γ
-    σ′′ , x Bits.∧ y
-  ⟦ e or e₁ ⟧ᵉ σ γ = do
-    let σ′ , x = ⟦ e ⟧ᵉ σ γ
-    let σ′′ , y = ⟦ e₁ ⟧ᵉ σ′ γ
-    σ′′ , x Bits.∨ y
-  ⟦ [ e ] ⟧ᵉ σ γ = P.map₂ (Vec._∷ []) (⟦ e ⟧ᵉ σ γ)
-  ⟦ unbox e ⟧ᵉ σ γ = P.map₂ Vec.head (⟦ e ⟧ᵉ σ γ)
-  ⟦ _∶_ {t = t} e e₁ ⟧ᵉ σ γ = do
-    let σ′ , x = ⟦ e ⟧ᵉ σ γ
-    let σ′′ , y = ⟦ e₁ ⟧ᵉ σ′ γ
-    σ′′ , join t x y
-  ⟦ slice {t = t} e e₁ ⟧ᵉ σ γ = do
-    let σ′ , x = ⟦ e ⟧ᵉ σ γ
-    let σ′′ , y = ⟦ e₁ ⟧ᵉ σ′ γ
-    σ′′ , sliced t x y
-  ⟦ cast {t = t} eq e ⟧ᵉ σ γ = P.map₂ (casted t eq) (⟦ e ⟧ᵉ σ γ)
-  ⟦ -_ {isNumeric = isNum} e ⟧ᵉ σ γ = P.map₂ (neg (toWitness isNum)) (⟦ e ⟧ᵉ σ γ)
-  ⟦ _+_ {isNumeric₁ = isNum₁} {isNumeric₂ = isNum₂} e e₁ ⟧ᵉ σ γ = do
-    let σ′ , x = ⟦ e ⟧ᵉ σ γ
-    let σ′′ , y = ⟦ e₁ ⟧ᵉ σ′ γ
-    σ′′ , add isNum₁ isNum₂ x y
-  ⟦ _*_ {isNumeric₁ = isNum₁} {isNumeric₂ = isNum₂} e e₁ ⟧ᵉ σ γ = do
-    let σ′ , x = ⟦ e ⟧ᵉ σ γ
-    let σ′′ , y = ⟦ e₁ ⟧ᵉ σ′ γ
-    σ′′ , mul isNum₁ isNum₂ x y
+  ⟦ lit x ⟧ᵉ σ γ = 𝒦 x
+  ⟦ state i ⟧ᵉ σ γ = fetch Σ σ (# i)
+  ⟦_⟧ᵉ {Γ = Γ} (var i) σ γ = fetch Γ γ (# i)
+  ⟦ abort e ⟧ᵉ σ γ = case ⟦ e ⟧ᵉ σ γ of λ ()
+  ⟦ _≟_ {hasEquality = hasEq} e e₁ ⟧ᵉ σ γ = equal (toWitness hasEq) (⟦ e ⟧ᵉ σ γ) (⟦ e₁ ⟧ᵉ σ γ)
+  ⟦ _<?_ {isNumeric = isNum} e e₁ ⟧ᵉ σ γ = comp (toWitness isNum) (⟦ e ⟧ᵉ σ γ) (⟦ e₁ ⟧ᵉ σ γ)
+  ⟦ inv e ⟧ᵉ σ γ = Bool.not (⟦ e ⟧ᵉ σ γ)
+  ⟦ e && e₁ ⟧ᵉ σ γ = Bool.if ⟦ e ⟧ᵉ σ γ then ⟦ e₁ ⟧ᵉ σ γ else false
+  ⟦ e || e₁ ⟧ᵉ σ γ = Bool.if ⟦ e ⟧ᵉ σ γ then true else ⟦ e₁ ⟧ᵉ σ γ
+  ⟦ not e ⟧ᵉ σ γ = Bits.¬_ (⟦ e ⟧ᵉ σ γ)
+  ⟦ e and e₁ ⟧ᵉ σ γ = ⟦ e ⟧ᵉ σ γ Bits.∧ ⟦ e₁ ⟧ᵉ σ γ
+  ⟦ e or e₁ ⟧ᵉ σ γ = ⟦ e ⟧ᵉ σ γ Bits.∨ ⟦ e₁ ⟧ᵉ σ γ
+  ⟦ [ e ] ⟧ᵉ σ γ = ⟦ e ⟧ᵉ σ γ Vec.∷ []
+  ⟦ unbox e ⟧ᵉ σ γ = Vec.head (⟦ e ⟧ᵉ σ γ)
+  ⟦ _∶_ {t = t} e e₁ ⟧ᵉ σ γ = join t (⟦ e ⟧ᵉ σ γ) (⟦ e₁ ⟧ᵉ σ γ)
+  ⟦ slice {t = t} e e₁ ⟧ᵉ σ γ = sliced t (⟦ e ⟧ᵉ σ γ) (⟦ e₁ ⟧ᵉ σ γ)
+  ⟦ cast {t = t} eq e ⟧ᵉ σ γ = casted t eq (⟦ e ⟧ᵉ σ γ)
+  ⟦ -_ {isNumeric = isNum} e ⟧ᵉ σ γ = neg (toWitness isNum) (⟦ e ⟧ᵉ σ γ)
+  ⟦ _+_ {isNumeric₁ = isNum₁} {isNumeric₂ = isNum₂} e e₁ ⟧ᵉ σ γ = add isNum₁ isNum₂ (⟦ e ⟧ᵉ σ γ) (⟦ e₁ ⟧ᵉ σ γ)
+  ⟦ _*_ {isNumeric₁ = isNum₁} {isNumeric₂ = isNum₂} e e₁ ⟧ᵉ σ γ = mul isNum₁ isNum₂ (⟦ e ⟧ᵉ σ γ) (⟦ e₁ ⟧ᵉ σ γ)
   -- ⟦ e / e₁ ⟧ᵉ σ γ = {!!}
-  ⟦ _^_ {isNumeric = isNum} e n ⟧ᵉ σ γ = P.map₂ (λ x → pow (toWitness isNum) x n) (⟦ e ⟧ᵉ σ γ)
-  ⟦ _>>_ e n ⟧ᵉ σ γ = P.map₂ (λ x → shiftr 2≉0 x n) (⟦ e ⟧ᵉ σ γ)
-  ⟦ rnd e ⟧ᵉ σ γ = P.map₂ ⌊_⌋ (⟦ e ⟧ᵉ σ γ)
-  ⟦ fin x e ⟧ᵉ σ γ = P.map₂ (apply x) (⟦ e ⟧ᵉ σ γ)
+  ⟦ _^_ {isNumeric = isNum} e n ⟧ᵉ σ γ = pow (toWitness isNum) (⟦ e ⟧ᵉ σ γ) n
+  ⟦ _>>_ e n ⟧ᵉ σ γ = shiftr 2≉0 (⟦ e ⟧ᵉ σ γ) n
+  ⟦ rnd e ⟧ᵉ σ γ = ⌊ ⟦ e ⟧ᵉ σ γ ⌋
+  ⟦ fin x e ⟧ᵉ σ γ = apply x (⟦ e ⟧ᵉ σ γ)
     where
     apply : ∀ {k ms n} → (All Fin ms → Fin n) → ⟦ Vec.map {n = k} fin ms ⟧ₜ′ → ⟦ fin n ⟧ₜ
     apply {zero}  {[]}     f xs = f []
     apply {suc k} {_ ∷ ms} f xs =
       apply (λ x → f (tupHead (Vec.map fin ms) xs ∷ x)) (tupTail (Vec.map fin ms) xs)
-  ⟦ asInt e ⟧ᵉ σ γ = P.map₂ (λ i → Fin.toℕ i ℤ′.×′ 1ℤ) (⟦ e ⟧ᵉ σ γ)
-  ⟦ tup [] ⟧ᵉ σ γ = σ , _
+  ⟦ asInt e ⟧ᵉ σ γ = Fin.toℕ (⟦ e ⟧ᵉ σ γ) ℤ′.×′ 1ℤ
+  ⟦ tup [] ⟧ᵉ σ γ = _
   ⟦ tup (e ∷ []) ⟧ᵉ σ γ = ⟦ e ⟧ᵉ σ γ
-  ⟦ tup (e ∷ e′ ∷ es) ⟧ᵉ σ γ = do
-    let σ′ , v = ⟦ e ⟧ᵉ σ γ
-    let σ′′ , vs = ⟦ tup (e′ ∷ es) ⟧ᵉ σ′ γ
-    σ′′ , (v , vs)
-  ⟦ call f e ⟧ᵉ σ γ = P.uncurry ⟦ f ⟧ᶠ (⟦ e ⟧ᵉ σ γ)
-  ⟦ if e then e₁ else e₂ ⟧ᵉ σ γ = do
-    let σ′ , x = ⟦ e ⟧ᵉ σ γ
-    Bool.if x then ⟦ e₁ ⟧ᵉ σ′ γ else ⟦ e₂ ⟧ᵉ σ′ γ
+  ⟦ tup (e ∷ e′ ∷ es) ⟧ᵉ σ γ = ⟦ e ⟧ᵉ σ γ , ⟦ tup (e′ ∷ es) ⟧ᵉ σ γ
+  ⟦ call f e ⟧ᵉ σ γ = ⟦ f ⟧ᶠ σ (⟦ e ⟧ᵉ σ γ)
+  ⟦ if e then e₁ else e₂ ⟧ᵉ σ γ = Bool.if ⟦ e ⟧ᵉ σ γ then ⟦ e₁ ⟧ᵉ σ γ else ⟦ e₂ ⟧ᵉ σ γ
 
-  ⟦ s ∙ s₁ ⟧ˢ σ γ = do
-    let σ′ , γ′ = ⟦ s ⟧ˢ σ γ
-    ⟦ s ⟧ˢ σ′ γ′
+  ⟦ s ∙ s₁ ⟧ˢ σ γ = P.uncurry ⟦ s ⟧ˢ (⟦ s ⟧ˢ σ γ)
   ⟦ skip ⟧ˢ σ γ = σ , γ
-  ⟦ _≔_ ref {canAssign = canAssign} e ⟧ˢ σ γ = do
-    let σ′ , v = ⟦ e ⟧ᵉ σ γ
-    update (toWitness canAssign) v σ′ γ
-  ⟦_⟧ˢ {Γ = Γ} (declare e s) σ γ = do
-    let σ′ , x = ⟦ e ⟧ᵉ σ γ
-    let σ′′ , γ′ = ⟦ s ⟧ˢ σ′ (tupCons Γ x γ)
-    σ′′ , tupTail Γ γ′
-  ⟦ invoke p e ⟧ˢ σ γ = do
-    let σ′ , v = ⟦ e ⟧ᵉ σ γ
-    ⟦ p ⟧ᵖ σ′ v , γ
-  ⟦ if e then s₁ else s₂ ⟧ˢ σ γ = do
-    let σ′ , x = ⟦ e ⟧ᵉ σ γ
-    Bool.if x then ⟦ s₁ ⟧ˢ σ′ γ else ⟦ s₂ ⟧ˢ σ′ γ
+  ⟦ _≔_ ref {canAssign = canAssign} e ⟧ˢ σ γ = update (toWitness canAssign) (⟦ e ⟧ᵉ σ γ) σ γ
+  ⟦_⟧ˢ {Γ = Γ} (declare e s) σ γ = P.map₂ (tupTail Γ) (⟦ s ⟧ˢ σ (tupCons Γ (⟦ e ⟧ᵉ σ γ) γ))
+  ⟦ invoke p e ⟧ˢ σ γ = ⟦ p ⟧ᵖ σ (⟦ e ⟧ᵉ σ γ) , γ
+  ⟦ if e then s₁ else s₂ ⟧ˢ σ γ = Bool.if ⟦ e ⟧ᵉ σ γ then ⟦ s₁ ⟧ˢ σ γ else ⟦ s₂ ⟧ˢ σ γ
   ⟦_⟧ˢ {Γ = Γ} (for m s) σ γ = helper m ⟦ s ⟧ˢ σ γ
     where
     helper : ∀ m → (⟦ Σ ⟧ₜ′ → ⟦ fin m ∷ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ fin m ∷ Γ ⟧ₜ′) → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′
     helper zero    s σ γ = σ , γ
-    helper (suc m) s σ γ with s σ (tupCons Γ zero γ)
-    ... | σ′ , γ′ = helper m s′ σ′ (tupTail Γ γ′)
+    helper (suc m) s σ γ = P.uncurry (helper m s′) (P.map₂ (tupTail Γ) (s σ (tupCons Γ zero γ)))
       where
       s′ : ⟦ Σ ⟧ₜ′ → ⟦ fin m ∷ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ fin m ∷ Γ ⟧ₜ′
       s′ σ γ =
         P.map₂ (tupCons Γ (tupHead Γ γ) ∘′ (tupTail Γ))
                (s σ (tupCons Γ (suc (tupHead Γ γ)) (tupTail Γ γ)))
 
-  ⟦ s ∙return e ⟧ᶠ σ γ with ⟦ s ⟧ˢ σ γ
-  ... | σ′ , γ′ = ⟦ e ⟧ᵉ σ′ γ′
-  ⟦_⟧ᶠ {Γ = Γ} (declare e f) σ γ = do
-    let σ′ , x = ⟦ e ⟧ᵉ σ γ
-    ⟦ f ⟧ᶠ σ′ (tupCons Γ x γ)
+  ⟦ s ∙return e ⟧ᶠ σ γ = P.uncurry ⟦ e ⟧ᵉ (⟦ s ⟧ˢ σ γ)
+  ⟦_⟧ᶠ {Γ = Γ} (declare e f) σ γ = ⟦ f ⟧ᶠ σ (tupCons Γ (⟦ e ⟧ᵉ σ γ) γ)
 
   ⟦ s ∙end ⟧ᵖ σ γ = P.proj₁ (⟦ s ⟧ˢ σ γ)
-  ⟦_⟧ᵖ {Γ = Γ} (declare e p) σ γ = do
-    let σ′ , x = ⟦ e ⟧ᵉ σ γ
-    ⟦ p ⟧ᵖ σ′ (tupCons Γ x γ)
+  ⟦_⟧ᵖ {Γ = Γ} (declare e p) σ γ = ⟦ p ⟧ᵖ σ (tupCons Γ (⟦ e ⟧ᵉ σ γ) γ)
 
   update (state i {i<o}) v σ γ = updateAt Σ (#_ i {m<n = i<o}) v σ , γ
   update {Γ = Γ} (var i {i<n}) v σ γ = σ , updateAt Γ (#_ i {m<n = i<n}) v γ
@@ -306,10 +256,7 @@ module Expression
     update e₁ (sliced t (casted t (ℕₚ.+-comm _ m) v) zero) σ′ γ′
   update [ e ] v σ γ = update e (Vec.head v) σ γ
   update (unbox e) v σ γ = update e (v ∷ []) σ γ
-  update (slice {t = t} {e₁ = e₁} a e₂) v σ γ = do
-    let σ′ , off = ⟦ e₂ ⟧ᵉ σ γ
-    let σ′′ , orig = ⟦ e₁ ⟧ᵉ σ′ γ
-    updateSliced t orig off v (λ v → update a v σ′′ γ)
+  update (slice {t = t} {e₁ = e₁} a e₂) v σ γ = updateSliced t (⟦ e₁ ⟧ᵉ σ γ) (⟦ e₂ ⟧ᵉ σ γ) v (λ v → update a v σ γ)
   update (cast {t = t} eq e) v σ γ = update e (casted t (≡.sym eq) v) σ γ
   update (tup {es = []} x) v σ γ = σ , γ
   update (tup {es = _ ∷ []} (x ∷ [])) v σ γ = update x v σ γ

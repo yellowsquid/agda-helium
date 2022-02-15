@@ -219,8 +219,8 @@ to32 Instr.32bit = join
 module _ (d : Instr.VecOp₂) where
   open Instr.VecOp₂ d
 
-  -- op₁, op₂, e, elmtMask -> result
-  vec-op₂′ : Function (bits (toℕ esize) ∷ bits (toℕ esize) ∷ fin (toℕ elements) ∷ elmtMask ∷ []) (bits (toℕ esize)) → Procedure []
+ -- 0:op₂ 1:e 2:op₁ 3:result 4:elmtMask 5:curBeat
+  vec-op₂′ : Statement (bits (toℕ esize) ∷ fin (toℕ elements) ∷ array (bits (toℕ esize)) (toℕ elements) ∷ array (bits (toℕ esize)) (toℕ elements) ∷ elmtMask ∷ beat ∷ []) → Procedure []
   vec-op₂′ op = declare (lit (zero ′f)) (
     declare (lit (Vec.replicate false ′x)) (
     -- 0:elmtMask 1:curBeat
@@ -230,9 +230,7 @@ module _ (d : Instr.VecOp₂) where
     -- 0:op₁ 1:result 2:elmtMask 3:curBeat
     for (toℕ elements) (
        -- 0:e 1:op₁ 2:result 3:elmtMask 4:curBeat
-      declare op₂ (
-      -- 0:op₂ 1:e 2:op₁ 3:result 4:elmtMask 5:curBeat
-      index (var 3) (var 1) ≔ call op (tup (index (var 2) (var 1) ∷ var 0 ∷ var 1 ∷ var 4 ∷ [])))) ∙
+      declare op₂ op ) ∙
     -- 0:op₁ 1:result 2:elmtMask 3:curBeat
     invoke copyMasked (tup (lit (dest ′f) ∷ to32 size (var 1) ∷ var 3 ∷ var 2 ∷ []))))
     ∙end))
@@ -244,7 +242,7 @@ module _ (d : Instr.VecOp₂) where
       ]′ src₂
 
   vec-op₂ : Function (bits (toℕ esize) ∷ bits (toℕ esize) ∷ []) (bits (toℕ esize)) → Procedure []
-  vec-op₂ op = vec-op₂′ (skip ∙return call op (tup (var 0 ∷ var 1 ∷ [])))
+  vec-op₂ op = vec-op₂′ (index (var 3) (var 1) ≔ call op (tup (index (var 2) (var 1) ∷ var 0 ∷ [])))
 
 vadd : Instr.VAdd → Procedure []
 vadd d = vec-op₂ d (skip ∙return sliceⁱ 0 (uint (var 0) + uint (var 1)))
@@ -280,18 +278,15 @@ vmla d = vec-op₂ op₂ (skip ∙return sliceⁱ (toℕ esize) (toInt (var 0) *
 private
   vqr?dmulh : Instr.VQDMulH → Function (int ∷ int ∷ []) int → Procedure []
   vqr?dmulh d f = vec-op₂′ d (
-    -- 0:op₁ 1:op₂ 2:e 3:elmtMask
-    declare (call f (tup (sint (var 0) ∷ sint (var 1) ∷ []))) (
-    declare (lit (Vec.replicate false ′x)) (
+    -- 0:op₂ 1:e 2:op₁ 3:result 4:elmtMask 5:curBeat
+    declare (call f (tup (sint (index (var 2) (var 1)) ∷ sint (var 0) ∷ []))) (
     declare (lit (false ′b)) (
-      -- 0:sat 1:result 2:value 3:op₁ 4:op₂ 5:e 6:elmtMask
-      tup (var 1 ∷ var 0 ∷ []) ≔ call (SignedSatQ (toℕ esize-1)) (tup (var 2 ∷ [])) ∙
-      if var 0 && hasBit (var 6) (fin e*esize>>3 (tup (var 5 ∷ [])))
+      -- 0:sat 1:value 2:op₂ 3:e 4:op₁ 5:result 6:elmtMask 7:curBeat
+      tup (index (var 5) (var 3) ∷ var 0 ∷ []) ≔ call (SignedSatQ (toℕ esize-1)) (tup (var 1 ∷ [])) ∙
+      if var 0 && hasBit (var 6) (fin e*esize>>3 (tup ((var 3) ∷ [])))
       then
         FPSCR-QC ≔ lit ((true ∷ []) ′x)
-      else skip
-      ∙return var 1
-    ))))
+      else skip)))
     where
     open Instr.VecOp₂ d
 

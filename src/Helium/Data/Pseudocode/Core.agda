@@ -13,13 +13,16 @@ open import Data.Fin using (Fin; #_)
 open import Data.Nat as ℕ using (ℕ; zero; suc)
 open import Data.Nat.Properties using (+-comm)
 open import Data.Product using (∃; _,_; proj₂; uncurry)
+open import Data.Sum using ([_,_]′; inj₁; inj₂)
 open import Data.Vec using (Vec; []; _∷_; lookup; map)
-open import Data.Vec.Relation.Unary.All using (All; []; _∷_; reduce; all?)
+open import Data.Vec.Relation.Unary.All using (All; []; _∷_; reduce)
+open import Data.Vec.Relation.Unary.Any using (Any; here; there)
 open import Function as F using (_∘_; _∘′_; _∋_)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 open import Relation.Nullary using (yes; no)
-open import Relation.Nullary.Decidable.Core using (True; map′)
+open import Relation.Nullary.Decidable.Core using (True; False; toWitness; fromWitness; map′)
 open import Relation.Nullary.Product using (_×-dec_)
+open import Relation.Nullary.Sum using (_⊎-dec_)
 open import Relation.Unary using (Decidable)
 
 --- The set of types and boolean properties of them
@@ -95,10 +98,15 @@ data Literal : Type → Set where
 
 module Code {o} (Σ : Vec Type o) where
   data Expression {n} (Γ : Vec Type n) : Type → Set
-  data CanAssign {n} {Γ} : ∀ {t} → Expression {n} Γ t → Set
+  data CanAssign {n Γ} : ∀ {t} → Expression {n} Γ t → Set
   canAssign? : ∀ {n Γ t} → Decidable (CanAssign {n} {Γ} {t})
   canAssignAll? : ∀ {n Γ m ts} → Decidable {A = All (Expression {n} Γ) {m} ts} (All (CanAssign ∘ proj₂) ∘ (reduce (λ {x} e → x , e)))
+  data AssignsState {n Γ} : ∀ {t e} → CanAssign {n} {Γ} {t} e → Set
+  assignsState? : ∀ {n Γ t e} → Decidable (AssignsState {n} {Γ} {t} {e})
+  assignsStateAny? : ∀ {n Γ m ts es} → Decidable {A = All (CanAssign ∘ proj₂) (reduce {P = Expression {n} Γ} (λ {x} e → x , e) {m} {ts} es)} (Any (AssignsState ∘ proj₂) ∘ reduce (λ {x} a → x , a))
   data Statement {n} (Γ : Vec Type n) : Set
+  data ChangesState {n Γ} : Statement {n} Γ → Set
+  changesState? : ∀ {n Γ} → Decidable (ChangesState {n} {Γ})
   data Function {n} (Γ : Vec Type n) (ret : Type) : Set
   data Procedure {n} (Γ : Vec Type n) : Set
 
@@ -134,7 +142,6 @@ module Code {o} (Σ : Vec Type o) where
     _^_   : ∀ {t} {isNumeric : True (isNumeric? t)} → Expression Γ t → ℕ → Expression Γ t
     _>>_  : Expression Γ int → ℕ → Expression Γ int
     rnd   : Expression Γ real → Expression Γ int
-    -- get   : ℕ → Expression Γ int → Expression Γ bit
     fin   : ∀ {k ms n} → (All (Fin) ms → Fin n) → Expression Γ (tuple k (map fin ms)) → Expression Γ (fin n)
     asInt : ∀ {m} → Expression Γ (fin m) → Expression Γ int
     tup   : ∀ {m ts} → All (Expression Γ) ts → Expression Γ (tuple m ts)
@@ -176,7 +183,6 @@ module Code {o} (Σ : Vec Type o) where
   canAssign? (e ^ e₁)     = no λ ()
   canAssign? (e >> e₁)    = no λ ()
   canAssign? (rnd e)      = no λ ()
-  -- canAssign? (get x e)    = no λ ()
   canAssign? (fin x e)    = no λ ()
   canAssign? (asInt e)    = no λ ()
   canAssign? (tup es)     = map′ tup (λ { (tup es) → es }) (canAssignAll? es)
@@ -186,6 +192,29 @@ module Code {o} (Σ : Vec Type o) where
   canAssignAll? []       = yes []
   canAssignAll? (e ∷ es) = map′ (uncurry _∷_) (λ { (e ∷ es) → e , es }) (canAssign? e ×-dec canAssignAll? es)
 
+  data AssignsState where
+    state : ∀ i {i<o} → AssignsState (state i {i<o})
+    _∶ˡ_ : ∀ {m n t e₁ e₂ a₁} → AssignsState a₁ → ∀ a₂ → AssignsState (_∶_ {m = m} {n} {t} {e₁} {e₂} a₁ a₂)
+    _∶ʳ_ : ∀ {m n t e₁ e₂} a₁ {a₂} → AssignsState a₂ → AssignsState (_∶_ {m = m} {n} {t} {e₁} {e₂} a₁ a₂)
+    [_] : ∀ {t e a} → AssignsState a → AssignsState ([_] {t = t} {e} a)
+    unbox : ∀ {t e a} → AssignsState a → AssignsState (unbox {t = t} {e} a)
+    slice : ∀ {i j t e₁ a} → AssignsState a → ∀ e₂ → AssignsState (slice {i = i} {j} {t} {e₁} a e₂)
+    cast : ∀ {i j t e} .(eq : i ≡ j) {a} → AssignsState a → AssignsState (cast {t = t} {e} eq a)
+    tup : ∀ {m ts es as} → Any (AssignsState ∘ proj₂) (reduce (λ {x} a → x , a) as) → AssignsState (tup {m = m} {ts} {es} as)
+
+  assignsState? (state i)    = yes (state i)
+  assignsState? (var i)      = no λ ()
+  assignsState? abort        = no λ ()
+  assignsState? (a ∶ a₁)     = map′ [ (_∶ˡ a₁) , (a ∶ʳ_) ]′ (λ { (s ∶ˡ _) → inj₁ s ; (_ ∶ʳ s) → inj₂ s }) (assignsState? a ⊎-dec assignsState? a₁)
+  assignsState? [ a ]        = map′ [_] (λ { [ s ] → s }) (assignsState? a)
+  assignsState? (unbox a)    = map′ unbox (λ { (unbox s) → s }) (assignsState? a)
+  assignsState? (slice a e₂) = map′ (λ s → slice s e₂ ) (λ { (slice s _) → s }) (assignsState? a)
+  assignsState? (cast eq a)  = map′ (cast eq) (λ { (cast _ s) → s }) (assignsState? a)
+  assignsState? (tup as)     = map′ tup (λ { (tup ss) → ss }) (assignsStateAny? as)
+
+  assignsStateAny? {es = []}     []       = no λ ()
+  assignsStateAny? {es = e ∷ es} (a ∷ as) = map′ [ here , there ]′ (λ { (here s) → inj₁ s ; (there ss) → inj₂ ss }) (assignsState? a ⊎-dec assignsStateAny? as)
+
   infix  4 _≔_
   infixl 2 if_then_else_
   infixl 1 _∙_ _∙return_
@@ -194,14 +223,32 @@ module Code {o} (Σ : Vec Type o) where
   data Statement Γ where
     _∙_           : Statement Γ → Statement Γ → Statement Γ
     skip          : Statement Γ
-    _≔_           : ∀ {t} → (ref : Expression Γ t) → {canAssign : True (canAssign? ref)}→ Expression Γ t → Statement Γ
+    _≔_           : ∀ {t} → (ref : Expression Γ t) → {canAssign : True (canAssign? ref)} → Expression Γ t → Statement Γ
     declare       : ∀ {t} → Expression Γ t → Statement (t ∷ Γ) → Statement Γ
     invoke        : ∀ {m Δ} → Procedure Δ → Expression Γ (tuple m Δ) → Statement Γ
     if_then_else_ : Expression Γ bool → Statement Γ → Statement Γ → Statement Γ
     for           : ∀ m → Statement (fin m ∷ Γ) → Statement Γ
 
+  data ChangesState where
+    _∙ˡ_           : ∀ {s₁} → ChangesState s₁ → ∀ s₂ → ChangesState (s₁ ∙ s₂)
+    _∙ʳ_           : ∀ s₁ {s₂} → ChangesState s₂ → ChangesState (s₁ ∙ s₂)
+    _≔_            : ∀ {t ref} canAssign {assignsState : True (assignsState? (toWitness canAssign))} e₂ → ChangesState (_≔_ {t = t} ref {canAssign} e₂)
+    declare        : ∀ {t} e {s} → ChangesState s → ChangesState (declare {t = t} e s)
+    invoke         : ∀ {m Δ} p e → ChangesState (invoke {m = m} {Δ} p e)
+    if_then′_else_ : ∀ e {s₁} → ChangesState s₁ → ∀ s₂ → ChangesState (if e then s₁ else s₂)
+    if_then_else′_ : ∀ e s₁ {s₂} → ChangesState s₂ → ChangesState (if e then s₁ else s₂)
+    for            : ∀ m {s} → ChangesState s → ChangesState (for m s)
+
+  changesState? (s₁ ∙ s₂)              = map′ [ _∙ˡ s₂ , s₁ ∙ʳ_ ]′ (λ { (s ∙ˡ _) → inj₁ s ; (_ ∙ʳ s) → inj₂ s }) (changesState? s₁ ⊎-dec changesState? s₂)
+  changesState? skip                   = no λ ()
+  changesState? (_≔_ ref {a} e)        = map′ (λ s → _≔_ a {fromWitness s} e) (λ { (_≔_ _ {s} _) → toWitness s }) (assignsState? (toWitness a))
+  changesState? (declare e s)          = map′ (declare e) (λ { (declare e s) → s }) (changesState? s)
+  changesState? (invoke p e)           = yes (invoke p e)
+  changesState? (if e then s₁ else s₂) = map′ [ if e then′_else s₂ , if e then s₁ else′_ ]′ (λ { (if _ then′ s else _) → inj₁ s ; (if _ then _ else′ s) → inj₂ s }) (changesState? s₁ ⊎-dec changesState? s₂)
+  changesState? (for m s)              = map′ (for m) (λ { (for m s) → s }) (changesState? s)
+
   data Function Γ ret where
-    _∙return_ : Statement Γ → Expression Γ ret → Function Γ ret
+    _∙return_ : (s : Statement Γ) → {False (changesState? s)} → Expression Γ ret → Function Γ ret
     declare   : ∀ {t} → Expression Γ t → Function (t ∷ Γ) ret → Function Γ ret
 
   data Procedure Γ where
