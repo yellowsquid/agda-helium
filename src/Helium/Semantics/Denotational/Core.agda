@@ -37,7 +37,6 @@ open import Relation.Nullary using (does)
 open import Relation.Nullary.Decidable.Core using (True; False; toWitness; fromWitness)
 
 ⟦_⟧ₗ : Type → Level
-⟦ unit ⟧ₗ       = 0ℓ
 ⟦ bool ⟧ₗ       = 0ℓ
 ⟦ int ⟧ₗ        = i₁
 ⟦ fin n ⟧ₗ      = 0ℓ
@@ -53,7 +52,6 @@ open import Relation.Nullary.Decidable.Core using (True; False; toWitness; fromW
 ⟦_⟧ₜ : ∀ t → Set ⟦ t ⟧ₗ
 ⟦_⟧ₜ′ : ∀ {n} ts → Set ⟦ tuple n ts ⟧ₗ
 
-⟦ unit ⟧ₜ       = ⊤
 ⟦ bool ⟧ₜ       = Bool
 ⟦ int ⟧ₜ        = ℤ
 ⟦ fin n ⟧ₜ      = Fin n
@@ -62,7 +60,7 @@ open import Relation.Nullary.Decidable.Core using (True; False; toWitness; fromW
 ⟦ tuple n ts ⟧ₜ = ⟦ ts ⟧ₜ′
 ⟦ array t n ⟧ₜ  = Vec ⟦ t ⟧ₜ n
 
-⟦ [] ⟧ₜ′          = ⟦ unit ⟧ₜ
+⟦ [] ⟧ₜ′          = ⊤
 ⟦ t ∷ [] ⟧ₜ′      = ⟦ t ⟧ₜ
 ⟦ t ∷ t′ ∷ ts ⟧ₜ′ = ⟦ t ⟧ₜ × ⟦ t′ ∷ ts ⟧ₜ′
 
@@ -177,7 +175,7 @@ pow real x n = x ℝ′.^′ n
 shiftr : 2 ℝ′.×′ 1ℝ ℝ.≉ 0ℝ → ⟦ int ⟧ₜ → ℕ → ⟦ int ⟧ₜ
 shiftr 2≉0 x n = ⌊ x /1 ℝ.* 2≉0 ℝ.⁻¹ ℝ′.^′ n ⌋
 
-module _
+module Expression
   {o} {Σ : Vec Type o}
   (2≉0 : 2 ℝ′.×′ 1ℝ ℝ.≉ 0ℝ)
   where
@@ -185,7 +183,7 @@ module _
   open Code Σ
 
   ⟦_⟧ᵉ : ∀ {n} {Γ : Vec Type n} {t} → Expression Γ t → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ t ⟧ₜ
-  ⟦_⟧ˢ : ∀ {n} {Γ : Vec Type n} {ret} → Statement Γ ret → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × (⟦ Γ ⟧ₜ′ ⊎ ⟦ ret ⟧ₜ)
+  ⟦_⟧ˢ : ∀ {n} {Γ : Vec Type n} → Statement Γ → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′
   ⟦_⟧ᶠ : ∀ {n} {Γ : Vec Type n} {ret} → Function Γ ret → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ ret ⟧ₜ
   ⟦_⟧ᵖ : ∀ {n} {Γ : Vec Type n} → Procedure Γ → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′
   update : ∀ {n Γ t e} → CanAssign {n} {Γ} {t} e → ⟦ t ⟧ₜ → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′
@@ -261,39 +259,36 @@ module _
     Bool.if x then ⟦ e₁ ⟧ᵉ σ′ γ else ⟦ e₂ ⟧ᵉ σ′ γ
 
   ⟦ s ∙ s₁ ⟧ˢ σ γ = do
-    let σ′ , v = ⟦ s ⟧ˢ σ γ
-    S.[ ⟦ s ⟧ˢ σ′ , (λ v → σ′ , ret v) ] v
-  ⟦ skip ⟧ˢ σ γ = σ , next γ
+    let σ′ , γ′ = ⟦ s ⟧ˢ σ γ
+    ⟦ s ⟧ˢ σ′ γ′
+  ⟦ skip ⟧ˢ σ γ = σ , γ
   ⟦ _≔_ ref {canAssign = canAssign} e ⟧ˢ σ γ = do
     let σ′ , v = ⟦ e ⟧ᵉ σ γ
-    let σ′′ , γ′ = update (toWitness canAssign) v σ′ γ
-    σ′′ , next γ′
+    update (toWitness canAssign) v σ′ γ
   ⟦_⟧ˢ {Γ = Γ} (declare e s) σ γ = do
     let σ′ , x = ⟦ e ⟧ᵉ σ γ
-    let σ′′ , v = ⟦ s ⟧ˢ σ′ (tupCons Γ x γ)
-    σ′′ , S.map₁ (tupTail Γ) v
+    let σ′′ , γ′ = ⟦ s ⟧ˢ σ′ (tupCons Γ x γ)
+    σ′′ , tupTail Γ γ′
   ⟦ invoke p e ⟧ˢ σ γ = do
     let σ′ , v = ⟦ e ⟧ᵉ σ γ
-    ⟦ p ⟧ᵖ σ′ v , next γ
+    ⟦ p ⟧ᵖ σ′ v , γ
   ⟦ if e then s₁ else s₂ ⟧ˢ σ γ = do
     let σ′ , x = ⟦ e ⟧ᵉ σ γ
     Bool.if x then ⟦ s₁ ⟧ˢ σ′ γ else ⟦ s₂ ⟧ˢ σ′ γ
-  ⟦_⟧ˢ {Γ = Γ} {ret = t} (for m s) σ γ = helper m ⟦ s ⟧ˢ σ γ
+  ⟦_⟧ˢ {Γ = Γ} (for m s) σ γ = helper m ⟦ s ⟧ˢ σ γ
     where
-    helper : ∀ m → (⟦ Σ ⟧ₜ′ → ⟦ fin m ∷ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × (⟦ fin m ∷ Γ ⟧ₜ′ ⊎ ⟦ t ⟧ₜ)) → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × (⟦ Γ ⟧ₜ′ ⊎ ⟦ t ⟧ₜ)
-    helper zero    s σ γ = σ , next γ
+    helper : ∀ m → (⟦ Σ ⟧ₜ′ → ⟦ fin m ∷ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ fin m ∷ Γ ⟧ₜ′) → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′
+    helper zero    s σ γ = σ , γ
     helper (suc m) s σ γ with s σ (tupCons Γ zero γ)
-    ... | σ′ , ret v   = σ′ , ret v
-    ... | σ′ , next γ′ = helper m s′ σ′ (tupTail Γ γ′)
+    ... | σ′ , γ′ = helper m s′ σ′ (tupTail Γ γ′)
       where
-      s′ : ⟦ Σ ⟧ₜ′ → ⟦ fin m ∷ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × (⟦ fin m ∷ Γ ⟧ₜ′ ⊎ ⟦ t ⟧ₜ)
+      s′ : ⟦ Σ ⟧ₜ′ → ⟦ fin m ∷ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ fin m ∷ Γ ⟧ₜ′
       s′ σ γ =
-        P.map₂ (S.map₁ (tupCons Γ (tupHead Γ γ) ∘′ (tupTail Γ)))
+        P.map₂ (tupCons Γ (tupHead Γ γ) ∘′ (tupTail Γ))
                (s σ (tupCons Γ (suc (tupHead Γ γ)) (tupTail Γ γ)))
 
   ⟦ s ∙return e ⟧ᶠ σ γ with ⟦ s ⟧ˢ σ γ
-  ... | σ′ , ret v   = σ′ , v
-  ... | σ′ , next γ′ = ⟦ e ⟧ᵉ σ′ γ′
+  ... | σ′ , γ′ = ⟦ e ⟧ᵉ σ′ γ′
   ⟦_⟧ᶠ {Γ = Γ} (declare e f) σ γ = do
     let σ′ , x = ⟦ e ⟧ᵉ σ γ
     ⟦ f ⟧ᶠ σ′ (tupCons Γ x γ)

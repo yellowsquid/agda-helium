@@ -24,7 +24,6 @@ open import Relation.Unary using (Decidable)
 
 --- The set of types and boolean properties of them
 data Type : Set where
-  unit  : Type
   bool  : Type
   int   : Type
   fin   : (n : ℕ) → Type
@@ -44,7 +43,6 @@ data HasEquality : Type → Set where
   bits : ∀ {n} → HasEquality (bits n)
 
 hasEquality? : Decidable HasEquality
-hasEquality? unit        = no (λ ())
 hasEquality? bool        = yes bool
 hasEquality? int         = yes int
 hasEquality? (fin n)     = yes fin
@@ -58,7 +56,6 @@ data IsNumeric : Type → Set where
   real : IsNumeric real
 
 isNumeric? : Decidable IsNumeric
-isNumeric? unit        = no (λ ())
 isNumeric? bool        = no (λ ())
 isNumeric? int         = yes int
 isNumeric? real        = yes real
@@ -101,7 +98,7 @@ module Code {o} (Σ : Vec Type o) where
   data CanAssign {n} {Γ} : ∀ {t} → Expression {n} Γ t → Set
   canAssign? : ∀ {n Γ t} → Decidable (CanAssign {n} {Γ} {t})
   canAssignAll? : ∀ {n Γ m ts} → Decidable {A = All (Expression {n} Γ) {m} ts} (All (CanAssign ∘ proj₂) ∘ (reduce (λ {x} e → x , e)))
-  data Statement {n} (Γ : Vec Type n) (ret : Type) : Set
+  data Statement {n} (Γ : Vec Type n) : Set
   data Function {n} (Γ : Vec Type n) (ret : Type) : Set
   data Procedure {n} (Γ : Vec Type n) : Set
 
@@ -122,9 +119,9 @@ module Code {o} (Σ : Vec Type o) where
     inv   : Expression Γ bool → Expression Γ bool
     _&&_  : Expression Γ bool → Expression Γ bool → Expression Γ bool
     _||_  : Expression Γ bool → Expression Γ bool → Expression Γ bool
-    not   : ∀ {n} → Expression Γ (bits n) → Expression Γ (bits n)
-    _and_ : ∀ {n} → Expression Γ (bits n) → Expression Γ (bits n) → Expression Γ (bits n)
-    _or_  : ∀ {n} → Expression Γ (bits n) → Expression Γ (bits n) → Expression Γ (bits n)
+    not   : ∀ {m} → Expression Γ (bits m) → Expression Γ (bits m)
+    _and_ : ∀ {m} → Expression Γ (bits m) → Expression Γ (bits m) → Expression Γ (bits m)
+    _or_  : ∀ {m} → Expression Γ (bits m) → Expression Γ (bits m) → Expression Γ (bits m)
     [_]   : ∀ {t} → Expression Γ t → Expression Γ (array t 1)
     unbox : ∀ {t} → Expression Γ (array t 1) → Expression Γ t
     _∶_   : ∀ {m n t} → Expression Γ (asType t m) → Expression Γ (asType t n) → Expression Γ (asType t (n ℕ.+ m))
@@ -139,7 +136,7 @@ module Code {o} (Σ : Vec Type o) where
     rnd   : Expression Γ real → Expression Γ int
     -- get   : ℕ → Expression Γ int → Expression Γ bit
     fin   : ∀ {k ms n} → (All (Fin) ms → Fin n) → Expression Γ (tuple k (map fin ms)) → Expression Γ (fin n)
-    asInt : ∀ {n} → Expression Γ (fin n) → Expression Γ int
+    asInt : ∀ {m} → Expression Γ (fin m) → Expression Γ int
     tup   : ∀ {m ts} → All (Expression Γ) ts → Expression Γ (tuple m ts)
     call  : ∀ {t m Δ} → Function Δ t → Expression Γ (tuple m Δ) → Expression Γ t
     if_then_else_ : ∀ {t} → Expression Γ bool → Expression Γ t → Expression Γ t → Expression Γ t
@@ -194,21 +191,21 @@ module Code {o} (Σ : Vec Type o) where
   infixl 1 _∙_ _∙return_
   infix  1 _∙end
 
-  data Statement Γ ret where
-    _∙_           : Statement Γ ret → Statement Γ ret → Statement Γ ret
-    skip          : Statement Γ ret
-    _≔_           : ∀ {t} → (ref : Expression Γ t) → {canAssign : True (canAssign? ref)}→ Expression Γ t → Statement Γ ret
-    declare       : ∀ {t} → Expression Γ t → Statement (t ∷ Γ) ret → Statement Γ ret
-    invoke        : ∀ {m Δ} → Procedure Δ → Expression Γ (tuple m Δ) → Statement Γ ret
-    if_then_else_ : Expression Γ bool → Statement Γ ret → Statement Γ ret → Statement Γ ret
-    for           : ∀ m → Statement (fin m ∷ Γ) ret → Statement Γ ret
+  data Statement Γ where
+    _∙_           : Statement Γ → Statement Γ → Statement Γ
+    skip          : Statement Γ
+    _≔_           : ∀ {t} → (ref : Expression Γ t) → {canAssign : True (canAssign? ref)}→ Expression Γ t → Statement Γ
+    declare       : ∀ {t} → Expression Γ t → Statement (t ∷ Γ) → Statement Γ
+    invoke        : ∀ {m Δ} → Procedure Δ → Expression Γ (tuple m Δ) → Statement Γ
+    if_then_else_ : Expression Γ bool → Statement Γ → Statement Γ → Statement Γ
+    for           : ∀ m → Statement (fin m ∷ Γ) → Statement Γ
 
   data Function Γ ret where
-    _∙return_ : Statement Γ ret → Expression Γ ret → Function Γ ret
+    _∙return_ : Statement Γ → Expression Γ ret → Function Γ ret
     declare   : ∀ {t} → Expression Γ t → Function (t ∷ Γ) ret → Function Γ ret
 
   data Procedure Γ where
-    _∙end   : Statement Γ unit → Procedure Γ
+    _∙end   : Statement Γ → Procedure Γ
     declare : ∀ {t} → Expression Γ t → Procedure (t ∷ Γ) → Procedure Γ
 
   infixl  6 _<<_
