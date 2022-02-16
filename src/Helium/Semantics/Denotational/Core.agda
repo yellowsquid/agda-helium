@@ -29,40 +29,12 @@ open import Data.Vec.Relation.Unary.All using (All; []; _∷_)
 import Data.Vec.Functional as VecF
 open import Function using (case_of_; _∘′_; id)
 open import Helium.Data.Pseudocode.Core
+open import Helium.Semantics.Core rawPseudocode
 import Induction as I
 import Induction.WellFounded as Wf
-open import Level hiding (zero; suc)
 open import Relation.Binary.PropositionalEquality as ≡ using (_≡_; module ≡-Reasoning)
 open import Relation.Nullary using (does)
 open import Relation.Nullary.Decidable.Core using (True; False; toWitness; fromWitness)
-
-⟦_⟧ₗ : Type → Level
-⟦ bool ⟧ₗ       = 0ℓ
-⟦ int ⟧ₗ        = i₁
-⟦ fin n ⟧ₗ      = 0ℓ
-⟦ real ⟧ₗ       = r₁
-⟦ bits n ⟧ₗ     = b₁
-⟦ tuple n ts ⟧ₗ = helper ts
-  where
-  helper : ∀ {n} → Vec Type n → Level
-  helper []       = 0ℓ
-  helper (t ∷ ts) = ⟦ t ⟧ₗ ⊔ helper ts
-⟦ array t n ⟧ₗ  = ⟦ t ⟧ₗ
-
-⟦_⟧ₜ : ∀ t → Set ⟦ t ⟧ₗ
-⟦_⟧ₜ′ : ∀ {n} ts → Set ⟦ tuple n ts ⟧ₗ
-
-⟦ bool ⟧ₜ       = Bool
-⟦ int ⟧ₜ        = ℤ
-⟦ fin n ⟧ₜ      = Fin n
-⟦ real ⟧ₜ       = ℝ
-⟦ bits n ⟧ₜ     = Bits n
-⟦ tuple n ts ⟧ₜ = ⟦ ts ⟧ₜ′
-⟦ array t n ⟧ₜ  = Vec ⟦ t ⟧ₜ n
-
-⟦ [] ⟧ₜ′          = ⊤
-⟦ t ∷ [] ⟧ₜ′      = ⟦ t ⟧ₜ
-⟦ t ∷ t′ ∷ ts ⟧ₜ′ = ⟦ t ⟧ₜ × ⟦ t′ ∷ ts ⟧ₜ′
 
 -- The case for bitvectors looks odd so that the right-most bit is bit 0.
 𝒦 : ∀ {t} → Literal t → ⟦ t ⟧ₜ
@@ -72,12 +44,6 @@ open import Relation.Nullary.Decidable.Core using (True; False; toWitness; fromW
 𝒦 (x ′r)  = x ℝ′.×′ 1ℝ
 𝒦 (xs ′x) = Vec.foldl Bits (λ bs b → (Bool.if b then 1𝔹 else 0𝔹) VecF.∷ bs) VecF.[] xs
 𝒦 (x ′a)  = Vec.replicate (𝒦 x)
-
-
-fetch : ∀ {n} ts → ⟦ tuple n ts ⟧ₜ → ∀ i → ⟦ Vec.lookup ts i ⟧ₜ
-fetch (_ ∷ [])     x        zero    = x
-fetch (_ ∷ _ ∷ _)  (x , xs) zero    = x
-fetch (_ ∷ t ∷ ts) (x , xs) (suc i) = fetch (t ∷ ts) xs i
 
 updateAt : ∀ {n} ts i → ⟦ Vec.lookup ts i ⟧ₜ → ⟦ tuple n ts ⟧ₜ → ⟦ tuple n ts ⟧ₜ
 updateAt (_ ∷ [])     zero    v _        = v

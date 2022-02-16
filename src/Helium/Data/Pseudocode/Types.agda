@@ -146,3 +146,5 @@ record Pseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ :
     ; _/1 = _/1
     ; ⌊_⌋ = ⌊_⌋
     }
+
+  open RawPseudocode rawPseudocode using (module ℤ′; module ℝ′) public
