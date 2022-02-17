@@ -145,7 +145,7 @@ module Code {o} (Σ : Vec Type o) where
     fin   : ∀ {k ms n} → (All (Fin) ms → Fin n) → Expression Γ (tuple k (map fin ms)) → Expression Γ (fin n)
     asInt : ∀ {m} → Expression Γ (fin m) → Expression Γ int
     tup   : ∀ {m ts} → All (Expression Γ) ts → Expression Γ (tuple m ts)
-    call  : ∀ {t m Δ} → Function Δ t → Expression Γ (tuple m Δ) → Expression Γ t
+    call  : ∀ {t m Δ} → Function Δ t → All (Expression Γ) {m} Δ → Expression Γ t
     if_then_else_ : ∀ {t} → Expression Γ bool → Expression Γ t → Expression Γ t → Expression Γ t
 
   data CanAssign {n} {Γ} where
@@ -225,7 +225,7 @@ module Code {o} (Σ : Vec Type o) where
     skip          : Statement Γ
     _≔_           : ∀ {t} → (ref : Expression Γ t) → {canAssign : True (canAssign? ref)} → Expression Γ t → Statement Γ
     declare       : ∀ {t} → Expression Γ t → Statement (t ∷ Γ) → Statement Γ
-    invoke        : ∀ {m Δ} → Procedure Δ → Expression Γ (tuple m Δ) → Statement Γ
+    invoke        : ∀ {m Δ} → Procedure Δ → All (Expression Γ) {m} Δ → Statement Γ
     if_then_else_ : Expression Γ bool → Statement Γ → Statement Γ → Statement Γ
     for           : ∀ m → Statement (fin m ∷ Γ) → Statement Γ
 

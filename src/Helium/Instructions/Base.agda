@@ -163,7 +163,7 @@ VPTAdvance = declare (fin div2 (tup (var 0 ∷ []))) (
     then (
       declare (lit ((false ∷ []) ′x)) (
         -- 0:inv 1:vptState 2:maskId 3:beat
-        tup (var 1 ∷ var 0 ∷ []) ≔ call (LSL-C 0) (tup (var 1 ∷ [])) ∙
+        tup (var 1 ∷ var 0 ∷ []) ≔ call (LSL-C 0) (var 1 ∷ []) ∙
         if var 0 ≟ lit ((true ∷ []) ′x)
         then
           elem 4 VPR-P0 (var 3) ≔ not (elem 4 VPR-P0 (var 3))
@@ -181,7 +181,7 @@ VPTActive = skip ∙return inv (elem 4 VPR-mask (fin div2 (tup (var 0 ∷ []))) 
 GetCurInstrBeat : Function [] (tuple 2 (beat ∷ elmtMask ∷ []))
 GetCurInstrBeat = declare (lit (Vec.replicate true ′x)) (
   -- 0:elmtMask 1:beat
-  if call VPTActive (tup (BeatId ∷ []))
+  if call VPTActive (BeatId ∷ [])
   then
     var 0 ≔ var 0 and elem 4 VPR-P0 BeatId
   else skip
@@ -199,10 +199,10 @@ ExecBeats DecodeExec =
     -- 0:beatId
     BeatId ≔ var 0 ∙
     AdvanceVPTState ≔ lit (true ′b) ∙
-    invoke DecodeExec (tup []) ∙
+    invoke DecodeExec [] ∙
     if AdvanceVPTState
     then
-      invoke VPTAdvance (tup (var 0 ∷ []))
+      invoke VPTAdvance (var 0 ∷ [])
     else skip)
   ∙end
 
@@ -224,7 +224,7 @@ module _ (d : Instr.VecOp₂) where
   vec-op₂′ op = declare (lit (zero ′f)) (
     declare (lit (Vec.replicate false ′x)) (
     -- 0:elmtMask 1:curBeat
-    tup (var 1 ∷ var 0 ∷ []) ≔ call GetCurInstrBeat (tup []) ∙
+    tup (var 1 ∷ var 0 ∷ []) ≔ call GetCurInstrBeat [] ∙
     declare (lit ((Vec.replicate false ′x) ′a)) (
     declare (from32 size (index (index Q (lit (src₁ ′f))) (var 2))) (
     -- 0:op₁ 1:result 2:elmtMask 3:curBeat
@@ -232,7 +232,7 @@ module _ (d : Instr.VecOp₂) where
        -- 0:e 1:op₁ 2:result 3:elmtMask 4:curBeat
       declare op₂ op ) ∙
     -- 0:op₁ 1:result 2:elmtMask 3:curBeat
-    invoke copyMasked (tup (lit (dest ′f) ∷ to32 size (var 1) ∷ var 3 ∷ var 2 ∷ []))))
+    invoke copyMasked (lit (dest ′f) ∷ to32 size (var 1) ∷ var 3 ∷ var 2 ∷ [])))
     ∙end))
     where
     -- 0:e 1:op₁ 2:result 3:elmtMask 4:curBeat
@@ -242,7 +242,7 @@ module _ (d : Instr.VecOp₂) where
       ]′ src₂
 
   vec-op₂ : Function (bits (toℕ esize) ∷ bits (toℕ esize) ∷ []) (bits (toℕ esize)) → Procedure []
-  vec-op₂ op = vec-op₂′ (index (var 3) (var 1) ≔ call op (tup (index (var 2) (var 1) ∷ var 0 ∷ [])))
+  vec-op₂ op = vec-op₂′ (index (var 3) (var 1) ≔ call op (index (var 2) (var 1) ∷ var 0 ∷ []))
 
 vadd : Instr.VAdd → Procedure []
 vadd d = vec-op₂ d (skip ∙return sliceⁱ 0 (uint (var 0) + uint (var 1)))
@@ -252,7 +252,7 @@ vsub d = vec-op₂ d (skip ∙return sliceⁱ 0 (uint (var 0) - uint (var 1)))
 
 vhsub : Instr.VHSub → Procedure []
 vhsub d = vec-op₂ op₂ (skip ∙return sliceⁱ 1 (toInt (var 0) - toInt (var 1)))
-  where open Instr.VHSub d; toInt = λ i → call Int (tup (i ∷ lit (unsigned ′b) ∷ []))
+  where open Instr.VHSub d; toInt = λ i → call Int (i ∷ lit (unsigned ′b) ∷ [])
 
 vmul : Instr.VMul → Procedure []
 vmul d = vec-op₂ d (skip ∙return sliceⁱ 0 (sint (var 0) * sint (var 1)))
@@ -260,29 +260,29 @@ vmul d = vec-op₂ d (skip ∙return sliceⁱ 0 (sint (var 0) * sint (var 1)))
 vmulh : Instr.VMulH → Procedure []
 vmulh d = vec-op₂ op₂ (skip ∙return sliceⁱ (toℕ esize) (toInt (var 0) * toInt (var 1)))
   where
-  open Instr.VMulH d; toInt = λ i → call Int (tup (i ∷ lit (unsigned ′b) ∷ []))
+  open Instr.VMulH d; toInt = λ i → call Int (i ∷ lit (unsigned ′b) ∷ [])
 
 vrmulh : Instr.VRMulH → Procedure []
 vrmulh d = vec-op₂ op₂ (skip ∙return sliceⁱ (toℕ esize) (toInt (var 0) * toInt (var 1) + lit (1 ′i) << toℕ esize-1))
   where
-  open Instr.VRMulH d; toInt = λ i → call Int (tup (i ∷ lit (unsigned ′b) ∷ []))
+  open Instr.VRMulH d; toInt = λ i → call Int (i ∷ lit (unsigned ′b) ∷ [])
 
 vmla : Instr.VMlA → Procedure []
 vmla d = vec-op₂ op₂ (skip ∙return sliceⁱ (toℕ esize) (toInt (var 0) * element₂ + toInt (var 1)))
   where
   open Instr.VMlA d
   op₂ = record { size = size ; dest = acc ; src₁ = src₁ ; src₂ = inj₂ acc }
-  toInt = λ i → call Int (tup (i ∷ lit (unsigned ′b) ∷ []))
+  toInt = λ i → call Int (i ∷ lit (unsigned ′b) ∷ [])
   element₂ = toInt (index (from32 size (index R (lit (src₂ ′f)))) (lit (zero ′f)))
 
 private
   vqr?dmulh : Instr.VQDMulH → Function (int ∷ int ∷ []) int → Procedure []
   vqr?dmulh d f = vec-op₂′ d (
     -- 0:op₂ 1:e 2:op₁ 3:result 4:elmtMask 5:curBeat
-    declare (call f (tup (sint (index (var 2) (var 1)) ∷ sint (var 0) ∷ []))) (
+    declare (call f (sint (index (var 2) (var 1)) ∷ sint (var 0) ∷ [])) (
     declare (lit (false ′b)) (
       -- 0:sat 1:value 2:op₂ 3:e 4:op₁ 5:result 6:elmtMask 7:curBeat
-      tup (index (var 5) (var 3) ∷ var 0 ∷ []) ≔ call (SignedSatQ (toℕ esize-1)) (tup (var 1 ∷ [])) ∙
+      tup (index (var 5) (var 3) ∷ var 0 ∷ []) ≔ call (SignedSatQ (toℕ esize-1)) (var 1 ∷ []) ∙
       if var 0 && hasBit (var 6) (fin e*esize>>3 (tup ((var 3) ∷ [])))
       then
         FPSCR-QC ≔ lit ((true ∷ []) ′x)
