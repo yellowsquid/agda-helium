@@ -253,7 +253,6 @@ module Code {o} (Σ : Vec Type o) where
 
   data Procedure Γ where
     _∙end   : Statement Γ → Procedure Γ
-    declare : ∀ {t} → Expression Γ t → Procedure (t ∷ Γ) → Procedure Γ
 
   infixl  6 _<<_
   infixl 5 _-_

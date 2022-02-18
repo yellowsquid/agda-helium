@@ -217,7 +217,6 @@ module Expression
   ⟦_⟧ᶠ {Γ = Γ} (declare e f) σ γ = ⟦ f ⟧ᶠ σ (tupCons Γ (⟦ e ⟧ᵉ σ γ) γ)
 
   ⟦ s ∙end ⟧ᵖ σ γ = P.proj₁ (⟦ s ⟧ˢ σ γ)
-  ⟦_⟧ᵖ {Γ = Γ} (declare e p) σ γ = ⟦ p ⟧ᵖ σ (tupCons Γ (⟦ e ⟧ᵉ σ γ) γ)
 
   update (state i {i<o}) v σ γ = updateAt Σ (#_ i {m<n = i<o}) v σ , γ
   update {Γ = Γ} (var i {i<n}) v σ γ = σ , updateAt Γ (#_ i {m<n = i<n}) v γ

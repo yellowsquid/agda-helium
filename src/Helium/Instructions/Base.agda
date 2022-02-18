@@ -172,8 +172,8 @@ VPTAdvance = declare (fin div2 (tup (var 0 ∷ []))) (
     if get 0 (asInt (var 2)) ≟ lit ((true ∷ []) ′x)
     then
       elem 4 VPR-mask (var 1) ≔ var 0
-    else skip
-    ∙end))
+    else skip))
+    ∙end
 
 VPTActive : Function (beat ∷ []) bool
 VPTActive = skip ∙return inv (elem 4 VPR-mask (fin div2 (tup (var 0 ∷ []))) ≟ lit (Vec.replicate false ′x))
@@ -232,8 +232,8 @@ module _ (d : Instr.VecOp₂) where
        -- 0:e 1:op₁ 2:result 3:elmtMask 4:curBeat
       declare op₂ op ) ∙
     -- 0:op₁ 1:result 2:elmtMask 3:curBeat
-    invoke copyMasked (lit (dest ′f) ∷ to32 size (var 1) ∷ var 3 ∷ var 2 ∷ [])))
-    ∙end))
+    invoke copyMasked (lit (dest ′f) ∷ to32 size (var 1) ∷ var 3 ∷ var 2 ∷ [])))))
+    ∙end
     where
     -- 0:e 1:op₁ 2:result 3:elmtMask 4:curBeat
     op₂ =
