@@ -81,6 +81,16 @@ asType : Sliced → ℕ → Type
 asType bits      n = bits n
 asType (array t) n = array t n
 
+sliced? : ∀ t → Dec (∃ λ t′ → ∃ λ n → asType t′ n ≡ t)
+sliced? bool = no (λ { (bits , ()) ; (array _ , ()) })
+sliced? int = no (λ { (bits , ()) ; (array _ , ()) })
+sliced? (fin n) = no (λ { (bits , ()) ; (array _ , ()) })
+sliced? real = no (λ { (bits , ()) ; (array _ , ()) })
+sliced? bit = no (λ { (bits , ()) ; (array _ , ()) })
+sliced? (bits n) = yes (bits , n , refl)
+sliced? (tuple n x) = no (λ { (bits , ()) ; (array _ , ()) })
+sliced? (array t n) = yes (array t , n , refl)
+
 elemType : Sliced → Type
 elemType bits      = bit
 elemType (array t) = t
