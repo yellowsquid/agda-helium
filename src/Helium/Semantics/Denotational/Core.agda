@@ -29,21 +29,57 @@ open import Data.Vec.Relation.Unary.All using (All; []; _∷_)
 import Data.Vec.Functional as VecF
 open import Function using (case_of_; _∘′_; id)
 open import Helium.Data.Pseudocode.Core
-open import Helium.Semantics.Core rawPseudocode
 import Induction as I
 import Induction.WellFounded as Wf
+open import Level using (Level; _⊔_; 0ℓ)
 open import Relation.Binary.PropositionalEquality as ≡ using (_≡_; module ≡-Reasoning)
 open import Relation.Nullary using (does)
 open import Relation.Nullary.Decidable.Core using (True; False; toWitness; fromWitness)
 
+⟦_⟧ₗ : Type → Level
+⟦ bool ⟧ₗ       = 0ℓ
+⟦ int ⟧ₗ        = i₁
+⟦ fin n ⟧ₗ      = 0ℓ
+⟦ real ⟧ₗ       = r₁
+⟦ bit ⟧ₗ        = b₁
+⟦ bits n ⟧ₗ     = b₁
+⟦ tuple n ts ⟧ₗ = helper ts
+  where
+  helper : ∀ {n} → Vec Type n → Level
+  helper []       = 0ℓ
+  helper (t ∷ ts) = ⟦ t ⟧ₗ ⊔ helper ts
+⟦ array t n ⟧ₗ  = ⟦ t ⟧ₗ
+
+⟦_⟧ₜ : ∀ t → Set ⟦ t ⟧ₗ
+⟦_⟧ₜ′ : ∀ {n} ts → Set ⟦ tuple n ts ⟧ₗ
+
+⟦ bool ⟧ₜ       = Bool
+⟦ int ⟧ₜ        = ℤ
+⟦ fin n ⟧ₜ      = Fin n
+⟦ real ⟧ₜ       = ℝ
+⟦ bit ⟧ₜ        = Bit
+⟦ bits n ⟧ₜ     = Bits n
+⟦ tuple n ts ⟧ₜ = ⟦ ts ⟧ₜ′
+⟦ array t n ⟧ₜ  = Vec ⟦ t ⟧ₜ n
+
+⟦ [] ⟧ₜ′          = ⊤
+⟦ t ∷ [] ⟧ₜ′      = ⟦ t ⟧ₜ
+⟦ t ∷ t′ ∷ ts ⟧ₜ′ = ⟦ t ⟧ₜ × ⟦ t′ ∷ ts ⟧ₜ′
+
 -- The case for bitvectors looks odd so that the right-most bit is bit 0.
 𝒦 : ∀ {t} → Literal t → ⟦ t ⟧ₜ
-𝒦 (x ′b)  = x
-𝒦 (x ′i)  = x ℤ′.×′ 1ℤ
-𝒦 (x ′f)  = x
-𝒦 (x ′r)  = x ℝ′.×′ 1ℝ
-𝒦 (xs ′x) = Vec.foldl Bits (λ bs b → (Bool.if b then 1𝔹 else 0𝔹) VecF.∷ bs) VecF.[] xs
-𝒦 (x ′a)  = Vec.replicate (𝒦 x)
+𝒦 (x ′b)   = x
+𝒦 (x ′i)   = x ℤ′.×′ 1ℤ
+𝒦 (x ′f)   = x
+𝒦 (x ′r)   = x ℝ′.×′ 1ℝ
+𝒦 (x ′x)   = Bool.if x then 1𝔹 else 0𝔹
+𝒦 (xs ′xs) = Vec.foldl Bits (λ bs b → (Bool.if b then 1𝔹 else 0𝔹) VecF.∷ bs) VecF.[] xs
+𝒦 (x ′a)   = Vec.replicate (𝒦 x)
+
+fetch : ∀ {n} ts → ⟦ tuple n ts ⟧ₜ → ∀ i → ⟦ Vec.lookup ts i ⟧ₜ
+fetch (_ ∷ [])     x        zero    = x
+fetch (_ ∷ _ ∷ _)  (x , xs) zero    = x
+fetch (_ ∷ t ∷ ts) (x , xs) (suc i) = fetch (t ∷ ts) xs i
 
 updateAt : ∀ {n} ts i → ⟦ Vec.lookup ts i ⟧ₜ → ⟦ tuple n ts ⟧ₜ → ⟦ tuple n ts ⟧ₜ
 updateAt (_ ∷ [])     zero    v _        = v
@@ -66,6 +102,7 @@ equal bool x y = does (x Bool.≟ y)
 equal int  x y = does (x ≟ᶻ y)
 equal fin  x y = does (x Fin.≟ y)
 equal real x y = does (x ≟ʳ y)
+equal bit  x y = does (x ≟ᵇ₁ y)
 equal bits x y = does (x ≟ᵇ y)
 
 comp : ∀ {t} → IsNumeric t → ⟦ t ⟧ₜ → ⟦ t ⟧ₜ → Bool
@@ -118,6 +155,14 @@ updateSliced t {i} {j} orig off v f = f (casted t (≡.sym eq) (join t (join t u
   dropped = take t (Fin.toℕ off) (casted t eq orig)
   untaken = drop t j (drop t (Fin.toℕ off) (casted t eq orig))
 
+box : ∀ t → ⟦ elemType t ⟧ₜ → ⟦ asType t 1 ⟧ₜ
+box bits      v = v VecF.∷ VecF.[]
+box (array t) v = v ∷ []
+
+unboxed : ∀ t → ⟦ asType t 1 ⟧ₜ → ⟦ elemType t ⟧ₜ
+unboxed bits      v        = v (Fin.zero)
+unboxed (array t) (v ∷ []) = v
+
 neg : ∀ {t} → IsNumeric t → ⟦ t ⟧ₜ → ⟦ t ⟧ₜ
 neg int  x = ℤ.- x
 neg real x = ℝ.- x
@@ -167,8 +212,8 @@ module Expression
   ⟦ not e ⟧ᵉ σ γ = Bits.¬_ (⟦ e ⟧ᵉ σ γ)
   ⟦ e and e₁ ⟧ᵉ σ γ = ⟦ e ⟧ᵉ σ γ Bits.∧ ⟦ e₁ ⟧ᵉ σ γ
   ⟦ e or e₁ ⟧ᵉ σ γ = ⟦ e ⟧ᵉ σ γ Bits.∨ ⟦ e₁ ⟧ᵉ σ γ
-  ⟦ [ e ] ⟧ᵉ σ γ = ⟦ e ⟧ᵉ σ γ Vec.∷ []
-  ⟦ unbox e ⟧ᵉ σ γ = Vec.head (⟦ e ⟧ᵉ σ γ)
+  ⟦ [_] {t = t} e ⟧ᵉ σ γ = box t (⟦ e ⟧ᵉ σ γ)
+  ⟦ unbox {t = t} e ⟧ᵉ σ γ = unboxed t (⟦ e ⟧ᵉ σ γ)
   ⟦ _∶_ {t = t} e e₁ ⟧ᵉ σ γ = join t (⟦ e ⟧ᵉ σ γ) (⟦ e₁ ⟧ᵉ σ γ)
   ⟦ slice {t = t} e e₁ ⟧ᵉ σ γ = sliced t (⟦ e ⟧ᵉ σ γ) (⟦ e₁ ⟧ᵉ σ γ)
   ⟦ cast {t = t} eq e ⟧ᵉ σ γ = casted t eq (⟦ e ⟧ᵉ σ γ)
@@ -224,8 +269,8 @@ module Expression
   update (_∶_ {m = m} {t = t} e e₁) v σ γ = do
     let σ′ , γ′ = update e (sliced t v (Fin.fromℕ _)) σ γ
     update e₁ (sliced t (casted t (ℕₚ.+-comm _ m) v) zero) σ′ γ′
-  update [ e ] v σ γ = update e (Vec.head v) σ γ
-  update (unbox e) v σ γ = update e (v ∷ []) σ γ
+  update ([_] {t = t} e) v σ γ = update e (unboxed t v) σ γ
+  update (unbox {t = t} e) v σ γ = update e (box t v) σ γ
   update (slice {t = t} {e₁ = e₁} a e₂) v σ γ = updateSliced t (⟦ e₁ ⟧ᵉ σ γ) (⟦ e₂ ⟧ᵉ σ γ) v (λ v → update a v σ γ)
   update (cast {t = t} eq e) v σ γ = update e (casted t (≡.sym eq) v) σ γ
   update (tup {es = []} x) v σ γ = σ , γ

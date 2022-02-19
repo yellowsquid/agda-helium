@@ -84,8 +84,7 @@ join {k = k} {suc m} x = cast eq (join (slice x (lit (Fin.fromℕ 1 ′f))) ∶ 
   eq = P.trans (P.cong (k ℕ.+_) (ℕₚ.*-comm k (suc m))) (ℕₚ.*-comm (suc (suc m)) k)
 
 index : ∀ {n Γ t m} → Expression {n} Γ (asType t (suc m)) → Expression Γ (fin (suc m)) → Expression Γ (elemType t)
-index {t = bits}    {m} x i = slice (cast (ℕₚ.+-comm 1 m) x) i
-index {t = array _} {m} x i = unbox (slice (cast (ℕₚ.+-comm 1 m) x) i)
+index {m = m} x i = unbox (slice (cast (ℕₚ.+-comm 1 m) x) i)
 
 Q : ∀ {n Γ} → Expression {n} Γ (array (array (bits 32) 4) 8)
 Q = group 7 S
@@ -98,11 +97,11 @@ elem {k = suc k} (suc m) x i = index (group k (cast (ℕₚ.*-comm (suc k) (suc 
 --- Other utiliies
 
 hasBit : ∀ {n Γ m} → Expression {n} Γ (bits (suc m)) → Expression Γ (fin (suc m)) → Expression Γ bool
-hasBit {n} x i = index x i ≟ lit ((true ∷ []) ′x)
+hasBit {n} x i = index x i ≟ lit (true ′x)
 
 sliceⁱ : ∀ {n Γ m} → ℕ → Expression {n} Γ int → Expression Γ (bits m)
-sliceⁱ {m = zero}  n i = lit ([] ′x)
-sliceⁱ {m = suc m} n i = sliceⁱ (suc n) i ∶ get n i
+sliceⁱ {m = zero}  n i = lit ([] ′xs)
+sliceⁱ {m = suc m} n i = sliceⁱ (suc n) i ∶ [ get n i ]
 
 --- Functions
 
@@ -127,10 +126,10 @@ SignedSatQ n = declare (lit (true ′b)) (
 
 -- actual shift if 'shift + 1'
 LSL-C : ∀ {n} (shift : ℕ) → Function (bits n ∷ []) (tuple 2 (bits n ∷ bit ∷ []))
-LSL-C {n} shift = declare (var 0 ∶ lit ((Vec.replicate {n = (suc shift)} false) ′x))
+LSL-C {n} shift = declare (var 0 ∶ lit ((Vec.replicate {n = (suc shift)} false) ′xs))
   (skip ∙return tup
     ( slice (var 0) (lit (zero ′f))
-    ∷ slice (cast eq (var 0)) (lit (Fin.inject+ shift (Fin.fromℕ n) ′f))
+    ∷ unbox (slice (cast eq (var 0)) (lit (Fin.inject+ shift (Fin.fromℕ n) ′f)))
     ∷ []))
   where
   eq = P.trans (ℕₚ.+-comm 1 (shift ℕ.+ n)) (P.cong (ℕ._+ 1) (ℕₚ.+-comm shift n))
@@ -156,30 +155,30 @@ VPTAdvance : Procedure (beat ∷ [])
 VPTAdvance = declare (fin div2 (tup (var 0 ∷ []))) (
   declare (elem 4 VPR-mask (var 0)) (
     -- 0:vptState 1:maskId 2:beat
-    if var 0 ≟ lit ((true ∷ false ∷ false ∷ false ∷ []) ′x)
+    if var 0 ≟ lit ((true ∷ false ∷ false ∷ false ∷ []) ′xs)
     then
-      var 0 ≔ lit (Vec.replicate false ′x)
-    else if inv (var 0 ≟ lit (Vec.replicate false ′x))
+      var 0 ≔ lit (Vec.replicate false ′xs)
+    else if inv (var 0 ≟ lit (Vec.replicate false ′xs))
     then (
-      declare (lit ((false ∷ []) ′x)) (
+      declare (lit (false ′x)) (
         -- 0:inv 1:vptState 2:maskId 3:beat
         tup (var 1 ∷ var 0 ∷ []) ≔ call (LSL-C 0) (var 1 ∷ []) ∙
-        if var 0 ≟ lit ((true ∷ []) ′x)
+        if var 0 ≟ lit (true ′x)
         then
           elem 4 VPR-P0 (var 3) ≔ not (elem 4 VPR-P0 (var 3))
         else skip))
     else skip ∙
-    if get 0 (asInt (var 2)) ≟ lit ((true ∷ []) ′x)
+    if get 0 (asInt (var 2)) ≟ lit (true ′x)
     then
       elem 4 VPR-mask (var 1) ≔ var 0
     else skip))
     ∙end
 
 VPTActive : Function (beat ∷ []) bool
-VPTActive = skip ∙return inv (elem 4 VPR-mask (fin div2 (tup (var 0 ∷ []))) ≟ lit (Vec.replicate false ′x))
+VPTActive = skip ∙return inv (elem 4 VPR-mask (fin div2 (tup (var 0 ∷ []))) ≟ lit (Vec.replicate false ′xs))
 
 GetCurInstrBeat : Function [] (tuple 2 (beat ∷ elmtMask ∷ []))
-GetCurInstrBeat = declare (lit (Vec.replicate true ′x)) (
+GetCurInstrBeat = declare (lit (Vec.replicate true ′xs)) (
   -- 0:elmtMask 1:beat
   if call VPTActive (BeatId ∷ [])
   then
@@ -222,10 +221,10 @@ module _ (d : Instr.VecOp₂) where
  -- 0:op₂ 1:e 2:op₁ 3:result 4:elmtMask 5:curBeat
   vec-op₂′ : Statement (bits (toℕ esize) ∷ fin (toℕ elements) ∷ array (bits (toℕ esize)) (toℕ elements) ∷ array (bits (toℕ esize)) (toℕ elements) ∷ elmtMask ∷ beat ∷ []) → Procedure []
   vec-op₂′ op = declare (lit (zero ′f)) (
-    declare (lit (Vec.replicate false ′x)) (
+    declare (lit (Vec.replicate false ′xs)) (
     -- 0:elmtMask 1:curBeat
     tup (var 1 ∷ var 0 ∷ []) ≔ call GetCurInstrBeat [] ∙
-    declare (lit ((Vec.replicate false ′x) ′a)) (
+    declare (lit ((Vec.replicate false ′xs) ′a)) (
     declare (from32 size (index (index Q (lit (src₁ ′f))) (var 2))) (
     -- 0:op₁ 1:result 2:elmtMask 3:curBeat
     for (toℕ elements) (
@@ -285,7 +284,7 @@ private
       tup (index (var 5) (var 3) ∷ var 0 ∷ []) ≔ call (SignedSatQ (toℕ esize-1)) (var 1 ∷ []) ∙
       if var 0 && hasBit (var 6) (fin e*esize>>3 (tup ((var 3) ∷ [])))
       then
-        FPSCR-QC ≔ lit ((true ∷ []) ′x)
+        FPSCR-QC ≔ lit (true ′x)
       else skip)))
     where
     open Instr.VecOp₂ d

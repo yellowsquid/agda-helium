@@ -31,18 +31,17 @@ data Type : Set where
   int   : Type
   fin   : (n : ℕ) → Type
   real  : Type
+  bit   : Type
   bits  : (n : ℕ) → Type
   tuple : ∀ n → Vec Type n → Type
   array : Type → (n : ℕ) → Type
-
-bit : Type
-bit = bits 1
 
 data HasEquality : Type → Set where
   bool : HasEquality bool
   int  : HasEquality int
   fin  : ∀ {n} → HasEquality (fin n)
   real : HasEquality real
+  bit  : HasEquality bit
   bits : ∀ {n} → HasEquality (bits n)
 
 hasEquality? : Decidable HasEquality
@@ -50,6 +49,7 @@ hasEquality? bool        = yes bool
 hasEquality? int         = yes int
 hasEquality? (fin n)     = yes fin
 hasEquality? real        = yes real
+hasEquality? bit         = yes bit
 hasEquality? (bits n)    = yes bits
 hasEquality? (tuple n x) = no (λ ())
 hasEquality? (array t n) = no (λ ())
@@ -61,8 +61,9 @@ data IsNumeric : Type → Set where
 isNumeric? : Decidable IsNumeric
 isNumeric? bool        = no (λ ())
 isNumeric? int         = yes int
-isNumeric? real        = yes real
 isNumeric? (fin n)     = no (λ ())
+isNumeric? real        = yes real
+isNumeric? bit         = no (λ ())
 isNumeric? (bits n)    = no (λ ())
 isNumeric? (tuple n x) = no (λ ())
 isNumeric? (array t n) = no (λ ())
@@ -87,12 +88,13 @@ elemType (array t) = t
 --- Literals
 
 data Literal : Type → Set where
-  _′b : Bool → Literal bool
-  _′i : ℕ → Literal int
-  _′f : ∀ {n} → Fin n → Literal (fin n)
-  _′r : ℕ → Literal real
-  _′x : ∀ {n} → Vec Bool n → Literal (bits n)
-  _′a : ∀ {n t} → Literal t → Literal (array t n)
+  _′b  : Bool → Literal bool
+  _′i  : ℕ → Literal int
+  _′f  : ∀ {n} → Fin n → Literal (fin n)
+  _′r  : ℕ → Literal real
+  _′x  : Bool → Literal bit
+  _′xs : ∀ {n} → Vec Bool n → Literal (bits n)
+  _′a  : ∀ {n t} → Literal t → Literal (array t n)
 
 --- Expressions, references, statements, functions and procedures
 
@@ -130,8 +132,8 @@ module Code {o} (Σ : Vec Type o) where
     not   : ∀ {m} → Expression Γ (bits m) → Expression Γ (bits m)
     _and_ : ∀ {m} → Expression Γ (bits m) → Expression Γ (bits m) → Expression Γ (bits m)
     _or_  : ∀ {m} → Expression Γ (bits m) → Expression Γ (bits m) → Expression Γ (bits m)
-    [_]   : ∀ {t} → Expression Γ t → Expression Γ (array t 1)
-    unbox : ∀ {t} → Expression Γ (array t 1) → Expression Γ t
+    [_]   : ∀ {t} → Expression Γ (elemType t) → Expression Γ (asType t 1)
+    unbox : ∀ {t} → Expression Γ (asType t 1) → Expression Γ (elemType t)
     _∶_   : ∀ {m n t} → Expression Γ (asType t m) → Expression Γ (asType t n) → Expression Γ (asType t (n ℕ.+ m))
     slice : ∀ {i j t} → Expression Γ (asType t (i ℕ.+ j)) → Expression Γ (fin (suc i)) → Expression Γ (asType t j)
     cast  : ∀ {i j t} → .(eq : i ≡ j) → Expression Γ (asType t i) → Expression Γ (asType t j)
@@ -153,8 +155,8 @@ module Code {o} (Σ : Vec Type o) where
     var   : ∀ i {i<n : True (i ℕ.<? n)} → CanAssign (var i {i<n})
     abort : ∀ {t} {e : Expression Γ (fin 0)} → CanAssign (abort {t = t} e)
     _∶_   : ∀ {m n t} {e₁ : Expression Γ (asType t m)} {e₂ : Expression Γ (asType t n)} → CanAssign e₁ → CanAssign e₂ → CanAssign (e₁ ∶ e₂)
-    [_]   : ∀ {t} {e : Expression Γ t} → CanAssign e → CanAssign [ e ]
-    unbox : ∀ {t} {e : Expression Γ (array t 1)} → CanAssign e → CanAssign (unbox e)
+    [_]   : ∀ {t} {e : Expression Γ (elemType t)} → CanAssign e → CanAssign ([_] {t = t} e)
+    unbox : ∀ {t} {e : Expression Γ (asType t 1)} → CanAssign e → CanAssign (unbox e)
     slice : ∀ {i j t} {e₁ : Expression Γ (asType t (i ℕ.+ j))} → CanAssign e₁ → (e₂ : Expression Γ (fin (suc i))) → CanAssign (slice e₁ e₂)
     cast  : ∀ {i j t} {e : Expression Γ (asType t i)} .(eq : i ≡ j) → CanAssign e → CanAssign (cast eq e)
     tup   : ∀ {m ts} {es : All (Expression Γ) {m} ts} → All (CanAssign ∘ proj₂) (reduce (λ {x} e → x , e) es) → CanAssign (tup es)
@@ -267,21 +269,21 @@ module Code {o} (Σ : Vec Type o) where
   x << n = rnd (x * lit (2 ′r) ^ n)
 
   get : ∀ {n Γ} → ℕ → Expression {n} Γ int → Expression Γ bit
-  get i x = if x - x >> suc i << suc i <? lit (2 ′i) ^ i then lit ((false ∷ []) ′x) else lit ((true ∷ []) ′x)
+  get i x = if x - x >> suc i << suc i <? lit (2 ′i) ^ i then lit (false ′x) else lit (true ′x)
 
   uint : ∀ {n Γ m} → Expression {n} Γ (bits m) → Expression Γ int
   uint {m = zero}  x = lit (0 ′i)
   uint {m = suc m} x =
     lit (2 ′i) * uint {m = m} (slice x (lit ((# 1) ′f))) +
-    ( if slice′ x (lit ((# 0) ′f)) ≟ lit ((true ∷ []) ′x)
+    ( if slice′ x (lit ((# 0) ′f)) ≟ lit ((true ∷ []) ′xs)
       then lit (1 ′i)
       else lit (0 ′i))
 
   sint : ∀ {n Γ m} → Expression {n} Γ (bits m) → Expression Γ int
   sint {m = zero}        x = lit (0 ′i)
-  sint {m = suc zero}    x = if x ≟ lit ((true ∷ []) ′x) then - lit (1 ′i) else lit (0 ′i)
+  sint {m = suc zero}    x = if x ≟ lit ((true ∷ []) ′xs) then - lit (1 ′i) else lit (0 ′i)
   sint {m = suc (suc m)} x =
     lit (2 ′i) * sint (slice {i = 1} x (lit ((# 1) ′f))) +
-    ( if slice′ x (lit ((# 0) ′f)) ≟ lit ((true ∷ []) ′x)
+    ( if slice′ x (lit ((# 0) ′f)) ≟ lit ((true ∷ []) ′xs)
       then lit (1 ′i)
       else lit (0 ′i))
