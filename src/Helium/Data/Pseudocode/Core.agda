@@ -157,6 +157,8 @@ module Code {o} (Σ : Vec Type o) where
     fin   : ∀ {k ms n} → (All (Fin) ms → Fin n) → Expression Γ (tuple k (map fin ms)) → Expression Γ (fin n)
     asInt : ∀ {m} → Expression Γ (fin m) → Expression Γ int
     tup   : ∀ {m ts} → All (Expression Γ) ts → Expression Γ (tuple m ts)
+    head  : ∀ {m t ts} → Expression Γ (tuple (suc m) (t ∷ ts)) → Expression Γ t
+    tail  : ∀ {m t ts} → Expression Γ (tuple (suc m) (t ∷ ts)) → Expression Γ (tuple m ts)
     call  : ∀ {t m Δ} → Function Δ t → All (Expression Γ) {m} Δ → Expression Γ t
     if_then_else_ : ∀ {t} → Expression Γ bool → Expression Γ t → Expression Γ t → Expression Γ t
 
@@ -198,6 +200,8 @@ module Code {o} (Σ : Vec Type o) where
   canAssign? (fin x e)    = no λ ()
   canAssign? (asInt e)    = no λ ()
   canAssign? (tup es)     = map′ tup (λ { (tup es) → es }) (canAssignAll? es)
+  canAssign? (head e)     = no λ ()
+  canAssign? (tail e)     = no λ ()
   canAssign? (call x e)   = no λ ()
   canAssign? (if e then e₁ else e₂) = no λ ()
 

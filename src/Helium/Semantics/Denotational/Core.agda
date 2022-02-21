@@ -234,6 +234,8 @@ module Expression
   ⟦ tup [] ⟧ᵉ σ γ = _
   ⟦ tup (e ∷ []) ⟧ᵉ σ γ = ⟦ e ⟧ᵉ σ γ
   ⟦ tup (e ∷ e′ ∷ es) ⟧ᵉ σ γ = ⟦ e ⟧ᵉ σ γ , ⟦ tup (e′ ∷ es) ⟧ᵉ σ γ
+  ⟦ head {ts = ts} e ⟧ᵉ σ γ = tupHead ts (⟦ e ⟧ᵉ σ γ)
+  ⟦ tail {ts = ts} e ⟧ᵉ σ γ = tupTail ts (⟦ e ⟧ᵉ σ γ)
   ⟦ call f e ⟧ᵉ σ γ = ⟦ f ⟧ᶠ σ (⟦ e ⟧ᵉ′ σ γ)
   ⟦ if e then e₁ else e₂ ⟧ᵉ σ γ = Bool.if ⟦ e ⟧ᵉ σ γ then ⟦ e₁ ⟧ᵉ σ γ else ⟦ e₂ ⟧ᵉ σ γ
 
