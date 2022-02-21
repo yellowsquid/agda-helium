@@ -17,7 +17,7 @@ private
   open module C = RawPseudocode rawPseudocode
 
 open import Data.Bool as Bool using (Bool; true; false)
-open import Data.Fin as Fin using (Fin; zero; suc; #_)
+open import Data.Fin as Fin using (Fin; zero; suc)
 import Data.Fin.Properties as Finₚ
 open import Data.Nat as ℕ using (ℕ; zero; suc)
 import Data.Nat.Properties as ℕₚ
@@ -201,8 +201,8 @@ module Expression
   update : ∀ {n Γ t e} → CanAssign {n} {Γ} {t} e → ⟦ t ⟧ₜ → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′
 
   ⟦ lit x ⟧ᵉ σ γ = 𝒦 x
-  ⟦ state i ⟧ᵉ σ γ = fetch Σ σ (# i)
-  ⟦_⟧ᵉ {Γ = Γ} (var i) σ γ = fetch Γ γ (# i)
+  ⟦ state i ⟧ᵉ σ γ = fetch Σ σ i
+  ⟦_⟧ᵉ {Γ = Γ} (var i) σ γ = fetch Γ γ i
   ⟦ abort e ⟧ᵉ σ γ = case ⟦ e ⟧ᵉ σ γ of λ ()
   ⟦ _≟_ {hasEquality = hasEq} e e₁ ⟧ᵉ σ γ = equal (toWitness hasEq) (⟦ e ⟧ᵉ σ γ) (⟦ e₁ ⟧ᵉ σ γ)
   ⟦ _<?_ {isNumeric = isNum} e e₁ ⟧ᵉ σ γ = comp (toWitness isNum) (⟦ e ⟧ᵉ σ γ) (⟦ e₁ ⟧ᵉ σ γ)
@@ -263,8 +263,8 @@ module Expression
 
   ⟦ s ∙end ⟧ᵖ σ γ = P.proj₁ (⟦ s ⟧ˢ σ γ)
 
-  update (state i {i<o}) v σ γ = updateAt Σ (#_ i {m<n = i<o}) v σ , γ
-  update {Γ = Γ} (var i {i<n}) v σ γ = σ , updateAt Γ (#_ i {m<n = i<n}) v γ
+  update (state i) v σ γ = updateAt Σ i v σ , γ
+  update {Γ = Γ} (var i) v σ γ = σ , updateAt Γ i v γ
   update abort v σ γ = σ , γ
   update (_∶_ {m = m} {t = t} e e₁) v σ γ = do
     let σ′ , γ′ = update e (sliced t v (Fin.fromℕ _)) σ γ

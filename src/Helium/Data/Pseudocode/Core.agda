@@ -19,7 +19,7 @@ open import Data.Vec.Relation.Unary.All using (All; []; _∷_; reduce)
 open import Data.Vec.Relation.Unary.Any using (Any; here; there)
 open import Function as F using (_∘_; _∘′_; _∋_)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
-open import Relation.Nullary using (yes; no)
+open import Relation.Nullary using (Dec; yes; no)
 open import Relation.Nullary.Decidable.Core using (True; False; toWitness; fromWitness; map′)
 open import Relation.Nullary.Product using (_×-dec_)
 open import Relation.Nullary.Sum using (_⊎-dec_)
@@ -131,8 +131,8 @@ module Code {o} (Σ : Vec Type o) where
 
   data Expression {n} Γ where
     lit   : ∀ {t} → Literal t → Expression Γ t
-    state : ∀ i {i<o : True (i ℕ.<? o)} → Expression Γ (lookup Σ (#_ i {m<n = i<o}))
-    var   : ∀ i {i<n : True (i ℕ.<? n)} → Expression Γ (lookup Γ (#_ i {m<n = i<n}))
+    state : ∀ i → Expression Γ (lookup Σ i)
+    var   : ∀ i → Expression Γ (lookup Γ i)
     abort : ∀ {t} → Expression Γ (fin 0) → Expression Γ t
     _≟_   : ∀ {t} {hasEquality : True (hasEquality? t)} → Expression Γ t → Expression Γ t → Expression Γ bool
     _<?_  : ∀ {t} {isNumeric : True (isNumeric? t)} → Expression Γ t → Expression Γ t → Expression Γ bool
@@ -161,8 +161,8 @@ module Code {o} (Σ : Vec Type o) where
     if_then_else_ : ∀ {t} → Expression Γ bool → Expression Γ t → Expression Γ t → Expression Γ t
 
   data CanAssign {n} {Γ} where
-    state : ∀ i {i<o : True (i ℕ.<? o)} → CanAssign (state i {i<o})
-    var   : ∀ i {i<n : True (i ℕ.<? n)} → CanAssign (var i {i<n})
+    state : ∀ i → CanAssign (state i)
+    var   : ∀ i → CanAssign (var i)
     abort : ∀ {t} {e : Expression Γ (fin 0)} → CanAssign (abort {t = t} e)
     _∶_   : ∀ {m n t} {e₁ : Expression Γ (asType t m)} {e₂ : Expression Γ (asType t n)} → CanAssign e₁ → CanAssign e₂ → CanAssign (e₁ ∶ e₂)
     [_]   : ∀ {t} {e : Expression Γ (elemType t)} → CanAssign e → CanAssign ([_] {t = t} e)
@@ -205,7 +205,7 @@ module Code {o} (Σ : Vec Type o) where
   canAssignAll? (e ∷ es) = map′ (uncurry _∷_) (λ { (e ∷ es) → e , es }) (canAssign? e ×-dec canAssignAll? es)
 
   data AssignsState where
-    state : ∀ i {i<o} → AssignsState (state i {i<o})
+    state : ∀ i → AssignsState (state i)
     _∶ˡ_ : ∀ {m n t e₁ e₂ a₁} → AssignsState a₁ → ∀ a₂ → AssignsState (_∶_ {m = m} {n} {t} {e₁} {e₂} a₁ a₂)
     _∶ʳ_ : ∀ {m n t e₁ e₂} a₁ {a₂} → AssignsState a₂ → AssignsState (_∶_ {m = m} {n} {t} {e₁} {e₂} a₁ a₂)
     [_] : ∀ {t e a} → AssignsState a → AssignsState ([_] {t = t} {e} a)
