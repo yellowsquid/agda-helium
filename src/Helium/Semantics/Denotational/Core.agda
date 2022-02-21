@@ -111,8 +111,8 @@ comp real x y = does (x <ʳ? y)
 
 -- 0 of y is 0 of result
 join : ∀ t {m n} → ⟦ asType t m ⟧ₜ → ⟦ asType t n ⟧ₜ → ⟦ asType t (n ℕ.+ m) ⟧ₜ
-join bits      {m} x y = y VecF.++ x
-join (array _) {m} x y = y Vec.++ x
+join bits      x y = y VecF.++ x
+join (array _) x y = y Vec.++ x
 
 -- take from 0
 take : ∀ t i {j} → ⟦ asType t (i ℕ.+ j) ⟧ₜ → ⟦ asType t i ⟧ₜ
@@ -134,26 +134,39 @@ module _ where
   m≤n⇒m+k≡n ℕ.z≤n       = _ , ≡.refl
   m≤n⇒m+k≡n (ℕ.s≤s m≤n) = P.dmap id (≡.cong suc) (m≤n⇒m+k≡n m≤n)
 
-  slicedSize : ∀ i j (off : Fin (suc i)) → P.∃ λ k → i ℕ.+ j ≡ Fin.toℕ off ℕ.+ (j ℕ.+ k)
-  slicedSize i j off = k , (begin
-    i ℕ.+ j                   ≡˘⟨ ≡.cong (ℕ._+ j) (P.proj₂ off+k≤i) ⟩
-    (Fin.toℕ off ℕ.+ k) ℕ.+ j ≡⟨  ℕₚ.+-assoc (Fin.toℕ off) k j ⟩
-    Fin.toℕ off ℕ.+ (k ℕ.+ j) ≡⟨  ≡.cong (Fin.toℕ off ℕ.+_) (ℕₚ.+-comm k j) ⟩
-    Fin.toℕ off ℕ.+ (j ℕ.+ k) ∎)
+  slicedSize : ∀ n m (i : Fin (suc n)) → P.∃ λ k → n ℕ.+ m ≡ Fin.toℕ i ℕ.+ (m ℕ.+ k) × Fin.toℕ i ℕ.+ k ≡ n
+  slicedSize n m i = k , (begin
+    n ℕ.+ m                   ≡˘⟨ ≡.cong (ℕ._+ m) (P.proj₂ i+k≡n) ⟩
+    (Fin.toℕ i ℕ.+ k) ℕ.+ m ≡⟨  ℕₚ.+-assoc (Fin.toℕ i) k m ⟩
+    Fin.toℕ i ℕ.+ (k ℕ.+ m) ≡⟨  ≡.cong (Fin.toℕ i ℕ.+_) (ℕₚ.+-comm k m) ⟩
+    Fin.toℕ i ℕ.+ (m ℕ.+ k) ∎) ,
+    P.proj₂ i+k≡n
     where
     open ≡-Reasoning
-    off+k≤i = m≤n⇒m+k≡n (ℕₚ.≤-pred (Finₚ.toℕ<n off))
-    k = P.proj₁ off+k≤i
+    i+k≡n = m≤n⇒m+k≡n (ℕₚ.≤-pred (Finₚ.toℕ<n i))
+    k = P.proj₁ i+k≡n
 
-  sliced : ∀ t {i j} → ⟦ asType t (i ℕ.+ j) ⟧ₜ → ⟦ fin (suc i) ⟧ₜ → ⟦ asType t j ⟧ₜ
-  sliced t {i} {j} x off = take t j (drop t (Fin.toℕ off) (casted t (P.proj₂ (slicedSize i j off)) x))
+  -- 0 of x is i of result
+  spliced : ∀ t {m n} → ⟦ asType t m ⟧ₜ → ⟦ asType t n ⟧ₜ → ⟦ fin (suc n) ⟧ₜ → ⟦ asType t (n ℕ.+ m) ⟧ₜ
+  spliced t {m} x y i = casted t eq (join t (join t high x) low)
+    where
+    reasoning = slicedSize _ m i
+    k = P.proj₁ reasoning
+    n≡i+k = ≡.sym (P.proj₂ (P.proj₂ reasoning))
+    low = take t (Fin.toℕ i) (casted t n≡i+k y)
+    high = drop t (Fin.toℕ i) (casted t n≡i+k y)
+    eq = ≡.sym (P.proj₁ (P.proj₂ reasoning))
 
-updateSliced : ∀ {a} {A : Set a} t {i j} → ⟦ asType t (i ℕ.+ j) ⟧ₜ → ⟦ fin (suc i) ⟧ₜ → ⟦ asType t j ⟧ₜ → (⟦ asType t (i ℕ.+ j) ⟧ₜ → A) → A
-updateSliced t {i} {j} orig off v f = f (casted t (≡.sym eq) (join t (join t untaken v) dropped))
-  where
-  eq = P.proj₂ (slicedSize i j off)
-  dropped = take t (Fin.toℕ off) (casted t eq orig)
-  untaken = drop t j (drop t (Fin.toℕ off) (casted t eq orig))
+  sliced : ∀ t {m n} → ⟦ asType t (n ℕ.+ m) ⟧ₜ → ⟦ fin (suc n) ⟧ₜ → ⟦ asType t m ∷ asType t n ∷ [] ⟧ₜ′
+  sliced t {m} x i = middle , casted t i+k≡n (join t high low)
+    where
+    reasoning = slicedSize _ m i
+    k = P.proj₁ reasoning
+    i+k≡n = P.proj₂ (P.proj₂ reasoning)
+    eq = P.proj₁ (P.proj₂ reasoning)
+    low = take t (Fin.toℕ i) (casted t eq x)
+    middle = take t m (drop t (Fin.toℕ i) (casted t eq x))
+    high = drop t m (drop t (Fin.toℕ i) (casted t eq x))
 
 box : ∀ t → ⟦ elemType t ⟧ₜ → ⟦ asType t 1 ⟧ₜ
 box bits      v = v VecF.∷ VecF.[]
@@ -214,8 +227,8 @@ module Expression
   ⟦ e or e₁ ⟧ᵉ σ γ = ⟦ e ⟧ᵉ σ γ Bits.∨ ⟦ e₁ ⟧ᵉ σ γ
   ⟦ [_] {t = t} e ⟧ᵉ σ γ = box t (⟦ e ⟧ᵉ σ γ)
   ⟦ unbox {t = t} e ⟧ᵉ σ γ = unboxed t (⟦ e ⟧ᵉ σ γ)
-  ⟦ _∶_ {t = t} e e₁ ⟧ᵉ σ γ = join t (⟦ e ⟧ᵉ σ γ) (⟦ e₁ ⟧ᵉ σ γ)
-  ⟦ slice {t = t} e e₁ ⟧ᵉ σ γ = sliced t (⟦ e ⟧ᵉ σ γ) (⟦ e₁ ⟧ᵉ σ γ)
+  ⟦ splice {t = t} e e₁ e₂ ⟧ᵉ σ γ = spliced t (⟦ e ⟧ᵉ σ γ) (⟦ e₁ ⟧ᵉ σ γ) (⟦ e₂ ⟧ᵉ σ γ)
+  ⟦ cut {t = t} e e₁ ⟧ᵉ σ γ = sliced t (⟦ e ⟧ᵉ σ γ) (⟦ e₁ ⟧ᵉ σ γ)
   ⟦ cast {t = t} eq e ⟧ᵉ σ γ = casted t eq (⟦ e ⟧ᵉ σ γ)
   ⟦ -_ {isNumeric = isNum} e ⟧ᵉ σ γ = neg (toWitness isNum) (⟦ e ⟧ᵉ σ γ)
   ⟦ _+_ {isNumeric₁ = isNum₁} {isNumeric₂ = isNum₂} e e₁ ⟧ᵉ σ γ = add isNum₁ isNum₂ (⟦ e ⟧ᵉ σ γ) (⟦ e₁ ⟧ᵉ σ γ)
@@ -267,16 +280,20 @@ module Expression
 
   update (state i) v σ γ = updateAt Σ i v σ , γ
   update {Γ = Γ} (var i) v σ γ = σ , updateAt Γ i v γ
-  update abort v σ γ = σ , γ
-  update (_∶_ {m = m} {t = t} e e₁) v σ γ = do
-    let σ′ , γ′ = update e (sliced t v (Fin.fromℕ _)) σ γ
-    update e₁ (sliced t (casted t (ℕₚ.+-comm _ m) v) zero) σ′ γ′
+  update (abort _) v σ γ = σ , γ
   update ([_] {t = t} e) v σ γ = update e (unboxed t v) σ γ
   update (unbox {t = t} e) v σ γ = update e (box t v) σ γ
-  update (slice {t = t} {e₁ = e₁} a e₂) v σ γ = updateSliced t (⟦ e₁ ⟧ᵉ σ γ) (⟦ e₂ ⟧ᵉ σ γ) v (λ v → update a v σ γ)
+  update (splice {m = m} {t = t} e e₁ e₂) v σ γ = do
+    let i = ⟦ e₂ ⟧ᵉ σ γ
+    let σ′ , γ′ = update e (P.proj₁ (sliced t v i)) σ γ
+    update e₁ (P.proj₂ (sliced t v i)) σ′ γ′
+  update (cut {t = t} a e₂) v σ γ = do
+    let i = ⟦ e₂ ⟧ᵉ σ γ
+    update a (spliced t (P.proj₁ v) (P.proj₂ v) i) σ γ
   update (cast {t = t} eq e) v σ γ = update e (casted t (≡.sym eq) v) σ γ
-  update (tup {es = []} x) v σ γ = σ , γ
-  update (tup {es = _ ∷ []} (x ∷ [])) v σ γ = update x v σ γ
-  update (tup {es = _ ∷ _ ∷ _} (x ∷ xs)) (v , vs) σ γ = do
-    let σ′ , γ′ = update x v σ γ
-    update (tup xs) vs σ′ γ′
+  update (tup {es = []} x) vs σ γ = σ , γ
+  update (tup {ts = _ ∷ ts} {es = _ ∷ _} (x ∷ xs)) vs σ γ = do
+    let σ′ , γ′ = update x (tupHead ts vs) σ γ
+    update (tup xs) (tupTail ts vs) σ′ γ′
+  update (head {ts = ts} {e = e} a) v σ γ = update a (tupCons ts v (tupTail ts (⟦ e ⟧ᵉ σ γ))) σ γ
+  update (tail {ts = ts} {e = e} a) v σ γ = update a (tupCons ts (tupHead ts (⟦ e ⟧ᵉ σ γ)) v) σ γ

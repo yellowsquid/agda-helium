@@ -9,7 +9,8 @@
 module Helium.Data.Pseudocode.Core where
 
 open import Data.Bool using (Bool; true; false)
-open import Data.Fin using (Fin; #_)
+open import Data.Fin as Fin using (Fin)
+open import Data.Fin.Patterns
 open import Data.Nat as ℕ using (ℕ; zero; suc)
 open import Data.Nat.Properties using (+-comm)
 open import Data.Product using (∃; _,_; proj₂; uncurry)
@@ -130,53 +131,55 @@ module Code {o} (Σ : Vec Type o) where
   infix  4 _≟_ _<?_
 
   data Expression {n} Γ where
-    lit   : ∀ {t} → Literal t → Expression Γ t
-    state : ∀ i → Expression Γ (lookup Σ i)
-    var   : ∀ i → Expression Γ (lookup Γ i)
-    abort : ∀ {t} → Expression Γ (fin 0) → Expression Γ t
-    _≟_   : ∀ {t} {hasEquality : True (hasEquality? t)} → Expression Γ t → Expression Γ t → Expression Γ bool
-    _<?_  : ∀ {t} {isNumeric : True (isNumeric? t)} → Expression Γ t → Expression Γ t → Expression Γ bool
-    inv   : Expression Γ bool → Expression Γ bool
-    _&&_  : Expression Γ bool → Expression Γ bool → Expression Γ bool
-    _||_  : Expression Γ bool → Expression Γ bool → Expression Γ bool
-    not   : ∀ {m} → Expression Γ (bits m) → Expression Γ (bits m)
-    _and_ : ∀ {m} → Expression Γ (bits m) → Expression Γ (bits m) → Expression Γ (bits m)
-    _or_  : ∀ {m} → Expression Γ (bits m) → Expression Γ (bits m) → Expression Γ (bits m)
-    [_]   : ∀ {t} → Expression Γ (elemType t) → Expression Γ (asType t 1)
-    unbox : ∀ {t} → Expression Γ (asType t 1) → Expression Γ (elemType t)
-    _∶_   : ∀ {m n t} → Expression Γ (asType t m) → Expression Γ (asType t n) → Expression Γ (asType t (n ℕ.+ m))
-    slice : ∀ {i j t} → Expression Γ (asType t (i ℕ.+ j)) → Expression Γ (fin (suc i)) → Expression Γ (asType t j)
-    cast  : ∀ {i j t} → .(eq : i ≡ j) → Expression Γ (asType t i) → Expression Γ (asType t j)
-    -_    : ∀ {t} {isNumeric : True (isNumeric? t)} → Expression Γ t → Expression Γ t
-    _+_   : ∀ {t₁ t₂} {isNumeric₁ : True (isNumeric? t₁)} {isNumeric₂ : True (isNumeric? t₂)} → Expression Γ t₁ → Expression Γ t₂ → Expression Γ (combineNumeric t₁ t₂ {isNumeric₁} {isNumeric₂})
-    _*_   : ∀ {t₁ t₂} {isNumeric₁ : True (isNumeric? t₁)} {isNumeric₂ : True (isNumeric? t₂)} → Expression Γ t₁ → Expression Γ t₂ → Expression Γ (combineNumeric t₁ t₂ {isNumeric₁} {isNumeric₂})
+    lit    : ∀ {t} → Literal t → Expression Γ t
+    state  : ∀ i → Expression Γ (lookup Σ i)
+    var    : ∀ i → Expression Γ (lookup Γ i)
+    abort  : ∀ {t} → Expression Γ (fin 0) → Expression Γ t
+    _≟_    : ∀ {t} {hasEquality : True (hasEquality? t)} → Expression Γ t → Expression Γ t → Expression Γ bool
+    _<?_   : ∀ {t} {isNumeric : True (isNumeric? t)} → Expression Γ t → Expression Γ t → Expression Γ bool
+    inv    : Expression Γ bool → Expression Γ bool
+    _&&_   : Expression Γ bool → Expression Γ bool → Expression Γ bool
+    _||_   : Expression Γ bool → Expression Γ bool → Expression Γ bool
+    not    : ∀ {m} → Expression Γ (bits m) → Expression Γ (bits m)
+    _and_  : ∀ {m} → Expression Γ (bits m) → Expression Γ (bits m) → Expression Γ (bits m)
+    _or_   : ∀ {m} → Expression Γ (bits m) → Expression Γ (bits m) → Expression Γ (bits m)
+    [_]    : ∀ {t} → Expression Γ (elemType t) → Expression Γ (asType t 1)
+    unbox  : ∀ {t} → Expression Γ (asType t 1) → Expression Γ (elemType t)
+    splice : ∀ {m n t} → Expression Γ (asType t m) → Expression Γ (asType t n) → Expression Γ (fin (suc n)) → Expression Γ (asType t (n ℕ.+ m))
+    cut    : ∀ {m n t} → Expression Γ (asType t (n ℕ.+ m)) → Expression Γ (fin (suc n)) → Expression Γ (tuple 2 (asType t m ∷ asType t n ∷ []))
+    cast   : ∀ {i j t} → .(eq : i ≡ j) → Expression Γ (asType t i) → Expression Γ (asType t j)
+    -_     : ∀ {t} {isNumeric : True (isNumeric? t)} → Expression Γ t → Expression Γ t
+    _+_    : ∀ {t₁ t₂} {isNumeric₁ : True (isNumeric? t₁)} {isNumeric₂ : True (isNumeric? t₂)} → Expression Γ t₁ → Expression Γ t₂ → Expression Γ (combineNumeric t₁ t₂ {isNumeric₁} {isNumeric₂})
+    _*_    : ∀ {t₁ t₂} {isNumeric₁ : True (isNumeric? t₁)} {isNumeric₂ : True (isNumeric? t₂)} → Expression Γ t₁ → Expression Γ t₂ → Expression Γ (combineNumeric t₁ t₂ {isNumeric₁} {isNumeric₂})
     -- _/_   : Expression Γ real → Expression Γ real → Expression Γ real
-    _^_   : ∀ {t} {isNumeric : True (isNumeric? t)} → Expression Γ t → ℕ → Expression Γ t
-    _>>_  : Expression Γ int → ℕ → Expression Γ int
-    rnd   : Expression Γ real → Expression Γ int
-    fin   : ∀ {k ms n} → (All (Fin) ms → Fin n) → Expression Γ (tuple k (map fin ms)) → Expression Γ (fin n)
-    asInt : ∀ {m} → Expression Γ (fin m) → Expression Γ int
-    tup   : ∀ {m ts} → All (Expression Γ) ts → Expression Γ (tuple m ts)
-    head  : ∀ {m t ts} → Expression Γ (tuple (suc m) (t ∷ ts)) → Expression Γ t
-    tail  : ∀ {m t ts} → Expression Γ (tuple (suc m) (t ∷ ts)) → Expression Γ (tuple m ts)
-    call  : ∀ {t m Δ} → Function Δ t → All (Expression Γ) {m} Δ → Expression Γ t
+    _^_    : ∀ {t} {isNumeric : True (isNumeric? t)} → Expression Γ t → ℕ → Expression Γ t
+    _>>_   : Expression Γ int → ℕ → Expression Γ int
+    rnd    : Expression Γ real → Expression Γ int
+    fin    : ∀ {k ms n} → (All (Fin) ms → Fin n) → Expression Γ (tuple k (map fin ms)) → Expression Γ (fin n)
+    asInt  : ∀ {m} → Expression Γ (fin m) → Expression Γ int
+    tup    : ∀ {m ts} → All (Expression Γ) ts → Expression Γ (tuple m ts)
+    head   : ∀ {m t ts} → Expression Γ (tuple (suc m) (t ∷ ts)) → Expression Γ t
+    tail   : ∀ {m t ts} → Expression Γ (tuple (suc m) (t ∷ ts)) → Expression Γ (tuple m ts)
+    call   : ∀ {t m Δ} → Function Δ t → All (Expression Γ) {m} Δ → Expression Γ t
     if_then_else_ : ∀ {t} → Expression Γ bool → Expression Γ t → Expression Γ t → Expression Γ t
 
   data CanAssign {n} {Γ} where
     state : ∀ i → CanAssign (state i)
     var   : ∀ i → CanAssign (var i)
-    abort : ∀ {t} {e : Expression Γ (fin 0)} → CanAssign (abort {t = t} e)
-    _∶_   : ∀ {m n t} {e₁ : Expression Γ (asType t m)} {e₂ : Expression Γ (asType t n)} → CanAssign e₁ → CanAssign e₂ → CanAssign (e₁ ∶ e₂)
-    [_]   : ∀ {t} {e : Expression Γ (elemType t)} → CanAssign e → CanAssign ([_] {t = t} e)
-    unbox : ∀ {t} {e : Expression Γ (asType t 1)} → CanAssign e → CanAssign (unbox e)
-    slice : ∀ {i j t} {e₁ : Expression Γ (asType t (i ℕ.+ j))} → CanAssign e₁ → (e₂ : Expression Γ (fin (suc i))) → CanAssign (slice e₁ e₂)
-    cast  : ∀ {i j t} {e : Expression Γ (asType t i)} .(eq : i ≡ j) → CanAssign e → CanAssign (cast eq e)
-    tup   : ∀ {m ts} {es : All (Expression Γ) {m} ts} → All (CanAssign ∘ proj₂) (reduce (λ {x} e → x , e) es) → CanAssign (tup es)
+    abort : ∀ {t} e → CanAssign (abort {t = t} e)
+    [_]   : ∀ {t e} → CanAssign e → CanAssign ([_] {t = t} e)
+    unbox : ∀ {t e} → CanAssign e → CanAssign (unbox {t = t} e)
+    splice : ∀ {m n t e₁ e₂} → CanAssign e₁ → CanAssign e₂ → ∀ e₃ → CanAssign (splice {m = m} {n} {t} e₁ e₂ e₃)
+    cut    : ∀ {m n t e₁} → CanAssign e₁ → ∀ e₂ → CanAssign (cut {m = m} {n} {t} e₁ e₂)
+    cast  : ∀ {i j t e} .(eq : i ≡ j) → CanAssign e → CanAssign (cast {t = t} eq e)
+    tup   : ∀ {m ts es} → All (CanAssign ∘ proj₂) (reduce (λ {x} e → x , e) es) → CanAssign (tup {m = m} {ts} es)
+    head  : ∀ {m t ts e} → CanAssign e → CanAssign (head {m = m} {t} {ts} e)
+    tail  : ∀ {m t ts e} → CanAssign e → CanAssign (tail {m = m} {t} {ts} e)
 
   canAssign? (lit x)      = no λ ()
   canAssign? (state i)    = yes (state i)
   canAssign? (var i)      = yes (var i)
-  canAssign? (abort e)    = yes abort
+  canAssign? (abort e)    = yes (abort e)
   canAssign? (e ≟ e₁)     = no λ ()
   canAssign? (e <? e₁)    = no λ ()
   canAssign? (inv e)      = no λ ()
@@ -187,8 +190,8 @@ module Code {o} (Σ : Vec Type o) where
   canAssign? (e or e₁)    = no λ ()
   canAssign? [ e ]        = map′ [_] (λ { [ e ] → e }) (canAssign? e)
   canAssign? (unbox e)    = map′ unbox (λ { (unbox e) → e }) (canAssign? e)
-  canAssign? (e ∶ e₁)     = map′ (uncurry _∶_) (λ { (e ∶ e₁) → e , e₁ }) (canAssign? e ×-dec canAssign? e₁)
-  canAssign? (slice e e₁) = map′ (λ e → slice e e₁) (λ { (slice e e₁) → e }) (canAssign? e)
+  canAssign? (splice e e₁ e₂) = map′ (λ (e , e₁) → splice e e₁ e₂) (λ { (splice e e₁ _) → e , e₁ }) (canAssign? e ×-dec canAssign? e₁)
+  canAssign? (cut e e₁)       = map′ (λ e → cut e e₁) (λ { (cut e e₁) → e }) (canAssign? e)
   canAssign? (cast eq e)  = map′ (cast eq) (λ { (cast eq e) → e }) (canAssign? e)
   canAssign? (- e)        = no λ ()
   canAssign? (e + e₁)     = no λ ()
@@ -200,8 +203,8 @@ module Code {o} (Σ : Vec Type o) where
   canAssign? (fin x e)    = no λ ()
   canAssign? (asInt e)    = no λ ()
   canAssign? (tup es)     = map′ tup (λ { (tup es) → es }) (canAssignAll? es)
-  canAssign? (head e)     = no λ ()
-  canAssign? (tail e)     = no λ ()
+  canAssign? (head e)     = map′ head (λ { (head e) → e }) (canAssign? e)
+  canAssign? (tail e)     = map′ tail (λ { (tail e) → e }) (canAssign? e)
   canAssign? (call x e)   = no λ ()
   canAssign? (if e then e₁ else e₂) = no λ ()
 
@@ -210,23 +213,27 @@ module Code {o} (Σ : Vec Type o) where
 
   data AssignsState where
     state : ∀ i → AssignsState (state i)
-    _∶ˡ_ : ∀ {m n t e₁ e₂ a₁} → AssignsState a₁ → ∀ a₂ → AssignsState (_∶_ {m = m} {n} {t} {e₁} {e₂} a₁ a₂)
-    _∶ʳ_ : ∀ {m n t e₁ e₂} a₁ {a₂} → AssignsState a₂ → AssignsState (_∶_ {m = m} {n} {t} {e₁} {e₂} a₁ a₂)
     [_] : ∀ {t e a} → AssignsState a → AssignsState ([_] {t = t} {e} a)
     unbox : ∀ {t e a} → AssignsState a → AssignsState (unbox {t = t} {e} a)
-    slice : ∀ {i j t e₁ a} → AssignsState a → ∀ e₂ → AssignsState (slice {i = i} {j} {t} {e₁} a e₂)
+    spliceˡ : ∀ {m n t e₁ e₂ a₁} → AssignsState a₁ → ∀ a₂ e₃ → AssignsState (splice {m = m} {n} {t} {e₁} {e₂} a₁ a₂ e₃)
+    spliceʳ : ∀ {m n t e₁ e₂} a₁ {a₂} → AssignsState a₂ → ∀ e₃ → AssignsState (splice {m = m} {n} {t} {e₁} {e₂} a₁ a₂ e₃)
+    cut : ∀ {m n t e₁ a₁} → AssignsState a₁ → ∀ e₂ → AssignsState (cut {m = m} {n} {t} {e₁} a₁ e₂)
     cast : ∀ {i j t e} .(eq : i ≡ j) {a} → AssignsState a → AssignsState (cast {t = t} {e} eq a)
     tup : ∀ {m ts es as} → Any (AssignsState ∘ proj₂) (reduce (λ {x} a → x , a) as) → AssignsState (tup {m = m} {ts} {es} as)
+    head : ∀ {m t ts e a} → AssignsState a → AssignsState (head {m = m} {t} {ts} {e} a)
+    tail : ∀ {m t ts e a} → AssignsState a → AssignsState (tail {m = m} {t} {ts} {e} a)
 
   assignsState? (state i)    = yes (state i)
   assignsState? (var i)      = no λ ()
-  assignsState? abort        = no λ ()
-  assignsState? (a ∶ a₁)     = map′ [ (_∶ˡ a₁) , (a ∶ʳ_) ]′ (λ { (s ∶ˡ _) → inj₁ s ; (_ ∶ʳ s) → inj₂ s }) (assignsState? a ⊎-dec assignsState? a₁)
+  assignsState? (abort e)    = no λ ()
   assignsState? [ a ]        = map′ [_] (λ { [ s ] → s }) (assignsState? a)
   assignsState? (unbox a)    = map′ unbox (λ { (unbox s) → s }) (assignsState? a)
-  assignsState? (slice a e₂) = map′ (λ s → slice s e₂ ) (λ { (slice s _) → s }) (assignsState? a)
+  assignsState? (splice a₁ a₂ e₃) = map′ [ (λ a₁ → spliceˡ a₁ a₂ e₃) , (λ a₂ → spliceʳ a₁ a₂ e₃) ]′ (λ { (spliceˡ a₁ _ _) → inj₁ a₁ ; (spliceʳ _ a₂ _) → inj₂ a₂ }) (assignsState? a₁ ⊎-dec assignsState? a₂)
+  assignsState? (cut a e₂) = map′ (λ s → cut s e₂ ) (λ { (cut s _) → s }) (assignsState? a)
   assignsState? (cast eq a)  = map′ (cast eq) (λ { (cast _ s) → s }) (assignsState? a)
   assignsState? (tup as)     = map′ tup (λ { (tup ss) → ss }) (assignsStateAny? as)
+  assignsState? (head a)     = map′ head (λ { (head s) → s }) (assignsState? a)
+  assignsState? (tail a)     = map′ tail (λ { (tail s) → s }) (assignsState? a)
 
   assignsStateAny? {es = []}     []       = no λ ()
   assignsStateAny? {es = e ∷ es} (a ∷ as) = map′ [ here , there ]′ (λ { (here s) → inj₁ s ; (there ss) → inj₂ ss }) (assignsState? a ⊎-dec assignsStateAny? as)
@@ -273,6 +280,12 @@ module Code {o} (Σ : Vec Type o) where
   infixl  6 _<<_
   infixl 5 _-_
 
+  _∶_ : ∀ {n Γ i j t} → Expression {n} Γ (asType t j) → Expression Γ (asType t i) → Expression Γ (asType t (i ℕ.+ j))
+  e₁ ∶ e₂ = splice e₁ e₂ (lit (Fin.fromℕ _ ′f))
+
+  slice : ∀ {n Γ i j t} → Expression {n} Γ (asType t (i ℕ.+ j)) → Expression Γ (fin (suc i)) → Expression Γ (asType t j)
+  slice e₁ e₂ = head (cut e₁ e₂)
+
   slice′ : ∀ {n Γ i j t} → Expression {n} Γ (asType t (i ℕ.+ j)) → Expression Γ (fin (suc j)) → Expression Γ (asType t i)
   slice′ {i = i} e₁ e₂ = slice (cast (+-comm i _) e₁) e₂
 
@@ -288,8 +301,8 @@ module Code {o} (Σ : Vec Type o) where
   uint : ∀ {n Γ m} → Expression {n} Γ (bits m) → Expression Γ int
   uint {m = zero}  x = lit (0 ′i)
   uint {m = suc m} x =
-    lit (2 ′i) * uint {m = m} (slice x (lit ((# 1) ′f))) +
-    ( if slice′ x (lit ((# 0) ′f)) ≟ lit ((true ∷ []) ′xs)
+    lit (2 ′i) * uint {m = m} (slice x (lit (1F ′f))) +
+    ( if slice′ x (lit (0F ′f)) ≟ lit ((true ∷ []) ′xs)
       then lit (1 ′i)
       else lit (0 ′i))
 
@@ -297,7 +310,7 @@ module Code {o} (Σ : Vec Type o) where
   sint {m = zero}        x = lit (0 ′i)
   sint {m = suc zero}    x = if x ≟ lit ((true ∷ []) ′xs) then - lit (1 ′i) else lit (0 ′i)
   sint {m = suc (suc m)} x =
-    lit (2 ′i) * sint (slice {i = 1} x (lit ((# 1) ′f))) +
-    ( if slice′ x (lit ((# 0) ′f)) ≟ lit ((true ∷ []) ′xs)
+    lit (2 ′i) * sint (slice {i = 1} x (lit (1F ′f))) +
+    ( if slice′ x (lit (0F ′f)) ≟ lit ((true ∷ []) ′xs)
       then lit (1 ′i)
       else lit (0 ′i))

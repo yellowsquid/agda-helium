@@ -16,153 +16,108 @@ module Helium.Semantics.Axiomatic.Core
 private
   open module C = RawPseudocode rawPseudocode
 
-open import Data.Bool using (Bool; T)
-open import Data.Fin as Fin using (zero; suc)
-import Data.Fin.Properties as Finₚ
--- open import Data.Nat as ℕ using (zero; suc)
-import Data.Nat as ℕ
+open import Data.Bool as Bool using (Bool)
+open import Data.Fin as Fin using (Fin; zero; suc)
+open import Data.Fin.Patterns
+open import Data.Nat as ℕ using (ℕ; suc)
+import Data.Nat.Induction as Natᵢ
 import Data.Nat.Properties as ℕₚ
-open import Data.Product using (∃; _×_; _,_; <_,_>)
+open import Data.Product as × using (_,_; uncurry)
 open import Data.Sum using (_⊎_)
 open import Data.Unit using (⊤)
-open import Data.Vec using (Vec; _∷_; lookup)
+open import Data.Vec as Vec using (Vec; []; _∷_; _++_; lookup)
 open import Data.Vec.Relation.Unary.All as All using (All; []; _∷_)
-open import Function using (_$_)
+open import Function using (_on_)
 open import Helium.Data.Pseudocode.Core
-open import Helium.Semantics.Core rawPseudocode
-open import Level using (_⊔_; Lift)
-open import Relation.Binary.PropositionalEquality using (refl)
-open import Relation.Nullary using (yes; no)
-open import Relation.Unary using (Decidable; _⊆_)
+open import Helium.Data.Pseudocode.Properties
+import Induction.WellFounded as Wf
+open import Level using (_⊔_; Lift; lift)
+import Relation.Binary.Construct.On as On
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; cong; cong₂)
+open import Relation.Nullary using (Dec; does; yes; no)
+open import Relation.Nullary.Decidable.Core using (True; toWitness; map′)
+open import Relation.Nullary.Product using (_×-dec_)
+open import Relation.Unary using (_⊆_)
 
-module _ {o} (Σ : Vec Type o) {n} (Γ : Vec Type n) where
-  data Term {m} (Δ : Vec Type m) : Type → Set (b₁ ⊔ i₁ ⊔ r₁) where
-    state : ∀ i → Term Δ (lookup Σ i)
-    var   : ∀ i → Term Δ (lookup Γ i)
-    meta  : ∀ i → Term Δ (lookup Δ i)
-    funct : ∀ {m ts t} → (⟦ tuple m ts ⟧ₜˡ → ⟦ t ⟧ₜˡ) → All (Term Δ) ts → Term Δ t
+private
+  variable
+    t t′     : Type
+    m n      : ℕ
+    Γ Δ Σ ts : Vec Type m
 
-  infixl 7 _⇒_
-  infixl 6 _∧_
-  infixl 5 _∨_
+sizeOf : Type → Sliced → ℕ
+sizeOf bool s = 0
+sizeOf int s = 0
+sizeOf (fin n) s = 0
+sizeOf real s = 0
+sizeOf bit s = 0
+sizeOf (bits n) s = Bool.if does (s ≟ˢ bits) then n else 0
+sizeOf (tuple _ []) s = 0
+sizeOf (tuple _ (t ∷ ts)) s = sizeOf t s ℕ.+ sizeOf (tuple _ ts) s
+sizeOf (array t n) s = Bool.if does (s ≟ˢ array t) then n else sizeOf t s
 
-  data Assertion {m} (Δ : Vec Type m) : Set (b₁ ⊔ i₁ ⊔ r₁) where
-    _∧_  : Assertion Δ → Assertion Δ → Assertion Δ
-    _∨_  : Assertion Δ → Assertion Δ → Assertion Δ
-    _⇒_  : Assertion Δ → Assertion Δ → Assertion Δ
-    all  : ∀ {t} → Assertion (t ∷ Δ) → Assertion Δ
-    some : ∀ {t} → Assertion (t ∷ Δ) → Assertion Δ
-    pred : ∀ {m ts} → (⟦ tuple m ts ⟧ₜˡ → Bool) → All (Term Δ) ts → Assertion Δ
+allocateSpace : Vec Type n → Sliced → ℕ
+allocateSpace []       s = 0
+allocateSpace (t ∷ ts) s = sizeOf t s ℕ.+ allocateSpace ts s
 
-module _ {o} {Σ : Vec Type o} {n} {Γ : Vec Type n} {m} {Δ : Vec Type m} where
-  ⟦_⟧ : ∀ {t} → Term Σ Γ Δ t → ⟦ Σ ⟧ₜˡ′ → ⟦ Γ ⟧ₜˡ′ → ⟦ Δ ⟧ₜˡ′ → ⟦ t ⟧ₜˡ
-  ⟦_⟧′ : ∀ {n ts} → All (Term Σ Γ Δ) ts → ⟦ Σ ⟧ₜˡ′ → ⟦ Γ ⟧ₜˡ′ → ⟦ Δ ⟧ₜˡ′ → ⟦ tuple n ts ⟧ₜˡ
-  ⟦ state i ⟧    σ γ δ = fetchˡ Σ σ i
-  ⟦ var i ⟧      σ γ δ = fetchˡ Γ γ i
-  ⟦ meta i ⟧     σ γ δ = fetchˡ Δ δ i
-  ⟦ funct f ts ⟧ σ γ δ = f (⟦ ts ⟧′ σ γ δ)
+private
+  getSliced : ∀ {t} → True (sliced? t) → Sliced
+  getSliced t = ×.proj₁ (toWitness t)
 
-  ⟦ [] ⟧′            σ γ δ = _
-  ⟦ (t ∷ []) ⟧′      σ γ δ = ⟦ t ⟧ σ γ δ
-  ⟦ (t ∷ t′ ∷ ts) ⟧′ σ γ δ = ⟦ t ⟧ σ γ δ , ⟦ t′ ∷ ts ⟧′ σ γ δ
+  getCount : ∀ {t} → True (sliced? t) → ℕ
+  getCount t = ×.proj₁ (×.proj₂ (toWitness t))
 
-  termSubstState : ∀ {t} → Term Σ Γ Δ t → ∀ j → Term Σ Γ Δ (lookup Σ j) → Term Σ Γ Δ t
-  termSubstState (state i)    j t′ with j Fin.≟ i
-  ...                                 | yes refl = t′
-  ...                                 | no _     = state i
-  termSubstState (var i)      j t′ = var i
-  termSubstState (meta i)     j t′ = meta i
-  termSubstState (funct f ts) j t′ = funct f (helper ts)
-    where
-    helper : ∀ {n ts} → All (Term Σ Γ Δ) {n} ts → All (Term Σ Γ Δ) ts
-    helper []       = []
-    helper (t ∷ ts) = termSubstState t j t′ ∷ helper ts
+data ⟦_；_⟧ₜ (counts : Sliced → ℕ) : (τ : Type) → Set (b₁ ⊔ i₁ ⊔ r₁) where
+  bool   : Bool → ⟦ counts ； bool ⟧ₜ
+  int    : ℤ → ⟦ counts ； int ⟧ₜ
+  fin    : ∀ {n} → Fin n → ⟦ counts ； fin n ⟧ₜ
+  real   : ℝ → ⟦ counts ； real ⟧ₜ
+  bit    : Bit → ⟦ counts ； bit ⟧ₜ
+  bits   : ∀ {n} → Vec (⟦ counts ； bit ⟧ₜ ⊎ Fin (counts bits)) n → ⟦ counts ； bits n ⟧ₜ
+  array  : ∀ {t n} → Vec (⟦ counts ； t ⟧ₜ ⊎ Fin (counts (array t))) n → ⟦ counts ； array t n ⟧ₜ
+  tuple  : ∀ {n ts} → All ⟦ counts ；_⟧ₜ  ts → ⟦ counts ； tuple n ts ⟧ₜ
 
-  termSubstVar : ∀ {t} → Term Σ Γ Δ t → ∀ j → Term Σ Γ Δ (lookup Γ j) → Term Σ Γ Δ t
-  termSubstVar (state i)     j t′ = state i
-  termSubstVar (var i)       j t′ with j Fin.≟ i
-  ...                                | yes refl = t′
-  ...                                | no _     = var i
-  termSubstVar (meta i)      j t′ = meta i
-  termSubstVar (funct f ts)  j t′ = funct f (helper ts)
-    where
-    helper : ∀ {n ts} → All (Term Σ Γ Δ) {n} ts → All (Term Σ Γ Δ) ts
-    helper []       = []
-    helper (t ∷ ts) = termSubstVar t j t′ ∷ helper ts
+Stack : (counts : Sliced → ℕ) → Vec Type n → Set (b₁ ⊔ i₁ ⊔ r₁)
+Stack counts Γ = ⟦ counts ； tuple _ Γ ⟧ₜ
 
-  termElimVar : ∀ {t t′} → Term Σ (t′ ∷ Γ) Δ t → Term Σ Γ Δ t′ → Term Σ Γ Δ t
-  termElimVar (state i)     t′ = state i
-  termElimVar (var zero)    t′ = t′
-  termElimVar (var (suc i)) t′ = var i
-  termElimVar (meta i)      t′ = meta i
-  termElimVar (funct f ts)  t′ = funct f (helper ts)
-    where
-    helper : ∀ {n ts} → All (Term _ _ _) {n} ts → All (Term _ _ _) ts
-    helper []       = []
-    helper (t ∷ ts) = termElimVar t t′ ∷ helper ts
+Heap : (counts : Sliced → ℕ) → Set (b₁ ⊔ i₁ ⊔ r₁)
+Heap counts = ∀ t → Vec ⟦ counts ； elemType t ⟧ₜ (counts t)
 
-  termWknVar : ∀ {t t′} → Term Σ Γ Δ t → Term Σ (t′ ∷ Γ) Δ t
-  termWknVar (state i)    = state i
-  termWknVar (var i)      = var (suc i)
-  termWknVar (meta i)     = meta i
-  termWknVar (funct f ts) = funct f (helper ts)
-    where
-    helper : ∀ {n ts} → All (Term _ _ _) {n} ts → All (Term _ _ _) ts
-    helper []       = []
-    helper (t ∷ ts) = termWknVar t ∷ helper ts
+record State (Γ : Vec Type n) : Set (b₁ ⊔ i₁ ⊔ r₁) where
+  private
+    counts = allocateSpace Γ
+  field
+    stack   : Stack counts Γ
+    heap    : Heap counts
 
-  termWknMeta : ∀ {t t′} → Term Σ Γ Δ t → Term Σ Γ (t′ ∷ Δ) t
-  termWknMeta (state i)    = state i
-  termWknMeta (var i)      = var i
-  termWknMeta (meta i)     = meta (suc i)
-  termWknMeta (funct f ts) = funct f (helper ts)
-    where
-    helper : ∀ {n ts} → All (Term _ _ _) {n} ts → All (Term _ _ _) ts
-    helper []       = []
-    helper (t ∷ ts) = termWknMeta t ∷ helper ts
+Transform : Vec Type m → Type → Set (b₁ ⊔ i₁ ⊔ r₁)
+Transform ts t = ∀ counts → Heap counts → ⟦ counts ； tuple _ ts ⟧ₜ → ⟦ counts ； t ⟧ₜ
 
-module _ {o} {Σ : Vec Type o} {n} {Γ : Vec Type n} where
-  infix 4 _∋[_] _⊨_
+Predicate : Vec Type m → Set (b₁ ⊔ i₁ ⊔ r₁)
+Predicate ts = ∀ counts → ⟦ counts ； tuple _ ts ⟧ₜ → Bool
 
-  _∋[_] : ∀ {m Δ} → Assertion Σ Γ {m} Δ → ⟦ Σ ⟧ₜˡ′ × ⟦ Γ ⟧ₜˡ′ × ⟦ Δ ⟧ₜˡ′ → Set (b₁ ⊔ i₁ ⊔ r₁)
-  P ∧ Q ∋[ s ] = P ∋[ s ] × Q ∋[ s ]
-  P ∨ Q ∋[ s ] = P ∋[ s ] ⊎ Q ∋[ s ]
-  P ⇒ Q ∋[ s ] = P ∋[ s ] → Q ∋[ s ]
-  pred P ts ∋[ σ , γ , δ ] = Lift (b₁ ⊔ i₁ ⊔ r₁) $ T $ P (⟦ ts ⟧′ σ γ δ)
-  _∋[_] {Δ = Δ} (all P)  (σ , γ , δ) = ∀ v → P ∋[ σ , γ , consˡ Δ v δ ]
-  _∋[_] {Δ = Δ} (some P) (σ , γ , δ) = ∃ λ v → P ∋[ σ , γ , consˡ Δ v δ ]
+-- --   ⟦_⟧ₐ : ∀ {m Δ} → Assertion Σ Γ {m} Δ → State (Σ ++ Γ ++ Δ) → Set (b₁ ⊔ i₁ ⊔ r₁)
+-- --   ⟦_⟧ₐ = {!!}
 
-  _⊨_ : ∀ {m Δ} → ⟦ Σ ⟧ₜˡ′ × ⟦ Γ ⟧ₜˡ′ × ⟦ Δ ⟧ₜˡ′ → Assertion Σ Γ {m} Δ → Set (b₁ ⊔ i₁ ⊔ r₁)
-  s ⊨ P = P ∋[ s ]
+-- -- module _ {o} {Σ : Vec Type o} where
+-- --   open Code Σ
 
-  asstSubstState : ∀ {m Δ} → Assertion Σ Γ {m} Δ → ∀ j → Term Σ Γ Δ (lookup Σ j) → Assertion Σ Γ Δ
-  asstSubstState (P ∧ Q)     j t = asstSubstState P j t ∧ asstSubstState Q j t
-  asstSubstState (P ∨ Q)     j t = asstSubstState P j t ∨ asstSubstState Q j t
-  asstSubstState (P ⇒ Q)     j t = asstSubstState P j t ⇒ asstSubstState Q j t
-  asstSubstState (all P)     j t = all (asstSubstState P j (termWknMeta t))
-  asstSubstState (some P)    j t = some (asstSubstState P j (termWknMeta t))
-  asstSubstState (pred p ts) j t = pred p (All.map (λ t′ → termSubstState t′ j t) ts)
+-- --   𝒦 : ∀ {n Γ m Δ t} → Literal t → Term Σ {n} Γ {m} Δ t
+-- --   𝒦 = {!!}
 
-  asstSubstVar : ∀ {m Δ} → Assertion Σ Γ {m} Δ → ∀ j → Term Σ Γ Δ (lookup Γ j) → Assertion Σ Γ Δ
-  asstSubstVar (P ∧ Q)     j t = asstSubstVar P j t ∧ asstSubstVar Q j t
-  asstSubstVar (P ∨ Q)     j t = asstSubstVar P j t ∨ asstSubstVar Q j t
-  asstSubstVar (P ⇒ Q)     j t = asstSubstVar P j t ⇒ asstSubstVar Q j t
-  asstSubstVar (all P)     j t = all (asstSubstVar P j (termWknMeta t))
-  asstSubstVar (some P)    j t = some (asstSubstVar P j (termWknMeta t))
-  asstSubstVar (pred p ts) j t = pred p (All.map (λ t′ → termSubstVar t′ j t) ts)
+-- --   ℰ : ∀ {n Γ m Δ t} → Expression {n} Γ t → Term Σ Γ {m} Δ t
+-- --   ℰ = {!!}
 
-  asstElimVar : ∀ {m Δ t′} → Assertion Σ (t′ ∷ Γ) {m} Δ → Term Σ Γ Δ t′ → Assertion Σ Γ Δ
-  asstElimVar (P ∧ Q)     t = asstElimVar P t ∧ asstElimVar Q t
-  asstElimVar (P ∨ Q)     t = asstElimVar P t ∨ asstElimVar Q t
-  asstElimVar (P ⇒ Q)     t = asstElimVar P t ⇒ asstElimVar Q t
-  asstElimVar (all P)     t = all (asstElimVar P (termWknMeta t))
-  asstElimVar (some P)    t = some (asstElimVar P (termWknMeta t))
-  asstElimVar (pred p ts) t = pred p (All.map (λ t′ → termElimVar t′ t) ts)
+-- --   data HoareTriple {n Γ m Δ} : Assertion Σ {n} Γ {m} Δ → Statement Γ → Assertion Σ Γ Δ → Set (b₁ ⊔ i₁ ⊔ r₁) where
+-- --     _∙_ : ∀ {P Q R s₁ s₂} → HoareTriple P s₁ Q → HoareTriple Q s₂ R → HoareTriple P (s₁ ∙ s₂) R
+-- --     skip : ∀ {P} → HoareTriple P skip P
 
-module _ {o} {Σ : Vec Type o} where
-  open Code Σ
+-- --     assign : ∀ {P t ref canAssign e} → HoareTriple (asrtSubst P (toWitness canAssign) (ℰ e)) (_≔_ {t = t} ref {canAssign} e) P
+-- --     declare : ∀ {t P Q e s} → HoareTriple (P ∧ equal (var 0F) (termWknVar (ℰ e))) s (asrtWknVar Q) → HoareTriple (asrtElimVar P (ℰ e)) (declare {t = t} e s) Q
+-- --     invoke : ∀ {m ts P Q s e} → HoareTriple (assignMetas Δ ts (All.tabulate var) (asrtAddVars P)) s (asrtAddVars Q) → HoareTriple (assignMetas Δ ts (All.tabulate (λ i → ℰ (All.lookup i e))) (asrtAddVars P)) (invoke {m = m} {ts} (s ∙end) e) (asrtAddVars Q)
+-- --     if : ∀ {P Q e s₁ s₂} → HoareTriple (P ∧ equal (ℰ e) (𝒦 (Bool.true ′b))) s₁ Q → HoareTriple (P ∧ equal (ℰ e) (𝒦 (Bool.false ′b))) s₂ Q → HoareTriple P (if e then s₁ else s₂) Q
+-- --     for : ∀ {m} {I : Assertion Σ Γ (fin (suc m) ∷ Δ)} {s} → HoareTriple (some (asrtWknVar (asrtWknMetaAt 1F I) ∧ equal (meta 1F) (var 0F) ∧ equal (meta 0F) (func (λ { _ (lift x ∷ []) → lift (Fin.inject₁ x) }) (meta 1F ∷ [])))) s (some (asrtWknVar (asrtWknMetaAt 1F I) ∧ equal (meta 0F) (func (λ { _ (lift x ∷ []) → lift (Fin.suc x) }) (meta 1F ∷ [])))) → HoareTriple (some (I ∧ equal (meta 0F) (func (λ _ _ → lift 0F) []))) (for m s) (some (I ∧ equal (meta 0F) (func (λ _ _ → lift (Fin.fromℕ m)) [])))
 
-  data HoareTriple {n Γ m Δ} : Assertion Σ {n} Γ {m} Δ → Statement Γ → Assertion Σ Γ Δ → Set (b₁ ⊔ i₁ ⊔ r₁) where
-    csqs : ∀ {P₁ P₂ Q₁ Q₂ : Assertion Σ Γ Δ} {s} → (_⊨ P₁) ⊆ (_⊨ P₂) → HoareTriple P₂ s Q₂ → (_⊨ Q₂) ⊆ (_⊨ Q₁) → HoareTriple P₁ s Q₁
-    _∙_  : ∀ {P Q R s₁ s₂} → HoareTriple P s₁ Q → HoareTriple Q s₂ R → HoareTriple P (s₁ ∙ s₂) R
-    skip : ∀ {P} → HoareTriple P skip P
+-- --     consequence : ∀ {P₁ P₂ Q₁ Q₂ s} → ⟦ P₁ ⟧ₐ ⊆ ⟦ P₂ ⟧ₐ → HoareTriple P₂ s Q₂ → ⟦ Q₂ ⟧ₐ ⊆ ⟦ Q₁ ⟧ₐ → HoareTriple P₁ s Q₁
+-- --     some : ∀ {t P Q s} → HoareTriple P s Q → HoareTriple (some {t = t} P) s (some Q)
+-- --     frame : ∀ {P Q R s} → HoareTriple P s Q → HoareTriple (P * R) s (Q * R)
