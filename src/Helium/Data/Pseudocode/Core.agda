@@ -113,7 +113,6 @@ module Code {o} (Σ : Vec Type o) where
   data Expression {n} (Γ : Vec Type n) : Type → Set
   data CanAssign {n Γ} : ∀ {t} → Expression {n} Γ t → Set
   canAssign? : ∀ {n Γ t} → Decidable (CanAssign {n} {Γ} {t})
-  canAssignAll? : ∀ {n Γ m ts} → Decidable {A = All (Expression {n} Γ) {m} ts} (All (CanAssign ∘ proj₂) ∘ (reduce (λ {x} e → x , e)))
   data AssignsState {n Γ} : ∀ {t e} → CanAssign {n} {Γ} {t} e → Set
   assignsState? : ∀ {n Γ t e} → Decidable (AssignsState {n} {Γ} {t} {e})
   assignsStateAny? : ∀ {n Γ m ts es} → Decidable {A = All (CanAssign ∘ proj₂) (reduce {P = Expression {n} Γ} (λ {x} e → x , e) {m} {ts} es)} (Any (AssignsState ∘ proj₂) ∘ reduce (λ {x} a → x , a))
@@ -157,7 +156,8 @@ module Code {o} (Σ : Vec Type o) where
     rnd    : Expression Γ real → Expression Γ int
     fin    : ∀ {k ms n} → (All (Fin) ms → Fin n) → Expression Γ (tuple k (map fin ms)) → Expression Γ (fin n)
     asInt  : ∀ {m} → Expression Γ (fin m) → Expression Γ int
-    tup    : ∀ {m ts} → All (Expression Γ) ts → Expression Γ (tuple m ts)
+    nil    : Expression Γ (tuple 0 [])
+    cons   : ∀ {m t ts} → Expression Γ t → Expression Γ (tuple m ts) → Expression Γ (tuple (suc m) (t ∷ ts))
     head   : ∀ {m t ts} → Expression Γ (tuple (suc m) (t ∷ ts)) → Expression Γ t
     tail   : ∀ {m t ts} → Expression Γ (tuple (suc m) (t ∷ ts)) → Expression Γ (tuple m ts)
     call   : ∀ {t m Δ} → Function Δ t → All (Expression Γ) {m} Δ → Expression Γ t
@@ -172,7 +172,8 @@ module Code {o} (Σ : Vec Type o) where
     splice : ∀ {m n t e₁ e₂} → CanAssign e₁ → CanAssign e₂ → ∀ e₃ → CanAssign (splice {m = m} {n} {t} e₁ e₂ e₃)
     cut    : ∀ {m n t e₁} → CanAssign e₁ → ∀ e₂ → CanAssign (cut {m = m} {n} {t} e₁ e₂)
     cast  : ∀ {i j t e} .(eq : i ≡ j) → CanAssign e → CanAssign (cast {t = t} eq e)
-    tup   : ∀ {m ts es} → All (CanAssign ∘ proj₂) (reduce (λ {x} e → x , e) es) → CanAssign (tup {m = m} {ts} es)
+    nil   : CanAssign nil
+    cons  : ∀ {m t ts e₁ e₂} → CanAssign e₁ → CanAssign e₂ → CanAssign (cons {m = m} {t} {ts} e₁ e₂)
     head  : ∀ {m t ts e} → CanAssign e → CanAssign (head {m = m} {t} {ts} e)
     tail  : ∀ {m t ts e} → CanAssign e → CanAssign (tail {m = m} {t} {ts} e)
 
@@ -202,14 +203,12 @@ module Code {o} (Σ : Vec Type o) where
   canAssign? (rnd e)      = no λ ()
   canAssign? (fin x e)    = no λ ()
   canAssign? (asInt e)    = no λ ()
-  canAssign? (tup es)     = map′ tup (λ { (tup es) → es }) (canAssignAll? es)
+  canAssign? nil          = yes nil
+  canAssign? (cons e e₁)  = map′ (uncurry cons) (λ { (cons e e₁) → e , e₁ }) (canAssign? e ×-dec canAssign? e₁)
   canAssign? (head e)     = map′ head (λ { (head e) → e }) (canAssign? e)
   canAssign? (tail e)     = map′ tail (λ { (tail e) → e }) (canAssign? e)
   canAssign? (call x e)   = no λ ()
   canAssign? (if e then e₁ else e₂) = no λ ()
-
-  canAssignAll? []       = yes []
-  canAssignAll? (e ∷ es) = map′ (uncurry _∷_) (λ { (e ∷ es) → e , es }) (canAssign? e ×-dec canAssignAll? es)
 
   data AssignsState where
     state : ∀ i → AssignsState (state i)
@@ -219,7 +218,8 @@ module Code {o} (Σ : Vec Type o) where
     spliceʳ : ∀ {m n t e₁ e₂} a₁ {a₂} → AssignsState a₂ → ∀ e₃ → AssignsState (splice {m = m} {n} {t} {e₁} {e₂} a₁ a₂ e₃)
     cut : ∀ {m n t e₁ a₁} → AssignsState a₁ → ∀ e₂ → AssignsState (cut {m = m} {n} {t} {e₁} a₁ e₂)
     cast : ∀ {i j t e} .(eq : i ≡ j) {a} → AssignsState a → AssignsState (cast {t = t} {e} eq a)
-    tup : ∀ {m ts es as} → Any (AssignsState ∘ proj₂) (reduce (λ {x} a → x , a) as) → AssignsState (tup {m = m} {ts} {es} as)
+    consˡ : ∀ {m t ts e₁ e₂ a₁} → AssignsState a₁ → ∀ a₂ → AssignsState (cons {m = m} {t} {ts} {e₁} {e₂} a₁ a₂)
+    consʳ : ∀ {m t ts e₁ e₂} a₁ {a₂} → AssignsState a₂ → AssignsState (cons {m = m} {t} {ts} {e₁} {e₂} a₁ a₂)
     head : ∀ {m t ts e a} → AssignsState a → AssignsState (head {m = m} {t} {ts} {e} a)
     tail : ∀ {m t ts e a} → AssignsState a → AssignsState (tail {m = m} {t} {ts} {e} a)
 
@@ -231,7 +231,8 @@ module Code {o} (Σ : Vec Type o) where
   assignsState? (splice a₁ a₂ e₃) = map′ [ (λ a₁ → spliceˡ a₁ a₂ e₃) , (λ a₂ → spliceʳ a₁ a₂ e₃) ]′ (λ { (spliceˡ a₁ _ _) → inj₁ a₁ ; (spliceʳ _ a₂ _) → inj₂ a₂ }) (assignsState? a₁ ⊎-dec assignsState? a₂)
   assignsState? (cut a e₂) = map′ (λ s → cut s e₂ ) (λ { (cut s _) → s }) (assignsState? a)
   assignsState? (cast eq a)  = map′ (cast eq) (λ { (cast _ s) → s }) (assignsState? a)
-  assignsState? (tup as)     = map′ tup (λ { (tup ss) → ss }) (assignsStateAny? as)
+  assignsState? nil          = no λ ()
+  assignsState? (cons a₁ a₂) = map′ [ (λ a₁ → consˡ a₁ a₂) , (λ a₂ → consʳ a₁ a₂) ]′ (λ { (consˡ a₁ _) → inj₁ a₁ ; (consʳ _ a₂) → inj₂ a₂ }) (assignsState? a₁ ⊎-dec assignsState? a₂)
   assignsState? (head a)     = map′ head (λ { (head s) → s }) (assignsState? a)
   assignsState? (tail a)     = map′ tail (λ { (tail s) → s }) (assignsState? a)
 
@@ -279,6 +280,10 @@ module Code {o} (Σ : Vec Type o) where
 
   infixl  6 _<<_
   infixl 5 _-_
+
+  tup : ∀ {n Γ m ts} → All (Expression {n} Γ) ts → Expression Γ (tuple m ts)
+  tup []       = nil
+  tup (e ∷ es) = cons e (tup es)
 
   _∶_ : ∀ {n Γ i j t} → Expression {n} Γ (asType t j) → Expression Γ (asType t i) → Expression Γ (asType t (i ℕ.+ j))
   e₁ ∶ e₂ = splice e₁ e₂ (lit (Fin.fromℕ _ ′f))

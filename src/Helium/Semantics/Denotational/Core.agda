@@ -244,9 +244,8 @@ module Expression
     apply {suc k} {_ ∷ ms} f xs =
       apply (λ x → f (tupHead (Vec.map fin ms) xs ∷ x)) (tupTail (Vec.map fin ms) xs)
   ⟦ asInt e ⟧ᵉ σ γ = Fin.toℕ (⟦ e ⟧ᵉ σ γ) ℤ′.×′ 1ℤ
-  ⟦ tup [] ⟧ᵉ σ γ = _
-  ⟦ tup (e ∷ []) ⟧ᵉ σ γ = ⟦ e ⟧ᵉ σ γ
-  ⟦ tup (e ∷ e′ ∷ es) ⟧ᵉ σ γ = ⟦ e ⟧ᵉ σ γ , ⟦ tup (e′ ∷ es) ⟧ᵉ σ γ
+  ⟦ nil ⟧ᵉ σ γ = _
+  ⟦ cons {ts = ts} e e₁ ⟧ᵉ σ γ = tupCons ts (⟦ e ⟧ᵉ σ γ) (⟦ e₁ ⟧ᵉ σ γ)
   ⟦ head {ts = ts} e ⟧ᵉ σ γ = tupHead ts (⟦ e ⟧ᵉ σ γ)
   ⟦ tail {ts = ts} e ⟧ᵉ σ γ = tupTail ts (⟦ e ⟧ᵉ σ γ)
   ⟦ call f e ⟧ᵉ σ γ = ⟦ f ⟧ᶠ σ (⟦ e ⟧ᵉ′ σ γ)
@@ -291,9 +290,9 @@ module Expression
     let i = ⟦ e₂ ⟧ᵉ σ γ
     update a (spliced t (P.proj₁ v) (P.proj₂ v) i) σ γ
   update (cast {t = t} eq e) v σ γ = update e (casted t (≡.sym eq) v) σ γ
-  update (tup {es = []} x) vs σ γ = σ , γ
-  update (tup {ts = _ ∷ ts} {es = _ ∷ _} (x ∷ xs)) vs σ γ = do
-    let σ′ , γ′ = update x (tupHead ts vs) σ γ
-    update (tup xs) (tupTail ts vs) σ′ γ′
+  update nil v σ γ = σ , γ
+  update (cons {ts = ts} e e₁) vs σ γ = do
+    let σ′ , γ′ = update e (tupHead ts vs) σ γ
+    update e₁ (tupTail ts vs) σ′ γ′
   update (head {ts = ts} {e = e} a) v σ γ = update a (tupCons ts v (tupTail ts (⟦ e ⟧ᵉ σ γ))) σ γ
   update (tail {ts = ts} {e = e} a) v σ γ = update a (tupCons ts (tupHead ts (⟦ e ⟧ᵉ σ γ)) v) σ γ
