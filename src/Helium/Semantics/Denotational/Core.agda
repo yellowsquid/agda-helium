@@ -260,6 +260,7 @@ module Expression
   ⟦ _≔_ ref {canAssign = canAssign} e ⟧ˢ σ γ = update (toWitness canAssign) (⟦ e ⟧ᵉ σ γ) σ γ
   ⟦_⟧ˢ {Γ = Γ} (declare e s) σ γ = P.map₂ (tupTail Γ) (⟦ s ⟧ˢ σ (tupCons Γ (⟦ e ⟧ᵉ σ γ) γ))
   ⟦ invoke p e ⟧ˢ σ γ = ⟦ p ⟧ᵖ σ (⟦ e ⟧ᵉ′ σ γ) , γ
+  ⟦ if e then s₁ ⟧ˢ σ γ = Bool.if ⟦ e ⟧ᵉ σ γ then ⟦ s₁ ⟧ˢ σ γ else (σ , γ)
   ⟦ if e then s₁ else s₂ ⟧ˢ σ γ = Bool.if ⟦ e ⟧ᵉ σ γ then ⟦ s₁ ⟧ˢ σ γ else ⟦ s₂ ⟧ˢ σ γ
   ⟦_⟧ˢ {Γ = Γ} (for m s) σ γ = helper m ⟦ s ⟧ˢ σ γ
     where

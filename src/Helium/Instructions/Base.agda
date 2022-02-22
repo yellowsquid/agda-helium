@@ -149,7 +149,6 @@ copyMasked = for 4
   ( if hasBit (var 4F) (var 0F)
     then
       elem 8 (index (index Q (var 1F)) (var 3F)) (var 0F) ≔ elem 8 (var 2F) (var 0F)
-    else skip
   ) ∙end
 
 VPTAdvance : Procedure (beat ∷ [])
@@ -166,13 +165,10 @@ VPTAdvance = declare (fin div2 (tup (var 0F ∷ []))) (
         tup (var 1F ∷ var 0F ∷ []) ≔ call (LSL-C 0) (var 1F ∷ []) ∙
         if var 0F ≟ lit (true ′x)
         then
-          elem 4 VPR-P0 (var 3F) ≔ not (elem 4 VPR-P0 (var 3F))
-        else skip))
-    else skip ∙
+          elem 4 VPR-P0 (var 3F) ≔ not (elem 4 VPR-P0 (var 3F)))) ∙
     if get 0 (asInt (var 2F)) ≟ lit (true ′x)
     then
-      elem 4 VPR-mask (var 1F) ≔ var 0F
-    else skip))
+      elem 4 VPR-mask (var 1F) ≔ var 0F))
     ∙end
 
 VPTActive : Function (beat ∷ []) bool
@@ -184,7 +180,6 @@ GetCurInstrBeat = declare (lit (Vec.replicate true ′xs)) (
   if call VPTActive (BeatId ∷ [])
   then
     var 0F ≔ var 0F and elem 4 VPR-P0 BeatId
-  else skip
   ∙return tup (BeatId ∷ var 0F ∷ []))
 
 -- Assumes:
@@ -202,8 +197,7 @@ ExecBeats DecodeExec =
     invoke DecodeExec [] ∙
     if AdvanceVPTState
     then
-      invoke VPTAdvance (var 0F ∷ [])
-    else skip)
+      invoke VPTAdvance (var 0F ∷ []))
   ∙end
 
 from32 : ∀ size {n Γ} → Expression {n} Γ (bits 32) → Expression Γ (array (bits (toℕ (Instr.Size.esize size))) (toℕ (Instr.Size.elements size)))
@@ -285,8 +279,7 @@ private
       tup (index (var 5F) (var 3F) ∷ var 0F ∷ []) ≔ call (SignedSatQ (toℕ esize-1)) (var 1F ∷ []) ∙
       if var 0F && hasBit (var 6F) (fin e*esize>>3 (tup ((var 3F) ∷ [])))
       then
-        FPSCR-QC ≔ lit (true ′x)
-      else skip)))
+        FPSCR-QC ≔ lit (true ′x))))
     where
     open Instr.VecOp₂ d
 

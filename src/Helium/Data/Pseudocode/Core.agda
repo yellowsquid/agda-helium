@@ -255,7 +255,7 @@ module Code {o} (Σ : Vec Type o) where
   referencesState? (if e then e₁ else e₂) = no λ ()
 
   infix  4 _≔_
-  infixl 2 if_then_else_
+  infixl 2 if_then_else_ if_then_
   infixl 1 _∙_ _∙return_
   infix  1 _∙end
 
@@ -266,6 +266,7 @@ module Code {o} (Σ : Vec Type o) where
     declare       : ∀ {t} → Expression Γ t → Statement (t ∷ Γ) → Statement Γ
     invoke        : ∀ {m Δ} → Procedure Δ → All (Expression Γ) {m} Δ → Statement Γ
     if_then_else_ : Expression Γ bool → Statement Γ → Statement Γ → Statement Γ
+    if_then_      : Expression Γ bool → Statement Γ → Statement Γ
     for           : ∀ m → Statement (fin m ∷ Γ) → Statement Γ
 
   data ChangesState where
@@ -274,6 +275,7 @@ module Code {o} (Σ : Vec Type o) where
     _≔_            : ∀ {t} ref {canAssign : True (canAssign? ref)} {refsState : True (referencesState? ref)} e₂ → ChangesState (_≔_ {t = t} ref {canAssign} e₂)
     declare        : ∀ {t} e {s} → ChangesState s → ChangesState (declare {t = t} e s)
     invoke         : ∀ {m Δ} p es → ChangesState (invoke {m = m} {Δ} p es)
+    if_then_       : ∀ e {s} → ChangesState s → ChangesState (if e then s)
     if_then′_else_ : ∀ e {s} → ChangesState s → ∀ s₁ → ChangesState (if e then s else s₁)
     if_then_else′_ : ∀ e s {s₁} → ChangesState s₁ → ChangesState (if e then s else s₁)
     for            : ∀ m {s} → ChangesState s → ChangesState (for m s)
@@ -283,6 +285,7 @@ module Code {o} (Σ : Vec Type o) where
   changesState? (_≔_ ref e)           = map′ (λ refsState → _≔_ ref {refsState = fromWitness refsState} e) (λ { (_≔_ ref {refsState = refsState} e) → toWitness refsState }) (referencesState? ref)
   changesState? (declare e s)         = map′ (declare e) (λ { (declare e s) → s }) (changesState? s)
   changesState? (invoke p e)          = yes (invoke p e)
+  changesState? (if e then s)         = map′ (if e then_) (λ { (if e then s) → s }) (changesState? s)
   changesState? (if e then s else s₁) = map′ [ if e then′_else s₁ , if e then s else′_ ]′ (λ { (if e then′ s else s₁) → inj₁ s ; (if e then s else′ s₁) → inj₂ s₁ }) (changesState? s ⊎-dec changesState? s₁)
   changesState? (for m s)             = map′ (for m) (λ { (for m s) → s }) (changesState? s)
 
