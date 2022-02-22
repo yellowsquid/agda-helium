@@ -113,9 +113,8 @@ module Code {o} (Σ : Vec Type o) where
   data Expression {n} (Γ : Vec Type n) : Type → Set
   data CanAssign {n Γ} : ∀ {t} → Expression {n} Γ t → Set
   canAssign? : ∀ {n Γ t} → Decidable (CanAssign {n} {Γ} {t})
-  data AssignsState {n Γ} : ∀ {t e} → CanAssign {n} {Γ} {t} e → Set
-  assignsState? : ∀ {n Γ t e} → Decidable (AssignsState {n} {Γ} {t} {e})
-  assignsStateAny? : ∀ {n Γ m ts es} → Decidable {A = All (CanAssign ∘ proj₂) (reduce {P = Expression {n} Γ} (λ {x} e → x , e) {m} {ts} es)} (Any (AssignsState ∘ proj₂) ∘ reduce (λ {x} a → x , a))
+  data ReferencesState {n Γ} : ∀ {t} → Expression {n} Γ t → Set
+  referencesState? : ∀ {n Γ t} → Decidable (ReferencesState {n} {Γ} {t})
   data Statement {n} (Γ : Vec Type n) : Set
   data ChangesState {n Γ} : Statement {n} Γ → Set
   changesState? : ∀ {n Γ} → Decidable (ChangesState {n} {Γ})
@@ -126,7 +125,7 @@ module Code {o} (Σ : Vec Type o) where
   infixr 7 _^_
   infixl 6 _*_ _and_ _>>_
   -- infixl 6 _/_
-  infixl 5 _+_ _or_ _&&_ _||_ _∶_
+  infixl 5 _+_ _or_ _&&_ _||_
   infix  4 _≟_ _<?_
 
   data Expression {n} Γ where
@@ -210,34 +209,50 @@ module Code {o} (Σ : Vec Type o) where
   canAssign? (call x e)   = no λ ()
   canAssign? (if e then e₁ else e₂) = no λ ()
 
-  data AssignsState where
-    state : ∀ i → AssignsState (state i)
-    [_] : ∀ {t e a} → AssignsState a → AssignsState ([_] {t = t} {e} a)
-    unbox : ∀ {t e a} → AssignsState a → AssignsState (unbox {t = t} {e} a)
-    spliceˡ : ∀ {m n t e₁ e₂ a₁} → AssignsState a₁ → ∀ a₂ e₃ → AssignsState (splice {m = m} {n} {t} {e₁} {e₂} a₁ a₂ e₃)
-    spliceʳ : ∀ {m n t e₁ e₂} a₁ {a₂} → AssignsState a₂ → ∀ e₃ → AssignsState (splice {m = m} {n} {t} {e₁} {e₂} a₁ a₂ e₃)
-    cut : ∀ {m n t e₁ a₁} → AssignsState a₁ → ∀ e₂ → AssignsState (cut {m = m} {n} {t} {e₁} a₁ e₂)
-    cast : ∀ {i j t e} .(eq : i ≡ j) {a} → AssignsState a → AssignsState (cast {t = t} {e} eq a)
-    consˡ : ∀ {m t ts e₁ e₂ a₁} → AssignsState a₁ → ∀ a₂ → AssignsState (cons {m = m} {t} {ts} {e₁} {e₂} a₁ a₂)
-    consʳ : ∀ {m t ts e₁ e₂} a₁ {a₂} → AssignsState a₂ → AssignsState (cons {m = m} {t} {ts} {e₁} {e₂} a₁ a₂)
-    head : ∀ {m t ts e a} → AssignsState a → AssignsState (head {m = m} {t} {ts} {e} a)
-    tail : ∀ {m t ts e a} → AssignsState a → AssignsState (tail {m = m} {t} {ts} {e} a)
+  data ReferencesState where
+    state : ∀ i → ReferencesState (state i)
+    [_] : ∀ {t e} → ReferencesState e → ReferencesState ([_] {t = t} e)
+    unbox : ∀ {t e} → ReferencesState e → ReferencesState (unbox {t = t} e)
+    spliceˡ : ∀ {m n t e} → ReferencesState e → ∀ e₁ e₂ → ReferencesState (splice {m = m} {n} {t} e e₁ e₂)
+    spliceʳ : ∀ {m n t} e {e₁} → ReferencesState e₁ → ∀ e₂ → ReferencesState (splice {m = m} {n} {t} e e₁ e₂)
+    cut : ∀ {m n t e} → ReferencesState e → ∀ e₁ → ReferencesState (cut {m = m} {n} {t} e e₁)
+    cast : ∀ {i j t} .(eq : i ≡ j) {e} → ReferencesState e → ReferencesState (cast {t = t} eq e)
+    consˡ : ∀ {m t ts e} → ReferencesState e → ∀ e₁ → ReferencesState (cons {m = m} {t} {ts} e e₁)
+    consʳ : ∀ {m t ts} e {e₁} → ReferencesState e₁ → ReferencesState (cons {m = m} {t} {ts} e e₁)
+    head : ∀ {m t ts e} → ReferencesState e → ReferencesState (head {m = m} {t} {ts} e)
+    tail : ∀ {m t ts e} → ReferencesState e → ReferencesState (tail {m = m} {t} {ts} e)
 
-  assignsState? (state i)    = yes (state i)
-  assignsState? (var i)      = no λ ()
-  assignsState? (abort e)    = no λ ()
-  assignsState? [ a ]        = map′ [_] (λ { [ s ] → s }) (assignsState? a)
-  assignsState? (unbox a)    = map′ unbox (λ { (unbox s) → s }) (assignsState? a)
-  assignsState? (splice a₁ a₂ e₃) = map′ [ (λ a₁ → spliceˡ a₁ a₂ e₃) , (λ a₂ → spliceʳ a₁ a₂ e₃) ]′ (λ { (spliceˡ a₁ _ _) → inj₁ a₁ ; (spliceʳ _ a₂ _) → inj₂ a₂ }) (assignsState? a₁ ⊎-dec assignsState? a₂)
-  assignsState? (cut a e₂) = map′ (λ s → cut s e₂ ) (λ { (cut s _) → s }) (assignsState? a)
-  assignsState? (cast eq a)  = map′ (cast eq) (λ { (cast _ s) → s }) (assignsState? a)
-  assignsState? nil          = no λ ()
-  assignsState? (cons a₁ a₂) = map′ [ (λ a₁ → consˡ a₁ a₂) , (λ a₂ → consʳ a₁ a₂) ]′ (λ { (consˡ a₁ _) → inj₁ a₁ ; (consʳ _ a₂) → inj₂ a₂ }) (assignsState? a₁ ⊎-dec assignsState? a₂)
-  assignsState? (head a)     = map′ head (λ { (head s) → s }) (assignsState? a)
-  assignsState? (tail a)     = map′ tail (λ { (tail s) → s }) (assignsState? a)
-
-  assignsStateAny? {es = []}     []       = no λ ()
-  assignsStateAny? {es = e ∷ es} (a ∷ as) = map′ [ here , there ]′ (λ { (here s) → inj₁ s ; (there ss) → inj₂ ss }) (assignsState? a ⊎-dec assignsStateAny? as)
+  referencesState? (lit x) = no λ ()
+  referencesState? (state i) = yes (state i)
+  referencesState? (var i) = no λ ()
+  referencesState? (abort e) = no λ ()
+  referencesState? (e ≟ e₁) = no λ ()
+  referencesState? (e <? e₁) = no λ ()
+  referencesState? (inv e) = no λ ()
+  referencesState? (e && e₁) = no λ ()
+  referencesState? (e || e₁) = no λ ()
+  referencesState? (not e) = no λ ()
+  referencesState? (e and e₁) = no λ ()
+  referencesState? (e or e₁) = no λ ()
+  referencesState? [ e ] = map′ [_] (λ { [ e ] → e }) (referencesState? e)
+  referencesState? (unbox e) = map′ unbox (λ { (unbox e) → e }) (referencesState? e)
+  referencesState? (splice e e₁ e₂) = map′ [ (λ e → spliceˡ e e₁ e₂) , (λ e₁ → spliceʳ e e₁ e₂) ]′ (λ { (spliceˡ e e₁ e₂) → inj₁ e ; (spliceʳ e e₁ e₂) → inj₂ e₁ }) (referencesState? e ⊎-dec referencesState? e₁)
+  referencesState? (cut e e₁) = map′ (λ e → cut e e₁) (λ { (cut e e₁) → e }) (referencesState? e)
+  referencesState? (cast eq e) = map′ (cast eq) (λ { (cast eq e) → e }) (referencesState? e)
+  referencesState? (- e) = no λ ()
+  referencesState? (e + e₁) = no λ ()
+  referencesState? (e * e₁) = no λ ()
+  referencesState? (e ^ x) = no λ ()
+  referencesState? (e >> x) = no λ ()
+  referencesState? (rnd e) = no λ ()
+  referencesState? (fin x e) = no λ ()
+  referencesState? (asInt e) = no λ ()
+  referencesState? nil = no λ ()
+  referencesState? (cons e e₁) = map′ [ (λ e → consˡ e e₁) , (λ e₁ → consʳ e e₁) ]′ (λ { (consˡ e e₁) → inj₁ e ; (consʳ e e₁) → inj₂ e₁ }) (referencesState? e ⊎-dec referencesState? e₁)
+  referencesState? (head e) = map′ head (λ { (head e) → e }) (referencesState? e)
+  referencesState? (tail e) = map′ tail (λ { (tail e) → e }) (referencesState? e)
+  referencesState? (call f es) = no λ ()
+  referencesState? (if e then e₁ else e₂) = no λ ()
 
   infix  4 _≔_
   infixl 2 if_then_else_
@@ -254,22 +269,22 @@ module Code {o} (Σ : Vec Type o) where
     for           : ∀ m → Statement (fin m ∷ Γ) → Statement Γ
 
   data ChangesState where
-    _∙ˡ_           : ∀ {s₁} → ChangesState s₁ → ∀ s₂ → ChangesState (s₁ ∙ s₂)
-    _∙ʳ_           : ∀ s₁ {s₂} → ChangesState s₂ → ChangesState (s₁ ∙ s₂)
-    _≔_            : ∀ {t ref} canAssign {assignsState : True (assignsState? (toWitness canAssign))} e₂ → ChangesState (_≔_ {t = t} ref {canAssign} e₂)
+    _∙ˡ_           : ∀ {s} → ChangesState s → ∀ s₁ → ChangesState (s ∙ s₁)
+    _∙ʳ_           : ∀ s {s₁} → ChangesState s₁ → ChangesState (s ∙ s₁)
+    _≔_            : ∀ {t} ref {canAssign : True (canAssign? ref)} {refsState : True (referencesState? ref)} e₂ → ChangesState (_≔_ {t = t} ref {canAssign} e₂)
     declare        : ∀ {t} e {s} → ChangesState s → ChangesState (declare {t = t} e s)
-    invoke         : ∀ {m Δ} p e → ChangesState (invoke {m = m} {Δ} p e)
-    if_then′_else_ : ∀ e {s₁} → ChangesState s₁ → ∀ s₂ → ChangesState (if e then s₁ else s₂)
-    if_then_else′_ : ∀ e s₁ {s₂} → ChangesState s₂ → ChangesState (if e then s₁ else s₂)
+    invoke         : ∀ {m Δ} p es → ChangesState (invoke {m = m} {Δ} p es)
+    if_then′_else_ : ∀ e {s} → ChangesState s → ∀ s₁ → ChangesState (if e then s else s₁)
+    if_then_else′_ : ∀ e s {s₁} → ChangesState s₁ → ChangesState (if e then s else s₁)
     for            : ∀ m {s} → ChangesState s → ChangesState (for m s)
 
-  changesState? (s₁ ∙ s₂)              = map′ [ _∙ˡ s₂ , s₁ ∙ʳ_ ]′ (λ { (s ∙ˡ _) → inj₁ s ; (_ ∙ʳ s) → inj₂ s }) (changesState? s₁ ⊎-dec changesState? s₂)
-  changesState? skip                   = no λ ()
-  changesState? (_≔_ ref {a} e)        = map′ (λ s → _≔_ a {fromWitness s} e) (λ { (_≔_ _ {s} _) → toWitness s }) (assignsState? (toWitness a))
-  changesState? (declare e s)          = map′ (declare e) (λ { (declare e s) → s }) (changesState? s)
-  changesState? (invoke p e)           = yes (invoke p e)
-  changesState? (if e then s₁ else s₂) = map′ [ if e then′_else s₂ , if e then s₁ else′_ ]′ (λ { (if _ then′ s else _) → inj₁ s ; (if _ then _ else′ s) → inj₂ s }) (changesState? s₁ ⊎-dec changesState? s₂)
-  changesState? (for m s)              = map′ (for m) (λ { (for m s) → s }) (changesState? s)
+  changesState? (s ∙ s₁)              = map′ [ _∙ˡ s₁ , s ∙ʳ_ ]′ (λ { (s ∙ˡ s₁) → inj₁ s ; (s ∙ʳ s₁) → inj₂ s₁ }) (changesState? s ⊎-dec changesState? s₁)
+  changesState? skip                  = no λ ()
+  changesState? (_≔_ ref e)           = map′ (λ refsState → _≔_ ref {refsState = fromWitness refsState} e) (λ { (_≔_ ref {refsState = refsState} e) → toWitness refsState }) (referencesState? ref)
+  changesState? (declare e s)         = map′ (declare e) (λ { (declare e s) → s }) (changesState? s)
+  changesState? (invoke p e)          = yes (invoke p e)
+  changesState? (if e then s else s₁) = map′ [ if e then′_else s₁ , if e then s else′_ ]′ (λ { (if e then′ s else s₁) → inj₁ s ; (if e then s else′ s₁) → inj₂ s₁ }) (changesState? s ⊎-dec changesState? s₁)
+  changesState? (for m s)             = map′ (for m) (λ { (for m s) → s }) (changesState? s)
 
   data Function Γ ret where
     _∙return_ : (s : Statement Γ) → {False (changesState? s)} → Expression Γ ret → Function Γ ret
@@ -279,7 +294,7 @@ module Code {o} (Σ : Vec Type o) where
     _∙end   : Statement Γ → Procedure Γ
 
   infixl  6 _<<_
-  infixl 5 _-_
+  infixl 5 _-_ _∶_
 
   tup : ∀ {n Γ m ts} → All (Expression {n} Γ) ts → Expression Γ (tuple m ts)
   tup []       = nil
