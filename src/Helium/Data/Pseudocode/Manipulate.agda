@@ -1289,3 +1289,266 @@ inlineFunction-lowers-callDepth (_∙return_ s {stateless} e) args = begin
     (_ , _ , s)
     (toWitnessFalse stateless)
     e
+
+elimFunctions : Expression Γ t → ∃ λ (e : Expression Γ t) → callDepth e ≡ 0
+elimFunctions {Γ = Γ} = Wf.All.wfRec relWf _ pred helper ∘ (_ ,_)
+  where
+  index  : Expression Γ t → ℕ
+  index′ : All (Expression Γ) Δ → ℕ
+
+  index (Code.lit x) = 0
+  index (Code.state i) = 0
+  index (Code.var i) = 0
+  index (Code.abort e) = suc (index e)
+  index (e Code.≟ e₁) = 1 ℕ.+ index e ℕ.+ index e₁
+  index (e Code.<? e₁) = 1 ℕ.+ index e ℕ.+ index e₁
+  index (Code.inv e) = suc (index e)
+  index (e Code.&& e₁) = 1 ℕ.+ index e ℕ.+ index e₁
+  index (e Code.|| e₁) = 1 ℕ.+ index e ℕ.+ index e₁
+  index (Code.not e) = suc (index e)
+  index (e Code.and e₁) = 1 ℕ.+ index e ℕ.+ index e₁
+  index (e Code.or e₁) = 1 ℕ.+ index e ℕ.+ index e₁
+  index Code.[ e ] = suc (index e)
+  index (Code.unbox e) = suc (index e)
+  index (Code.splice e e₁ e₂) = 1 ℕ.+ index e ℕ.+ index e₁ ℕ.+ index e₂
+  index (Code.cut e e₁) = 1 ℕ.+ index e ℕ.+ index e₁
+  index (Code.cast eq e) = suc (index e)
+  index (Code.- e) = suc (index e)
+  index (e Code.+ e₁) = 1 ℕ.+ index e ℕ.+ index e₁
+  index (e Code.* e₁) = 1 ℕ.+ index e ℕ.+ index e₁
+  index (e Code.^ x) = suc (index e)
+  index (e Code.>> x) = suc (index e)
+  index (Code.rnd e) = suc (index e)
+  index (Code.fin x e) = suc (index e)
+  index (Code.asInt e) = suc (index e)
+  index Code.nil = 0
+  index (Code.cons e e₁) = 1 ℕ.+ index e ℕ.+ index e₁
+  index (Code.head e) = suc (index e)
+  index (Code.tail e) = suc (index e)
+  index (Code.call f es) = index′ es
+  index (Code.if e then e₁ else e₂) = 1 ℕ.+ index e ℕ.+ index e₁ ℕ.+ index e₂
+
+  index′ []       = 1
+  index′ (e ∷ es) = index e ℕ.+ index′ es
+
+  pred : ∃ (Expression Γ) → Set
+  pred (t , e) = ∃ λ (e : Expression Γ t) → callDepth e ≡ 0
+
+  pred′ : All (Expression Γ) Δ → Set
+  pred′ {Δ = Δ} _ = ∃ λ (es : All (Expression Γ) Δ) → callDepth′ es ≡ 0
+
+  rel = Lex.×-Lex _≡_ ℕ._<_ ℕ._<_ on < callDepth ∘ proj₂ , index ∘ proj₂ >
+
+  data _<′₁_ : ∃ (Expression Γ) → All (Expression Γ) Δ → Set where
+    inj₁ : {e : Expression Γ t} {es : All (Expression Γ) Δ} → callDepth e ℕ.< callDepth′ es → (t , e) <′₁ es
+    inj₂ : {e : Expression Γ t} {es : All (Expression Γ) Δ} → callDepth e ≡ callDepth′ es → index e ℕ.< index′ es → (t , e) <′₁ es
+
+  data _<′₂_ : ∀ {n ts} → All (Expression Γ) {n} ts → All (Expression Γ) Δ → Set where
+    inj₁ : ∀ {n ts} {es′ : All (Expression Γ) {n} ts} {es : All (Expression Γ) Δ} → callDepth′ es′ ℕ.< callDepth′ es → es′ <′₂ es
+    inj₂ : ∀ {n ts} {es′ : All (Expression Γ) {n} ts} {es : All (Expression Γ) Δ} → callDepth′ es′ ≡ callDepth′ es → index′ es′ ℕ.≤ index′ es → es′ <′₂ es
+
+  <′₁-<′₂-trans : ∀ {n ts} {e : Expression Γ t} {es : All (Expression Γ) Δ} {es′ : All (Expression Γ) {n} ts} →
+                  (t , e) <′₁ es → es <′₂ es′ → (t , e) <′₁ es′
+  <′₁-<′₂-trans (inj₁ <₁) (inj₁ <₂) = inj₁ (ℕₚ.<-trans <₁ <₂)
+  <′₁-<′₂-trans (inj₁ <₁) (inj₂ ≡₂ _) = inj₁ (ℕₚ.<-transˡ <₁ (ℕₚ.≤-reflexive ≡₂))
+  <′₁-<′₂-trans (inj₂ ≡₁ _) (inj₁ <₂) = inj₁ (ℕₚ.<-transʳ (ℕₚ.≤-reflexive ≡₁) <₂)
+  <′₁-<′₂-trans (inj₂ ≡₁ <₁) (inj₂ ≡₂ ≤₂) = inj₂ (trans ≡₁ ≡₂) (ℕₚ.<-transˡ <₁ ≤₂)
+
+  <′₂-trans : ∀ {m n ts ts′} {es : All (Expression Γ) Δ} {es′ : All (Expression Γ) {n} ts} {es′′ : All (Expression Γ) {m} ts′} →
+              es <′₂ es′ → es′ <′₂ es′′ → es <′₂ es′′
+  <′₂-trans (inj₁ <₁) (inj₁ <₂) = inj₁ (ℕₚ.<-trans <₁ <₂)
+  <′₂-trans (inj₁ <₁) (inj₂ ≡₂ _) = inj₁ (ℕₚ.<-transˡ <₁ (ℕₚ.≤-reflexive ≡₂))
+  <′₂-trans (inj₂ ≡₁ _) (inj₁ <₂) = inj₁ (ℕₚ.<-transʳ (ℕₚ.≤-reflexive ≡₁) <₂)
+  <′₂-trans (inj₂ ≡₁ ≤₁) (inj₂ ≡₂ ≤₂) = inj₂ (trans ≡₁ ≡₂) (ℕₚ.≤-trans ≤₁ ≤₂)
+
+  index′>0 : ∀ (es : All (Expression Γ) Δ) → index′ es ℕ.> 0
+  index′>0 []       = ℕₚ.≤-refl
+  index′>0 (e ∷ es) = ℕₚ.<-transˡ (index′>0 es) (ℕₚ.m≤n+m (index′ es) (index e))
+
+  e<′₁es⇒e<f[es] : ∀ {e : Expression Γ t} {es : All (Expression Γ) Δ} → (t , e) <′₁ es → ∀ f → rel (t , e) (t′ , call f es)
+  e<′₁es⇒e<f[es] {e = e} {es} (inj₁ <) f = inj₁ (ℕₚ.<-transˡ < (ℕₚ.m≤n⊔m (suc (funCallDepth f)) (callDepth′ es)))
+  e<′₁es⇒e<f[es] {e = e} {es} (inj₂ ≡ <) f with callDepth′ es | funCallDepth f | ℕ.compare (callDepth′ es) (suc (funCallDepth f))
+  ... | _ | _ | ℕ.less m k = inj₁ (begin
+    suc (callDepth e) ≡⟨ cong suc ≡ ⟩
+    suc m             ≤⟨ ℕₚ.m≤m+n (suc m) k ⟩
+    suc m ℕ.+ k       ≤⟨ ℕₚ.m≤m⊔n (suc m ℕ.+ k) m ⟩
+    suc m ℕ.+ k ⊔ m   ∎)
+  ... | _ | _ | ℕ.equal m = inj₂ (trans ≡ (sym (ℕₚ.⊔-idem m)) , <)
+  ... | _ | _ | ℕ.greater n k = inj₂ ((begin-equality
+    callDepth e       ≡⟨  ≡ ⟩
+    suc n ℕ.+ k       ≡˘⟨ ℕₚ.m≤n⇒m⊔n≡n (ℕₚ.≤-trans (ℕₚ.n≤1+n n) (ℕₚ.m≤m+n (suc n) k)) ⟩
+    n ⊔ (suc n ℕ.+ k) ∎) , <)
+
+  e<ᵢe∷es : ∀ (e : Expression Γ t) (es : All (Expression Γ) Δ) → index e ℕ.< index′ (e ∷ es)
+  e<ᵢe∷es e es = ℕₚ.m<m+n (index e) (index′>0 es)
+
+  e<′₁e∷es : ∀ e (es : All (Expression Γ) Δ) → (t , e) <′₁ (e ∷ es)
+  e<′₁e∷es e es with callDepth e in eq₁ | callDepth′ es in eq₂ | ℕ.compare (callDepth e) (callDepth′ es)
+  ... | _ | _ | ℕ.less m k = inj₁
+    (begin
+      suc (callDepth e)           ≡⟨  cong suc eq₁ ⟩
+      suc m                       ≤⟨  ℕₚ.m≤m+n (suc m) k ⟩
+      suc m ℕ.+ k                 ≤⟨  ℕₚ.m≤n⊔m m (suc m ℕ.+ k) ⟩
+      m ⊔ (suc m ℕ.+ k)           ≡˘⟨ cong₂ _⊔_ eq₁ eq₂ ⟩
+      callDepth e ⊔ callDepth′ es ∎)
+  ... | _ | _ | ℕ.equal m = inj₂
+    (begin-equality
+      callDepth e                 ≡⟨  eq₁ ⟩
+      m                           ≡˘⟨ ℕₚ.⊔-idem m ⟩
+      m ⊔ m                       ≡˘⟨ cong₂ _⊔_ eq₁ eq₂ ⟩
+      callDepth e ⊔ callDepth′ es ∎)
+    (e<ᵢe∷es e es)
+  ... | _ | _ | ℕ.greater n k = inj₂
+    (sym (ℕₚ.m≥n⇒m⊔n≡m (begin
+      callDepth′ es ≡⟨  eq₂ ⟩
+      n             ≤⟨  ℕₚ.n≤1+n n ⟩
+      suc n         ≤⟨  ℕₚ.m≤m+n (suc n) k ⟩
+      suc n ℕ.+ k   ≡˘⟨ eq₁ ⟩
+      callDepth e   ∎)))
+    (e<ᵢe∷es e es)
+
+  es<′₂e∷es : ∀ (e : Expression Γ t) (es : All (Expression Γ) Δ) → es <′₂ (e ∷ es)
+  es<′₂e∷es e es with callDepth e in eq₁ | callDepth′ es in eq₂ | ℕ.compare (callDepth e) (callDepth′ es)
+  ... | _ | _ | ℕ.less m k = inj₂
+    (sym (ℕₚ.m≤n⇒m⊔n≡n (begin
+      callDepth e   ≡⟨  eq₁ ⟩
+      m             ≤⟨  ℕₚ.n≤1+n m ⟩
+      suc m         ≤⟨  ℕₚ.m≤m+n (suc m) k ⟩
+      suc m ℕ.+ k   ≡˘⟨ eq₂ ⟩
+      callDepth′ es ∎)))
+    (ℕₚ.m≤n+m (index′ es) (index e))
+  ... | _ | _ | ℕ.equal m = inj₂
+    (begin-equality
+      callDepth′ es               ≡⟨  eq₂ ⟩
+      m                           ≡˘⟨ ℕₚ.⊔-idem m ⟩
+      m ⊔ m                       ≡˘⟨ cong₂ _⊔_ eq₁ eq₂ ⟩
+      callDepth e ⊔ callDepth′ es ∎)
+    (ℕₚ.m≤n+m (index′ es) (index e))
+  ... | _ | _ | ℕ.greater n k = inj₁
+    (begin
+      suc (callDepth′ es)         ≡⟨ cong suc eq₂ ⟩
+      suc n                       ≤⟨ ℕₚ.m≤m+n (suc n) k ⟩
+      suc n ℕ.+ k                 ≤⟨ ℕₚ.m≤m⊔n (suc n ℕ.+ k) n ⟩
+      suc n ℕ.+ k ⊔ n             ≡˘⟨ cong₂ _⊔_ eq₁ eq₂ ⟩
+      callDepth e ⊔ callDepth′ es ∎)
+
+  relWf = On.wellFounded < callDepth ∘ proj₂ , index ∘ proj₂ > (Lex.×-wellFounded ℕᵢ.<-wellFounded ℕᵢ.<-wellFounded)
+
+  wf′₁ : ∀ f (es : All (Expression Γ) Δ) → Wf.WfRec rel pred (t , call f es) →
+         ∀ t,e → t,e <′₁ es → pred t,e
+  wf′₁ f _ rec (_ , e) r = rec (_ , e) (e<′₁es⇒e<f[es] r f)
+
+  wf′₂ : ∀ f (es : All (Expression Γ) Δ) → Wf.WfRec rel pred (t , call f es) →
+         ∀ {n ts} (es′ : All (Expression Γ) {n} ts) → es′ <′₂ es → pred′ es′
+  wf′₂ _ _ rec []       r = [] , refl
+  wf′₂ f es rec (e ∷ es′) r = proj₁ rec₁ ∷ proj₁ rec₂ , cong₂ _⊔_ (proj₂ rec₁) (proj₂ rec₂)
+    where
+    rec₁ = wf′₁ f es rec (_ , e) (<′₁-<′₂-trans (e<′₁e∷es e es′) r)
+    rec₂ = wf′₂ f es rec es′ (<′₂-trans (es<′₂e∷es e es′) r)
+
+  rec₁ : ∀ (f : Expression Γ t → Expression Γ t′) → (∀ {e} → index (f e) ≡ suc (index e)) → (∀ {e} → callDepth (f e) ≡ callDepth e) → ∀ e → Wf.WfRec rel pred (t′ , f e) → pred (t′ , f e)
+  rec₁ f index-step depth-eq e acc = f (proj₁ inner) , trans depth-eq (proj₂ inner)
+    where inner = acc (_ , e) (inj₂ (sym depth-eq , ℕₚ.≤-reflexive (sym index-step)))
+
+  rec₂ : ∀ {t′′} (f : Expression Γ t → Expression Γ t′ → Expression Γ t′′) → (∀ {e e₁} → index (f e e₁) ≡ suc (index e ℕ.+ index e₁)) → (∀ {e e₁} → callDepth (f e e₁) ≡ callDepth e ⊔ callDepth e₁) → ∀ e e₁ → Wf.WfRec rel pred (t′′ , f e e₁) → pred (t′′ , f e e₁)
+  rec₂ f index-step depth-eq e e₁ acc = f (proj₁ inner) (proj₁ inner₁) , trans depth-eq (cong₂ _⊔_ (proj₂ inner) (proj₂ inner₁))
+    where
+    helper : ∀ a b c d e f → a ≡ b ⊔ c → d ≡ suc (e ℕ.+ f) → (b ℕ.< a ⊎ b ≡ a × e ℕ.< d)
+    helper a b c d e f eq₁ eq₂ with ℕ.compare b a
+    ... | ℕ.less .b k = inj₁ (ℕₚ.m≤m+n (suc b) k)
+    ... | ℕ.equal .a = inj₂ (refl , ℕₚ.m+n≤o⇒m≤o (suc e) (ℕₚ.≤-reflexive (sym eq₂)))
+    ... | ℕ.greater .a k = contradiction (ℕₚ.≤-reflexive (sym eq₁)) (ℕₚ.<⇒≱ (begin-strict
+      a               <⟨ ℕₚ.n<1+n a ⟩
+      suc a           ≤⟨ ℕₚ.m≤m+n (suc a) k ⟩
+      suc a ℕ.+ k     ≤⟨ ℕₚ.m≤m⊔n (suc a ℕ.+ k) c ⟩
+      suc a ℕ.+ k ⊔ c ∎))
+
+    helper₁ : ∀ a b c d e f → a ≡ b ⊔ c → d ≡ suc (e ℕ.+ f) → (c ℕ.< a ⊎ c ≡ a × f ℕ.< d)
+    helper₁ a b c d e f eq₁ eq₂ = helper a c b d f e (trans eq₁ (ℕₚ.⊔-comm b c)) (trans eq₂ (cong suc (ℕₚ.+-comm e f)))
+
+    inner = acc (_ , e) (helper (callDepth (f e e₁)) (callDepth e) (callDepth e₁) (index (f e e₁)) (index e) (index e₁) depth-eq index-step)
+    inner₁ = acc (_ , e₁) (helper₁ (callDepth (f e e₁)) (callDepth e) (callDepth e₁) (index (f e e₁)) (index e) (index e₁) depth-eq index-step)
+
+  rec₃ : ∀ {t′′ t′′′} (f : Expression Γ t → Expression Γ t′ → Expression Γ t′′ → Expression Γ t′′′) → (∀ {e e₁ e₂} → index (f e e₁ e₂) ≡ suc (index e ℕ.+ index e₁ ℕ.+ index e₂)) → (∀ {e e₁ e₂} → callDepth (f e e₁ e₂) ≡ callDepth e ⊔ callDepth e₁ ⊔ callDepth e₂) → ∀ e e₁ e₂ → Wf.WfRec rel pred (t′′′ , f e e₁ e₂) → pred (t′′′ , f e e₁ e₂)
+  rec₃ f index-step depth-eq e e₁ e₂ acc = f (proj₁ inner) (proj₁ inner₁) (proj₁ inner₂) , trans depth-eq (congₙ 3 (λ a b c → a ⊔ b ⊔ c) (proj₂ inner) (proj₂ inner₁) (proj₂ inner₂))
+    where
+    helper : ∀ {a b c d e f g h} → a ≡ b ⊔ c ⊔ d → e ≡ suc (f ℕ.+ g ℕ.+ h) → b ℕ.< a ⊎ b ≡ a × f ℕ.< e
+    helper {a} {b} {c} {d} {e} {f} {g} {h} eq₁ eq₂ with ℕ.compare a b
+    ... | ℕ.less .a k = contradiction (ℕₚ.≤-reflexive (sym eq₁)) (ℕₚ.<⇒≱ (begin-strict
+      a                   <⟨ ℕₚ.n<1+n a ⟩
+      suc a               ≤⟨ ℕₚ.m≤m+n (suc a) k ⟩
+      suc a ℕ.+ k         ≤⟨ ℕₚ.m≤m⊔n (suc a ℕ.+ k) c ⟩
+      suc a ℕ.+ k ⊔ c     ≤⟨ ℕₚ.m≤m⊔n (suc a ℕ.+ k ⊔ c) d ⟩
+      suc a ℕ.+ k ⊔ c ⊔ d ∎))
+    ... | ℕ.equal .a = inj₂ (refl , (begin
+      suc f             ≤⟨  ℕₚ.m≤m+n (suc f) g ⟩
+      suc f ℕ.+ g       ≤⟨  ℕₚ.m≤m+n (suc f ℕ.+ g) h ⟩
+      suc f ℕ.+ g ℕ.+ h ≡˘⟨ eq₂ ⟩
+      e                 ∎))
+    ... | ℕ.greater .b k = inj₁ (ℕₚ.m≤m+n (suc b) k)
+
+    helper₁ : ∀ {a} b {c} d {e} f {g} h → a ≡ b ⊔ c ⊔ d → e ≡ suc (f ℕ.+ g ℕ.+ h) → c ℕ.< a ⊎ c ≡ a × g ℕ.< e
+    helper₁ {a} b {c} d {e} f {g} h eq₁ eq₂ =
+      helper
+        (trans eq₁ (cong (_⊔ d) (ℕₚ.⊔-comm b c)))
+        (trans eq₂ (cong (ℕ._+ h) (cong suc (ℕₚ.+-comm f g))))
+
+    helper₂ : ∀ {a} b c {d e} f g {h} → a ≡ b ⊔ c ⊔ d → e ≡ suc (f ℕ.+ g ℕ.+ h) → d ℕ.< a ⊎ d ≡ a × h ℕ.< e
+    helper₂ {a} b c {d} {e} f g {h} eq₁ eq₂ =
+      helper
+        (trans eq₁ (trans (ℕₚ.⊔-comm (b ⊔ c) d) (sym (ℕₚ.⊔-assoc d b c))))
+        (trans eq₂ (cong suc (trans (ℕₚ.+-comm (f ℕ.+ g) h) (sym (ℕₚ.+-assoc h f g)))))
+
+    inner = acc (_ , e) (helper depth-eq index-step)
+    inner₁ = acc (_ , e₁) (helper₁ (callDepth e) (callDepth e₂) (index e) (index e₂) depth-eq index-step)
+    inner₂ = acc (_ , e₂) (helper₂ (callDepth e) (callDepth e₁) (index e) (index e₁) depth-eq index-step)
+
+  helper : ∀ t,e → Wf.WfRec rel pred t,e → pred t,e
+  helper′ : ∀ (es : All (Expression Γ) Δ) → (∀ (t,e : ∃ (Expression Γ)) → t,e <′₁ es → pred t,e) → (∀ {n ts} (es′ : All (Expression Γ) {n} ts) → es′ <′₂ es  → pred′ es′) → pred′ es
+
+  helper (_ , Code.lit x) acc = lit x , refl
+  helper (_ , Code.state i) acc = state i , refl
+  helper (_ , Code.var i) acc = var i , refl
+  helper (_ , Code.abort e) acc = rec₁ abort refl refl e acc
+  helper (_ , _≟_ {hasEquality = hasEq} e e₁) acc = rec₂ (_≟_ {hasEquality = hasEq}) refl refl e e₁ acc
+  helper (_ , _<?_ {isNumeric = isNum} e e₁) acc = rec₂ (_<?_ {isNumeric = isNum}) refl refl e e₁ acc
+  helper (_ , Code.inv e) acc = rec₁ inv refl refl e acc
+  helper (_ , e Code.&& e₁) acc = rec₂ _&&_ refl refl e e₁ acc
+  helper (_ , e Code.|| e₁) acc = rec₂ _||_ refl refl e e₁ acc
+  helper (_ , Code.not e) acc = rec₁ not refl refl e acc
+  helper (_ , e Code.and e₁) acc = rec₂ _and_ refl refl e e₁ acc
+  helper (_ , e Code.or e₁) acc = rec₂ _or_ refl refl e e₁ acc
+  helper (_ , Code.[ e ]) acc = rec₁ [_] refl refl e acc
+  helper (_ , Code.unbox e) acc = rec₁ unbox refl refl e acc
+  helper (_ , Code.splice e e₁ e₂) acc = rec₃ splice refl refl e e₁ e₂ acc
+  helper (_ , Code.cut e e₁) acc = rec₂ cut refl refl e e₁ acc
+  helper (_ , Code.cast eq e) acc = rec₁ (cast eq) refl refl e acc
+  helper (_ , -_ {isNumeric = isNum} e) acc = rec₁ (-_ {isNumeric = isNum}) refl refl e acc
+  helper (_ , e Code.+ e₁) acc = rec₂ _+_ refl refl e e₁ acc
+  helper (_ , e Code.* e₁) acc = rec₂ _*_ refl refl e e₁ acc
+  helper (_ , _^_ {isNumeric = isNum} e x) acc = rec₁ (λ e → _^_ {isNumeric = isNum} e x) refl refl e acc
+  helper (_ , e Code.>> x) acc = rec₁ (_>> x) refl refl e acc
+  helper (_ , Code.rnd e) acc = rec₁ rnd refl refl e acc
+  helper (_ , Code.fin x e) acc = rec₁ (fin x) refl refl e acc
+  helper (_ , Code.asInt e) acc = rec₁ asInt refl refl e acc
+  helper (_ , Code.nil) acc = nil , refl
+  helper (_ , Code.cons e e₁) acc = rec₂ cons refl refl e e₁ acc
+  helper (_ , Code.head e) acc = rec₁ head refl refl e acc
+  helper (_ , Code.tail e) acc = rec₁ tail refl refl e acc
+  helper (_ , Code.call f es) acc =
+    acc
+      (_ , inlineFunction f (proj₁ inner))
+      (inj₁ (begin-strict
+        callDepth (inlineFunction f (proj₁ inner)) ≤⟨ inlineFunction-lowers-callDepth f (proj₁ inner) ⟩
+        funCallDepth f ⊔ callDepth′ (proj₁ inner)  ≡⟨ cong (funCallDepth f ⊔_) (proj₂ inner) ⟩
+        funCallDepth f ⊔ 0                         ≡⟨ ℕₚ.⊔-identityʳ (funCallDepth f) ⟩
+        funCallDepth f                             <⟨ ℕₚ.n<1+n (funCallDepth f) ⟩
+        suc (funCallDepth f)                       ≤⟨ ℕₚ.m≤m⊔n (suc (funCallDepth f)) (callDepth′ es) ⟩
+        suc (funCallDepth f) ⊔ callDepth′ es       ∎))
+    where inner = helper′ es (wf′₁ f es acc) (wf′₂ f es acc)
+  helper (_ , (Code.if e then e₁ else e₂)) acc = rec₃ if_then_else_ refl refl e e₁ e₂ acc
+
+  proj₁ (helper′ [] acc acc′) = []
+  proj₁ (helper′ (e ∷ es) acc acc′) = proj₁ (acc (_ , e) (e<′₁e∷es e es)) ∷ proj₁ (acc′ es (es<′₂e∷es e es))
+  proj₂ (helper′ [] acc acc′) = refl
+  proj₂ (helper′ (e ∷ es) acc acc′) = cong₂ _⊔_ (proj₂ (acc (_ , e) (e<′₁e∷es e es))) (proj₂ (acc′ es (es<′₂e∷es e es)))
