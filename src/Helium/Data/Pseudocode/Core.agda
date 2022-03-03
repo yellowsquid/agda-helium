@@ -265,8 +265,8 @@ module Code {o} (Σ : Vec Type o) where
     _≔_           : ∀ {t} → (ref : Expression Γ t) → {canAssign : True (canAssign? ref)} → Expression Γ t → Statement Γ
     declare       : ∀ {t} → Expression Γ t → Statement (t ∷ Γ) → Statement Γ
     invoke        : ∀ {m Δ} → Procedure Δ → All (Expression Γ) {m} Δ → Statement Γ
-    if_then_else_ : Expression Γ bool → Statement Γ → Statement Γ → Statement Γ
     if_then_      : Expression Γ bool → Statement Γ → Statement Γ
+    if_then_else_ : Expression Γ bool → Statement Γ → Statement Γ → Statement Γ
     for           : ∀ m → Statement (fin m ∷ Γ) → Statement Γ
 
   data ChangesState where
