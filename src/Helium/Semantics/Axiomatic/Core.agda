@@ -69,17 +69,3 @@ Transform ts t = ⟦ ts ⟧ₜ′ → ⟦ t ⟧ₜ
 
 Predicate : Vec Type m → Set (b₁ ⊔ i₁ ⊔ r₁)
 Predicate ts =  ⟦ ts ⟧ₜ′ → Bool
-
---   data HoareTriple {n Γ m Δ} : Assertion Σ {n} Γ {m} Δ → Statement Γ → Assertion Σ Γ Δ → Set (b₁ ⊔ i₁ ⊔ r₁) where
---     _∙_ : ∀ {P Q R s₁ s₂} → HoareTriple P s₁ Q → HoareTriple Q s₂ R → HoareTriple P (s₁ ∙ s₂) R
---     skip : ∀ {P} → HoareTriple P skip P
-
---     assign : ∀ {P t ref canAssign e} → HoareTriple (asrtSubst P (toWitness canAssign) (ℰ e)) (_≔_ {t = t} ref {canAssign} e) P
---     declare : ∀ {t P Q e s} → HoareTriple (P ∧ equal (var 0F) (termWknVar (ℰ e))) s (asrtWknVar Q) → HoareTriple (asrtElimVar P (ℰ e)) (declare {t = t} e s) Q
---     invoke : ∀ {m ts P Q s e} → HoareTriple (assignMetas Δ ts (All.tabulate var) (asrtAddVars P)) s (asrtAddVars Q) → HoareTriple (assignMetas Δ ts (All.tabulate (λ i → ℰ (All.lookup i e))) (asrtAddVars P)) (invoke {m = m} {ts} (s ∙end) e) (asrtAddVars Q)
---     if : ∀ {P Q e s₁ s₂} → HoareTriple (P ∧ equal (ℰ e) (𝒦 (Bool.true ′b))) s₁ Q → HoareTriple (P ∧ equal (ℰ e) (𝒦 (Bool.false ′b))) s₂ Q → HoareTriple P (if e then s₁ else s₂) Q
---     for : ∀ {m} {I : Assertion Σ Γ (fin (suc m) ∷ Δ)} {s} → HoareTriple (some (asrtWknVar (asrtWknMetaAt 1F I) ∧ equal (meta 1F) (var 0F) ∧ equal (meta 0F) (func (λ { _ (lift x ∷ []) → lift (Fin.inject₁ x) }) (meta 1F ∷ [])))) s (some (asrtWknVar (asrtWknMetaAt 1F I) ∧ equal (meta 0F) (func (λ { _ (lift x ∷ []) → lift (Fin.suc x) }) (meta 1F ∷ [])))) → HoareTriple (some (I ∧ equal (meta 0F) (func (λ _ _ → lift 0F) []))) (for m s) (some (I ∧ equal (meta 0F) (func (λ _ _ → lift (Fin.fromℕ m)) [])))
-
---     consequence : ∀ {P₁ P₂ Q₁ Q₂ s} → ⟦ P₁ ⟧ₐ ⊆ ⟦ P₂ ⟧ₐ → HoareTriple P₂ s Q₂ → ⟦ Q₂ ⟧ₐ ⊆ ⟦ Q₁ ⟧ₐ → HoareTriple P₁ s Q₁
---     some : ∀ {t P Q s} → HoareTriple P s Q → HoareTriple (some {t = t} P) s (some Q)
---     frame : ∀ {P Q R s} → HoareTriple P s Q → HoareTriple (P * R) s (Q * R)

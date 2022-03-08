@@ -10,6 +10,7 @@
 module Helium.Algebra.Bundles where
 
 open import Algebra.Bundles
+open import Algebra.Lattice.Bundles
 open import Algebra.Core
 open import Helium.Algebra.Core
 open import Helium.Algebra.Structures

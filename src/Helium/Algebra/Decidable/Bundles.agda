@@ -9,7 +9,7 @@
 
 module Helium.Algebra.Decidable.Bundles where
 
-open import Algebra.Bundles using (RawLattice)
+open import Algebra.Lattice.Bundles using (RawLattice)
 open import Algebra.Core
 open import Helium.Algebra.Decidable.Structures
 open import Level using (suc; _⊔_)

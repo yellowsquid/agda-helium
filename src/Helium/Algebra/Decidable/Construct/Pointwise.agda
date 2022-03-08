@@ -8,7 +8,7 @@
 
 module Helium.Algebra.Decidable.Construct.Pointwise where
 
-open import Algebra.Bundles using (RawLattice)
+open import Algebra.Lattice.Bundles using (RawLattice)
 open import Algebra.Core
 open import Data.Nat using (ℕ)
 open import Data.Product using (_,_)

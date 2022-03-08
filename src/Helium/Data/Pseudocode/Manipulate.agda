@@ -1240,10 +1240,10 @@ private
     e
     (Vec.allFin m)
     where
-    helper : ∀ {n m} k (f : ∀ {n : ℕ} e (i : Fin m) → ∃ λ e′ → callDepth e′ ℕ.≤ k ⊔ callDepth e) → ∀ e xs → callDepth (Vec.foldl (λ _ → Expression Γ ret) {n} (λ {n} e i → proj₁ (f {n} e i)) e xs) ℕ.≤ k ⊔ callDepth e
+    helper : ∀ {n m} k (f : ∀ e (i : Fin m) → ∃ λ e′ → callDepth e′ ℕ.≤ k ⊔ callDepth e) → ∀ e xs → callDepth (Vec.foldl′ {n = n} (λ e i → proj₁ (f e i)) e xs) ℕ.≤ k ⊔ callDepth e
     helper k f e []       = ℕₚ.m≤n⊔m k (callDepth e)
     helper k f e (x ∷ xs) = begin
-      callDepth (Vec.foldl _ (λ e i → proj₁ (f e i)) (proj₁ (f e x)) xs)
+      callDepth (Vec.foldl′ (λ e i → proj₁ (f e i)) (proj₁ (f e x)) xs)
         ≤⟨ helper k f (proj₁ (f e x)) xs ⟩
       k ⊔ callDepth (proj₁ (f e x))
         ≤⟨ ℕₚ.⊔-monoʳ-≤ k (proj₂ (f e x)) ⟩

@@ -161,6 +161,7 @@ record IsAbelianGroup (∙ : Op₂ A)
 record IsRing (+ _*_ : Op₂ A) (-_ : Op₁ A) (0# 1# : A) : Set (a ⊔ ℓ₁ ⊔ ℓ₂) where
   field
     +-isAbelianGroup : IsAbelianGroup + 0# -_
+    -- FIXME: unroll definition
     *-isMonoid       : NoOrder.IsMonoid _*_ 1#
     distrib          : _*_ DistributesOver +
     zero             : Zero 0# _*_
@@ -224,7 +225,9 @@ record IsRing (+ _*_ : Op₂ A) (-_ : Op₁ A) (0# 1# : A) : Set (a ⊔ ℓ₁ �
     isRing : NoOrder.IsRing + _*_ -_ 0# 1#
     isRing = record
       { +-isAbelianGroup = IsAbelianGroup.Unordered.isAbelianGroup +-isAbelianGroup
-      ; *-isMonoid       = *-isMonoid
+      ; *-cong           = *-cong
+      ; *-assoc          = *-assoc
+      ; *-identity       = *-identity
       ; distrib          = distrib
       ; zero             = zero
       }

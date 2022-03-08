@@ -72,6 +72,7 @@ record IsDivisionRing
          (_⁻¹ : AlmostOp₁ _≈_ 0#) : Set (a ⊔ ℓ) where
   field
     +-isAbelianGroup : IsAbelianGroup + 0# -_
+    -- FIXME: unroll definition
     *-isAlmostGroup  : IsAlmostGroup _*_ 0# 1# _⁻¹
     distrib          : _*_ DistributesOver +
     zero             : Zero 0# _*_
@@ -126,7 +127,9 @@ record IsDivisionRing
   isRing : IsRing + _*_ -_ 0# 1#
   isRing = record
     { +-isAbelianGroup = +-isAbelianGroup
-    ; *-isMonoid = *-isMonoid
+    ; *-cong = *-cong
+    ; *-assoc = *-assoc
+    ; *-identity = *-identity
     ; distrib = distrib
     ; zero = zero
     }

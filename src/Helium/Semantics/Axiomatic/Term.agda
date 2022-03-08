@@ -102,7 +102,7 @@ wknVar (func f ts) = func f (helper ts)
 
 wknVars : (ts : Vec Type n) → Term Σ Γ Δ t → Term Σ (ts ++ Γ) Δ t
 wknVars τs (state i)   = state i
-wknVars τs (var i)     = castType (var (Fin.raise (Vec.length τs) i)) (Vecₚ.lookup-++ʳ τs _ i)
+wknVars τs (var i)     = castType (var (Vec.length τs Fin.↑ʳ i)) (Vecₚ.lookup-++ʳ τs _ i)
 wknVars τs (meta i)    = meta i
 wknVars τs (func f ts) = func f (helper ts)
   where
@@ -135,7 +135,7 @@ wknMeta = wknMetaAt 0F
 wknMetas : (ts : Vec Type n) → Term Σ Γ Δ t → Term Σ Γ (ts ++ Δ) t
 wknMetas τs (state i)   = state i
 wknMetas τs (var i)     = var i
-wknMetas τs (meta i)    = castType (meta (Fin.raise (Vec.length τs) i)) (Vecₚ.lookup-++ʳ τs _ i)
+wknMetas τs (meta i)    = castType (meta (Vec.length τs Fin.↑ʳ i)) (Vecₚ.lookup-++ʳ τs _ i)
 wknMetas τs (func f ts) = func f (helper ts)
   where
   helper : ∀ {n ts} → All (Term Σ Γ Δ) {n} ts → All (Term Σ Γ (τs ++ Δ)) ts

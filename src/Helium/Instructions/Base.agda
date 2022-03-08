@@ -130,7 +130,7 @@ LSL-C : ∀ {n} (shift : ℕ) → Function (bits n ∷ []) (tuple 2 (bits n ∷ 
 LSL-C {n} shift = declare (var 0F ∶ lit ((Vec.replicate {n = (suc shift)} false) ′xs))
   (skip ∙return tup
     ( slice (var 0F) (lit (zero ′f))
-    ∷ unbox (slice (cast eq (var 0F)) (lit (Fin.inject+ shift (Fin.fromℕ n) ′f)))
+    ∷ unbox (slice (cast eq (var 0F)) (lit (((Fin.fromℕ n) Fin.↑ˡ shift) ′f)))
     ∷ []))
   where
   eq = P.trans (ℕₚ.+-comm 1 (shift ℕ.+ n)) (P.cong (ℕ._+ 1) (ℕₚ.+-comm shift n))
