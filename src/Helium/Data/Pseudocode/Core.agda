@@ -43,7 +43,7 @@ data HasEquality : Type → Set where
   fin  : ∀ {n} → HasEquality (fin n)
   real : HasEquality real
   bit  : HasEquality bit
-  bits : ∀ {n} → HasEquality (bits n)
+  bits : ∀ n → HasEquality (bits n)
 
 hasEquality? : Decidable HasEquality
 hasEquality? bool        = yes bool
@@ -51,7 +51,7 @@ hasEquality? int         = yes int
 hasEquality? (fin n)     = yes fin
 hasEquality? real        = yes real
 hasEquality? bit         = yes bit
-hasEquality? (bits n)    = yes bits
+hasEquality? (bits n)    = yes (bits n)
 hasEquality? (tuple n x) = no (λ ())
 hasEquality? (array t n) = no (λ ())
 
@@ -69,10 +69,10 @@ isNumeric? (bits n)    = no (λ ())
 isNumeric? (tuple n x) = no (λ ())
 isNumeric? (array t n) = no (λ ())
 
-combineNumeric : ∀ t₁ t₂ → {isNumeric₁ : True (isNumeric? t₁)} → {isNumeric₂ : True (isNumeric? t₂)} → Type
-combineNumeric int  int  = int
-combineNumeric int  real = real
-combineNumeric real _    = real
+combineNumeric : ∀ t₁ t₂ → (isNumeric₁ : True (isNumeric? t₁)) → (isNumeric₂ : True (isNumeric? t₂)) → Type
+combineNumeric int  int  _ _ = int
+combineNumeric int  real _ _ = real
+combineNumeric real _    _ _ = real
 
 data Sliced : Set where
   bits  : Sliced
@@ -147,8 +147,8 @@ module Code {o} (Σ : Vec Type o) where
     cut    : ∀ {m n t} → Expression Γ (asType t (n ℕ.+ m)) → Expression Γ (fin (suc n)) → Expression Γ (tuple 2 (asType t m ∷ asType t n ∷ []))
     cast   : ∀ {i j t} → .(eq : i ≡ j) → Expression Γ (asType t i) → Expression Γ (asType t j)
     -_     : ∀ {t} {isNumeric : True (isNumeric? t)} → Expression Γ t → Expression Γ t
-    _+_    : ∀ {t₁ t₂} {isNumeric₁ : True (isNumeric? t₁)} {isNumeric₂ : True (isNumeric? t₂)} → Expression Γ t₁ → Expression Γ t₂ → Expression Γ (combineNumeric t₁ t₂ {isNumeric₁} {isNumeric₂})
-    _*_    : ∀ {t₁ t₂} {isNumeric₁ : True (isNumeric? t₁)} {isNumeric₂ : True (isNumeric? t₂)} → Expression Γ t₁ → Expression Γ t₂ → Expression Γ (combineNumeric t₁ t₂ {isNumeric₁} {isNumeric₂})
+    _+_    : ∀ {t₁ t₂} {isNumeric₁ : True (isNumeric? t₁)} {isNumeric₂ : True (isNumeric? t₂)} → Expression Γ t₁ → Expression Γ t₂ → Expression Γ (combineNumeric t₁ t₂ isNumeric₁ isNumeric₂)
+    _*_    : ∀ {t₁ t₂} {isNumeric₁ : True (isNumeric? t₁)} {isNumeric₂ : True (isNumeric? t₂)} → Expression Γ t₁ → Expression Γ t₂ → Expression Γ (combineNumeric t₁ t₂ isNumeric₁ isNumeric₂)
     -- _/_   : Expression Γ real → Expression Γ real → Expression Γ real
     _^_    : ∀ {t} {isNumeric : True (isNumeric? t)} → Expression Γ t → ℕ → Expression Γ t
     _>>_   : Expression Γ int → ℕ → Expression Γ int
@@ -312,7 +312,7 @@ module Code {o} (Σ : Vec Type o) where
   slice′ : ∀ {n Γ i j t} → Expression {n} Γ (asType t (i ℕ.+ j)) → Expression Γ (fin (suc j)) → Expression Γ (asType t i)
   slice′ {i = i} e₁ e₂ = slice (cast (+-comm i _) e₁) e₂
 
-  _-_   : ∀ {n Γ t₁ t₂} {isNumeric₁ : True (isNumeric? t₁)} {isNumeric₂ : True (isNumeric? t₂)} → Expression {n} Γ t₁ → Expression Γ t₂ → Expression Γ (combineNumeric t₁ t₂ {isNumeric₁} {isNumeric₂})
+  _-_   : ∀ {n Γ t₁ t₂} {isNumeric₁ : True (isNumeric? t₁)} {isNumeric₂ : True (isNumeric? t₂)} → Expression {n} Γ t₁ → Expression Γ t₂ → Expression Γ (combineNumeric t₁ t₂ isNumeric₁ isNumeric₂)
   _-_ {isNumeric₂ = isNumeric₂} x y = x + (-_ {isNumeric = isNumeric₂} y)
 
   _<<_ : ∀ {n Γ} → Expression {n} Γ int → ℕ → Expression Γ int

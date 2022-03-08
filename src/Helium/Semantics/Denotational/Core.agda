@@ -98,12 +98,12 @@ tupTail []      x        = _
 tupTail (_ ∷ _) (x , xs) = xs
 
 equal : ∀ {t} → HasEquality t → ⟦ t ⟧ₜ → ⟦ t ⟧ₜ → Bool
-equal bool x y = does (x Bool.≟ y)
-equal int  x y = does (x ≟ᶻ y)
-equal fin  x y = does (x Fin.≟ y)
-equal real x y = does (x ≟ʳ y)
-equal bit  x y = does (x ≟ᵇ₁ y)
-equal bits x y = does (x ≟ᵇ y)
+equal bool     x y = does (x Bool.≟ y)
+equal int      x y = does (x ≟ᶻ y)
+equal fin      x y = does (x Fin.≟ y)
+equal real     x y = does (x ≟ʳ y)
+equal bit      x y = does (x ≟ᵇ₁ y)
+equal (bits _) x y = does (x ≟ᵇ y)
 
 comp : ∀ {t} → IsNumeric t → ⟦ t ⟧ₜ → ⟦ t ⟧ₜ → Bool
 comp int  x y = does (x <ᶻ? y)
@@ -180,13 +180,13 @@ neg : ∀ {t} → IsNumeric t → ⟦ t ⟧ₜ → ⟦ t ⟧ₜ
 neg int  x = ℤ.- x
 neg real x = ℝ.- x
 
-add : ∀ {t₁ t₂} (isNum₁ : True (isNumeric? t₁)) (isNum₂ : True (isNumeric? t₂)) → ⟦ t₁ ⟧ₜ → ⟦ t₂ ⟧ₜ → ⟦ combineNumeric t₁ t₂ {isNum₁} {isNum₂} ⟧ₜ
+add : ∀ {t₁ t₂} (isNum₁ : True (isNumeric? t₁)) (isNum₂ : True (isNumeric? t₂)) → ⟦ t₁ ⟧ₜ → ⟦ t₂ ⟧ₜ → ⟦ combineNumeric t₁ t₂ isNum₁ isNum₂ ⟧ₜ
 add {t₁ = int}  {t₂ = int}  _ _ x y = x ℤ.+ y
 add {t₁ = int}  {t₂ = real} _ _ x y = x /1 ℝ.+ y
 add {t₁ = real} {t₂ = int}  _ _ x y = x ℝ.+ y /1
 add {t₁ = real} {t₂ = real} _ _ x y = x ℝ.+ y
 
-mul : ∀ {t₁ t₂} (isNum₁ : True (isNumeric? t₁)) (isNum₂ : True (isNumeric? t₂)) → ⟦ t₁ ⟧ₜ → ⟦ t₂ ⟧ₜ → ⟦ combineNumeric t₁ t₂ {isNum₁} {isNum₂} ⟧ₜ
+mul : ∀ {t₁ t₂} (isNum₁ : True (isNumeric? t₁)) (isNum₂ : True (isNumeric? t₂)) → ⟦ t₁ ⟧ₜ → ⟦ t₂ ⟧ₜ → ⟦ combineNumeric t₁ t₂ isNum₁ isNum₂ ⟧ₜ
 mul {t₁ = int}  {t₂ = int}  _ _ x y = x ℤ.* y
 mul {t₁ = int}  {t₂ = real} _ _ x y = x /1 ℝ.* y
 mul {t₁ = real} {t₂ = int}  _ _ x y = x ℝ.* y /1
