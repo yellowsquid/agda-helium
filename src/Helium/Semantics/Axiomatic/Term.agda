@@ -355,3 +355,14 @@ module _ (2≉0 : 2≉0) where
   subst t (Code.cons ref ref₁) t′ = subst (subst t ref (func₁ proj₁ t′)) ref₁ (func₁ proj₂ t′)
   subst t (Code.head {e = e} ref) t′ = subst t ref (func₂ _,_ t′ (func₁ proj₂ (ℰ e)))
   subst t (Code.tail {t = τ} {e = e} ref) t′ = subst t ref (func₂ {t₁ = τ} _,_ (func₁ proj₁ (ℰ e)) t′)
+
+⟦_⟧ : Term Σ Γ Δ t → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Δ ⟧ₜ′ → ⟦ t ⟧ₜ
+⟦_⟧′ : ∀ {ts} → All (Term Σ Γ Δ) {n} ts → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Δ ⟧ₜ′ → ⟦ ts ⟧ₜ′
+
+⟦ state i ⟧ σ γ δ = fetch i σ
+⟦ var i ⟧ σ γ δ = fetch i γ
+⟦ meta i ⟧ σ γ δ = fetch i δ
+⟦ func f ts ⟧ σ γ δ = f (⟦ ts ⟧′ σ γ δ)
+
+⟦ [] ⟧′     σ γ δ = _
+⟦ t ∷ ts ⟧′ σ γ δ = ⟦ t ⟧ σ γ δ , ⟦ ts ⟧′ σ γ δ

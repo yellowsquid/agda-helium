@@ -60,6 +60,10 @@ private
 ⟦ [] ⟧ₜ′     = Lift (b₁ ⊔ i₁ ⊔ r₁) ⊤
 ⟦ t ∷ ts ⟧ₜ′ = ⟦ t ⟧ₜ × ⟦ ts ⟧ₜ′
 
+fetch : ∀ i → ⟦ Γ ⟧ₜ′ → ⟦ lookup Γ i ⟧ₜ
+fetch {Γ = _ ∷ _} 0F      (x , _)  = x
+fetch {Γ = _ ∷ _} (suc i) (_ , xs) = fetch i xs
+
 Transform : Vec Type m → Type → Set (b₁ ⊔ i₁ ⊔ r₁)
 Transform ts t = ⟦ ts ⟧ₜ′ → ⟦ t ⟧ₜ
 
