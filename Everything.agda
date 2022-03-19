@@ -51,6 +51,12 @@ import Helium.Algebra.Structures
 -- Definition of the Armv8-M pseudocode.
 import Helium.Data.Pseudocode.Core
 
+-- Ways to modify pseudocode statements and expressions.
+import Helium.Data.Pseudocode.Manipulate
+
+-- Basic properties of the pseudocode data types
+import Helium.Data.Pseudocode.Properties
+
 -- Definition of types and operations used by the Armv8-M pseudocode.
 import Helium.Data.Pseudocode.Types
 
@@ -62,6 +68,18 @@ import Helium.Instructions.Core
 
 -- Implementation of Barrett reduction.
 import Helium.Instructions.Instances.Barrett
+
+-- Definition of assertions used in correctness triples
+import Helium.Semantics.Axiomatic.Assertion
+
+-- Base definitions for the axiomatic semantics
+import Helium.Semantics.Axiomatic.Core
+
+-- Definition of terms for use in assertions
+import Helium.Semantics.Axiomatic.Term
+
+-- Definition of Hoare triples
+import Helium.Semantics.Axiomatic.Triple
 
 -- Base definitions for the denotational semantics.
 import Helium.Semantics.Denotational.Core
