@@ -25,9 +25,9 @@ open import Helium.Instructions.Core
 barret : (m -n : Expression [] (bits 32)) (t z : VecReg) (im : GenReg) → Procedure []
 barret m -n t z im =
   index R (lit (im ′f)) ≔ m ∙
-  invoke vqrdmulh-s32,t,z,m (tup []) ∙
+  invoke vqrdmulh-s32,t,z,m [] ∙
   index R (lit (im ′f)) ≔ -n ∙
-  invoke vmla-s32,z,t,-n (tup []) ∙end
+  invoke vmla-s32,z,t,-n [] ∙end
   where
   vqrdmulh-s32,t,z,m =
     ExecBeats (vqrdmulh (record
