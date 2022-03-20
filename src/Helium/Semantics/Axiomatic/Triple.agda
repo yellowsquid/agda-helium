@@ -6,7 +6,7 @@
 
 {-# OPTIONS --safe --without-K #-}
 
-open import Helium.Data.Pseudocode.Types using (RawPseudocode)
+open import Helium.Data.Pseudocode.Algebra using (RawPseudocode)
 
 module Helium.Semantics.Axiomatic.Triple
   {b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃}
