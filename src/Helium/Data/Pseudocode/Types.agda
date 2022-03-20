@@ -115,8 +115,9 @@ record Pseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ :
     ⌊_⌋ : ℝ → ℤ
     /1-isHomo : IsRingHomomorphism ℤ.Unordered.rawRing ℝ.Unordered.rawRing _/1
     ⌊⌋-isHomo : IsRingHomomorphism ℝ.Unordered.rawRing ℤ.Unordered.rawRing ⌊_⌋
-    /1-mono : ∀ x y → x ℤ.< y → x /1 ℝ.< y /1
-    ⌊⌋-floor : ∀ x y → x ℤ.≤ ⌊ y ⌋ → ⌊ y ⌋ ℤ.< x ℤ.+ 1ℤ
+    /1-mono-< : ∀ x y → x ℤ.< y → x /1 ℝ.< y /1
+    ⌊⌋-mono-≤ : ∀ x y → x ℝ.≤ y → ⌊ x ⌋ ℤ.≤ ⌊ y ⌋
+    ⌊⌋-floor : ∀ x y → x ℝ.< y /1 → ⌊ x ⌋ ℤ.< y
     ⌊⌋∘/1≗id : ∀ x → ⌊ x /1 ⌋ ℤ.≈ x
 
   module /1 = IsRingHomomorphism /1-isHomo renaming (⟦⟧-cong to cong)
