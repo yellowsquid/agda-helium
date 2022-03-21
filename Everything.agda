@@ -84,6 +84,9 @@ import Helium.Instructions.Core
 -- Implementation of Barrett reduction.
 import Helium.Instructions.Instances.Barrett
 
+-- Semantics for the Armv8-M pseudocode using Hoare triples.
+import Helium.Semantics.Axiomatic
+
 -- Definition of assertions used in correctness triples
 import Helium.Semantics.Axiomatic.Assertion
 
