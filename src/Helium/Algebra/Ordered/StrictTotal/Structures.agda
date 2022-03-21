@@ -271,9 +271,13 @@ record IsDivisionRing
     ; ∙-cong                 to +-cong
     ; ∙-congˡ                to +-congˡ
     ; ∙-congʳ                to +-congʳ
+    ; ∙-invariant            to +-invariant
+    ; ∙-invariantˡ           to +-invariantˡ
+    ; ∙-invariantʳ           to +-invariantʳ
     ; identity               to +-identity
     ; identityˡ              to +-identityˡ
     ; identityʳ              to +-identityʳ
+    ; identity²              to +-identity²
     ; inverse                to -‿inverse
     ; inverseˡ               to -‿inverseˡ
     ; inverseʳ               to -‿inverseʳ
