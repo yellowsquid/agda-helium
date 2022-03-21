@@ -250,7 +250,7 @@ record AbelianGroup c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
       record { isAbelianGroup = IsAbelianGroup.Unordered.isAbelianGroup isAbelianGroup }
 
     open NoOrder.AbelianGroup abelianGroup public
-      using (rawMagma; rawMonoid; rawGroup; magma; semigroup; monoid; group)
+      using (rawMagma; rawMonoid; rawGroup; magma; semigroup; monoid; commutativeMonoid; group)
 
     open IsAbelianGroup.Unordered isAbelianGroup public
 
@@ -358,7 +358,7 @@ record Ring c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
     open NoOrder.Ring ring public
       using
       ( +-rawMagma; +-rawMonoid
-      ; +-magma; +-semigroup; +-monoid; +-group; +-abelianGroup
+      ; +-magma; +-semigroup; +-monoid; +-commutativeMonoid; +-group; +-abelianGroup
       ; rawRing; semiring
       )
 
@@ -404,8 +404,8 @@ record CommutativeRing c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) whe
     open NoOrder.CommutativeRing commutativeRing public
       using
       ( +-rawMagma; +-rawMonoid
-      ; +-magma; +-semigroup; +-monoid; +-group; +-abelianGroup
-      ; rawRing; semiring; ring
+      ; +-magma; +-semigroup; +-monoid; +-commutativeMonoid; +-group; +-abelianGroup
+      ; rawRing; semiring; commutativeSemiring; ring
       )
 
     open NoOrder.Semiring semiring public
@@ -537,7 +537,7 @@ record DivisionRing c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
     open NoOrder′.DivisionRing divisionRing public
       using
       ( +-rawMagma; +-rawMonoid
-      ; +-magma; +-semigroup; +-monoid; +-group; +-abelianGroup
+      ; +-magma; +-semigroup; +-monoid; +-commutativeMonoid; +-group; +-abelianGroup
       ; rawSemiring; rawRing
       ; semiring; ring
       )
@@ -589,7 +589,7 @@ record Field c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
     open NoOrder′.Field field′ public
       using
       ( +-rawMagma; +-rawMonoid
-      ; +-magma; +-semigroup; +-monoid; +-group; +-abelianGroup
+      ; +-magma; +-semigroup; +-monoid; +-commutativeMonoid; +-group; +-abelianGroup
       ; rawSemiring; rawRing
       ; semiring; ring; divisionRing
       )

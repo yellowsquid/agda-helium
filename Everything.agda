@@ -41,6 +41,18 @@ import Helium.Algebra.Ordered.Definitions
 -- (packed in records together with sets, operations, etc.)
 import Helium.Algebra.Ordered.StrictTotal.Bundles
 
+-- Algebraic properties of ordered abelian groups
+import Helium.Algebra.Ordered.StrictTotal.Properties.AbelianGroup
+
+-- Algebraic properties of ordered commutative rings
+import Helium.Algebra.Ordered.StrictTotal.Properties.CommutativeRing
+
+-- Algebraic properties of ordered groups
+import Helium.Algebra.Ordered.StrictTotal.Properties.Group
+
+-- Algebraic properties of ordered rings
+import Helium.Algebra.Ordered.StrictTotal.Properties.Ring
+
 -- Some ordered algebraic structures (not packed up with sets,
 -- operations, etc.)
 import Helium.Algebra.Ordered.StrictTotal.Structures
@@ -50,6 +62,9 @@ import Helium.Algebra.Structures
 
 -- Definition of types and operations used by the Armv8-M pseudocode.
 import Helium.Data.Pseudocode.Algebra
+
+-- Algebraic properties of types used by the Armv8-M pseudocode.
+import Helium.Data.Pseudocode.Algebra.Properties
 
 -- Definition of the Armv8-M pseudocode.
 import Helium.Data.Pseudocode.Core
