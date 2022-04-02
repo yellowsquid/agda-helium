@@ -567,7 +567,7 @@ record Field c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
       ( +-rawMagma; +-rawMonoid
       ; +-magma; +-semigroup; +-monoid; +-commutativeMonoid; +-group; +-abelianGroup
       ; rawSemiring; rawRing
-      ; semiring; ring; divisionRing
+      ; semiring; commutativeSemiring; ring; commutativeRing; divisionRing
       )
 
     open IsField.Unordered isField public

@@ -50,6 +50,12 @@ import Helium.Algebra.Ordered.StrictTotal.Properties.AbelianGroup
 -- Algebraic properties of ordered commutative rings
 import Helium.Algebra.Ordered.StrictTotal.Properties.CommutativeRing
 
+-- Algebraic properties of ordered division rings
+import Helium.Algebra.Ordered.StrictTotal.Properties.DivisionRing
+
+-- Algebraic properties of ordered fields
+import Helium.Algebra.Ordered.StrictTotal.Properties.Field
+
 -- Algebraic properties of ordered groups
 import Helium.Algebra.Ordered.StrictTotal.Properties.Group
 
