@@ -33,7 +33,7 @@ import Induction as I
 import Induction.WellFounded as Wf
 open import Level using (Level; _⊔_; 0ℓ)
 open import Relation.Binary.PropositionalEquality as ≡ using (_≡_; module ≡-Reasoning)
-open import Relation.Nullary using (does)
+open import Relation.Nullary using (does) renaming (¬_ to ¬′_)
 open import Relation.Nullary.Decidable.Core using (True; False; toWitness; fromWitness)
 
 ⟦_⟧ₗ : Type → Level
@@ -196,12 +196,12 @@ pow : ∀ {t} → IsNumeric t → ⟦ t ⟧ₜ → ℕ → ⟦ t ⟧ₜ
 pow int  x n = x ℤ′.^′ n
 pow real x n = x ℝ′.^′ n
 
-shiftr : 2 ℝ′.×′ 1ℝ ℝ.≉ 0ℝ → ⟦ int ⟧ₜ → ℕ → ⟦ int ⟧ₜ
+shiftr : ¬′ 2 ℝ′.×′ 1ℝ ℝ.≈ 0ℝ → ⟦ int ⟧ₜ → ℕ → ⟦ int ⟧ₜ
 shiftr 2≉0 x n = ⌊ x /1 ℝ.* 2≉0 ℝ.⁻¹ ℝ′.^′ n ⌋
 
 module Expression
   {o} {Σ : Vec Type o}
-  (2≉0 : 2 ℝ′.×′ 1ℝ ℝ.≉ 0ℝ)
+  (2≉0 : ¬′ 2 ℝ′.×′ 1ℝ ℝ.≈ 0ℝ)
   where
 
   open Code Σ

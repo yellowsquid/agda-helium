@@ -31,15 +31,18 @@ import Helium.Algebra.Decidable.Structures
 -- More properties of functions
 import Helium.Algebra.Definitions
 
--- Redefine Ring monomorphisms to resolve problems with overloading.
-import Helium.Algebra.Morphism.Structures
-
 -- Ordering properties of functions
 import Helium.Algebra.Ordered.Definitions
 
 -- Definitions of ordered algebraic structures like monoids and rings
 -- (packed in records together with sets, operations, etc.)
 import Helium.Algebra.Ordered.StrictTotal.Bundles
+
+-- Relations between algebraic properties of ordered structures
+import Helium.Algebra.Ordered.StrictTotal.Consequences
+
+-- Morphisms for ordered algebraic structures.
+import Helium.Algebra.Ordered.StrictTotal.Morphism.Structures
 
 -- Algebraic properties of ordered abelian groups
 import Helium.Algebra.Ordered.StrictTotal.Properties.AbelianGroup
@@ -50,8 +53,17 @@ import Helium.Algebra.Ordered.StrictTotal.Properties.CommutativeRing
 -- Algebraic properties of ordered groups
 import Helium.Algebra.Ordered.StrictTotal.Properties.Group
 
+-- Algebraic properties of ordered magmas
+import Helium.Algebra.Ordered.StrictTotal.Properties.Magma
+
+-- Algebraic properties of ordered monoids
+import Helium.Algebra.Ordered.StrictTotal.Properties.Monoid
+
 -- Algebraic properties of ordered rings
 import Helium.Algebra.Ordered.StrictTotal.Properties.Ring
+
+-- Algebraic properties of ordered semigroups
+import Helium.Algebra.Ordered.StrictTotal.Properties.Semigroup
 
 -- Some ordered algebraic structures (not packed up with sets,
 -- operations, etc.)
@@ -83,6 +95,9 @@ import Helium.Instructions.Core
 
 -- Implementation of Barrett reduction.
 import Helium.Instructions.Instances.Barrett
+
+-- Relational properties of strict total orders
+import Helium.Relation.Binary.Properties.StrictTotalOrder
 
 -- Semantics for the Armv8-M pseudocode using Hoare triples.
 import Helium.Semantics.Axiomatic

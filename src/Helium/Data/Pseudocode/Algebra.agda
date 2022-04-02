@@ -21,18 +21,20 @@ open import Data.Vec.Functional
 open import Data.Vec.Functional.Relation.Binary.Pointwise using (Pointwise)
 import Data.Vec.Functional.Relation.Binary.Pointwise.Properties as Pwₚ
 open import Function using (_$_; _∘′_; id)
-open import Helium.Algebra.Ordered.StrictTotal.Bundles
 open import Helium.Algebra.Decidable.Bundles
   using (BooleanAlgebra; RawBooleanAlgebra)
 import Helium.Algebra.Decidable.Construct.Pointwise as Pw
-open import Helium.Algebra.Morphism.Structures
+open import Helium.Algebra.Ordered.StrictTotal.Bundles
+open import Helium.Algebra.Ordered.StrictTotal.Morphism.Structures
 open import Level using (_⊔_) renaming (suc to ℓsuc)
 open import Relation.Binary.Core using (Rel)
+import Relation.Binary.Construct.StrictToNonStrict as ToNonStrict
 open import Relation.Binary.Definitions
+open import Relation.Binary.Morphism.Structures
 open import Relation.Binary.PropositionalEquality as P using (_≡_)
 import Relation.Binary.Reasoning.StrictPartialOrder as Reasoning
 open import Relation.Binary.Structures using (IsStrictTotalOrder)
-open import Relation.Nullary using (does; yes; no)
+open import Relation.Nullary using (does; yes; no) renaming (¬_ to ¬′_)
 open import Relation.Nullary.Decidable.Core
   using (False; toWitnessFalse; fromWitnessFalse)
 
@@ -107,21 +109,23 @@ record Pseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ :
   module ℤ-Reasoning = Reasoning ℤ.strictPartialOrder
   module ℝ-Reasoning = Reasoning ℝ.strictPartialOrder
 
+  private
+    module ℤ-ord = ToNonStrict ℤ._≈_ ℤ._<_
+    module ℝ-ord = ToNonStrict ℝ._≈_ ℝ._<_
+
   field
-    integerDiscrete : ∀ x y → y ℤ.≤ x ⊎ x ℤ.+ 1ℤ ℤ.≤ y
-    1≉0 : 1ℤ ℤ.≉ 0ℤ
+    integerDiscrete : ∀ x y → y ℤ-ord.≤ x ⊎ x ℤ.+ 1ℤ ℤ-ord.≤ y
+    1≉0 : ¬′ 1ℤ ℤ.≈ 0ℤ
 
     _/1 : ℤ → ℝ
     ⌊_⌋ : ℝ → ℤ
-    /1-isHomo : IsRingHomomorphism ℤ.Unordered.rawRing ℝ.Unordered.rawRing _/1
-    ⌊⌋-isHomo : IsRingHomomorphism ℝ.Unordered.rawRing ℤ.Unordered.rawRing ⌊_⌋
-    /1-mono-< : ∀ x y → x ℤ.< y → x /1 ℝ.< y /1
-    ⌊⌋-mono-≤ : ∀ x y → x ℝ.≤ y → ⌊ x ⌋ ℤ.≤ ⌊ y ⌋
+    /1-isHomo : IsRingHomomorphism ℤ.rawRing ℝ.rawRing _/1
+    ⌊⌋-isHomo : IsOrderHomomorphism ℝ._≈_ ℤ._≈_ ℝ-ord._≤_ ℤ-ord._≤_ ⌊_⌋
     ⌊⌋-floor : ∀ x y → x ℝ.< y /1 → ⌊ x ⌋ ℤ.< y
-    ⌊⌋∘/1≗id : ∀ x → ⌊ x /1 ⌋ ℤ.≈ x
+    ⌊x/1⌋≈x : ∀ x → ⌊ x /1 ⌋ ℤ.≈ x
 
-  module /1 = IsRingHomomorphism /1-isHomo renaming (⟦⟧-cong to cong)
-  module ⌊⌋ = IsRingHomomorphism ⌊⌋-isHomo renaming (⟦⟧-cong to cong)
+  module /1 = IsRingHomomorphism /1-isHomo
+  module ⌊⌋ = IsOrderHomomorphism ⌊⌋-isHomo
 
   bitRawBooleanAlgebra : RawBooleanAlgebra b₁ b₂
   bitRawBooleanAlgebra = record

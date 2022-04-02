@@ -32,7 +32,7 @@ import Helium.Data.Pseudocode.Manipulate as M
 open import Helium.Semantics.Axiomatic.Core rawPseudocode
 open import Level using (_⊔_; lift; lower)
 open import Relation.Binary.PropositionalEquality hiding ([_]) renaming (subst to ≡-subst)
-open import Relation.Nullary using (does; yes; no)
+open import Relation.Nullary using (¬_; does; yes; no)
 open import Relation.Nullary.Decidable.Core using (True; toWitness)
 open import Relation.Nullary.Negation using (contradiction)
 
@@ -216,7 +216,7 @@ cast τ eq = func₁ (cast′ τ eq)
 [ real ][ t ^ n ] = func₁ (lift ∘ (ℝ′._^′ n) ∘ lower) t
 
 2≉0 : Set _
-2≉0 = 2 ℝ′.×′ 1ℝ ℝ.≉ 0ℝ
+2≉0 = ¬ 2 ℝ′.×′ 1ℝ ℝ.≈ 0ℝ
 
 [_][_>>_] : 2≉0 → Term Σ Γ Δ int → ℕ → Term Σ Γ Δ int
 [ 2≉0 ][ t >> n ] = func₁ (lift ∘ ⌊_⌋ ∘ (ℝ._* 2≉0 ℝ.⁻¹ ℝ′.^′ n) ∘ _/1 ∘ lower) t

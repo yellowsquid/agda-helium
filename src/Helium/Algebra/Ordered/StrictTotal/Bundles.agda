@@ -30,19 +30,6 @@ record RawMagma c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
     _<_     : Rel Carrier ℓ₂
     _∙_     : Op₂ Carrier
 
-  infix 4 _≉_ _≤_ _>_ _≥_
-  _≉_ : Rel Carrier _
-  x ≉ y = N.¬ x ≈ y
-
-  _≤_ : Rel Carrier _
-  x ≤ y = x < y ⊎ x ≈ y
-
-  _>_ : Rel Carrier _
-  _>_ = flip _<_
-
-  _≥_ : Rel Carrier _
-  _≥_ = flip _≤_
-
   module Unordered where
     rawMagma : NoOrder.RawMagma c ℓ₁
     rawMagma = record { _≈_ = _≈_ ; _∙_ = _∙_ }
@@ -62,9 +49,6 @@ record Magma c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
 
   rawMagma : RawMagma _ _ _
   rawMagma = record { _≈_ = _≈_; _<_ = _<_; _∙_ = _∙_ }
-
-  open RawMagma rawMagma public
-    using (_≉_; _≤_; _>_; _≥_)
 
   module Unordered where
     magma : NoOrder.Magma c ℓ₁
@@ -92,7 +76,7 @@ record Semigroup c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
   magma = record { isMagma = isMagma }
 
   open Magma magma public
-    using (_≉_; _≤_; _>_; _≥_; rawMagma)
+    using (rawMagma)
 
   module Unordered where
     semigroup : NoOrder.Semigroup c ℓ₁
@@ -116,9 +100,6 @@ record RawMonoid c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
 
   rawMagma : RawMagma c ℓ₁ ℓ₂
   rawMagma = record { _≈_ = _≈_; _<_ = _<_; _∙_ = _∙_ }
-
-  open RawMagma rawMagma public
-    using (_≉_; _≤_; _>_; _≥_)
 
   module Unordered where
     rawMonoid : NoOrder.RawMonoid c ℓ₁
@@ -145,7 +126,7 @@ record Monoid c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
   semigroup = record { isSemigroup = isSemigroup }
 
   open Semigroup semigroup public
-    using (_≉_; _≤_; _>_; _≥_; rawMagma; magma)
+    using (rawMagma; magma)
 
   rawMonoid : RawMonoid _ _ _
   rawMonoid = record { _≈_ = _≈_; _<_ = _<_; _∙_ = _∙_; ε = ε}
@@ -175,7 +156,7 @@ record RawGroup c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
   rawMonoid = record { _≈_ = _≈_; _<_ = _<_; _∙_ = _∙_; ε = ε }
 
   open RawMonoid rawMonoid public
-    using (_≉_; _≤_; _>_; _≥_; rawMagma)
+    using (rawMagma)
 
   module Unordered where
     rawGroup : NoOrder.RawGroup c ℓ₁
@@ -207,7 +188,7 @@ record Group c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
   monoid = record { isMonoid = isMonoid }
 
   open Monoid monoid public
-    using (_≉_; _≤_; _>_; _≥_; rawMagma; magma; semigroup; rawMonoid)
+    using (rawMagma; magma; semigroup; rawMonoid)
 
   module Unordered where
     group : NoOrder.Group c ℓ₁
@@ -239,8 +220,7 @@ record AbelianGroup c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
 
   open Group group public
     using
-    ( _≉_; _≤_; _>_; _≥_
-    ; magma; semigroup; monoid
+    ( magma; semigroup; monoid
     ; rawMagma; rawMonoid; rawGroup
     )
 
@@ -273,7 +253,7 @@ record RawRing c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
   +-rawGroup = record { _≈_ = _≈_; _<_ = _<_; _∙_ = _+_; ε = 0#; _⁻¹ = -_ }
 
   open RawGroup +-rawGroup public
-    using ( _≉_; _≤_; _>_; _≥_ )
+    using ()
     renaming
     ( rawMagma to +-rawMagma
     ; rawMonoid to +-rawMonoid
@@ -328,7 +308,7 @@ record Ring c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
   +-abelianGroup = record { isAbelianGroup = +-isAbelianGroup }
 
   open AbelianGroup +-abelianGroup public
-    using ( _≉_; _≤_; _>_; _≥_ )
+    using ()
     renaming
     ( rawMagma to +-rawMagma
     ; rawMonoid to +-rawMonoid
@@ -388,8 +368,7 @@ record CommutativeRing c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) whe
 
   open Ring ring public
     using
-    ( _≉_; _≤_; _>_; _≥_
-    ; rawRing
+    ( rawRing
     ; +-rawMagma; +-rawMonoid; +-rawGroup
     ; +-magma; +-semigroup; +-monoid; +-group; +-abelianGroup
     ; *-rawMagma; *-rawMonoid
@@ -447,8 +426,7 @@ record RawField c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
 
   open RawRing rawRing public
     using
-    ( _≉_; _≤_; _>_; _≥_
-    ; +-rawMagma; +-rawMonoid; +-rawGroup
+    ( +-rawMagma; +-rawMonoid; +-rawGroup
     ; *-rawMagma; *-rawMonoid
     )
 
@@ -514,8 +492,7 @@ record DivisionRing c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
 
   open Ring ring public
     using
-    ( _≉_; _≤_; _>_; _≥_
-    ; rawRing
+    ( rawRing
     ; +-rawMagma; +-rawMonoid; +-rawGroup
     ; +-magma; +-semigroup; +-monoid; +-group; +-abelianGroup
     ; *-rawMagma; *-rawMonoid
@@ -570,8 +547,7 @@ record Field c ℓ₁ ℓ₂ : Set (suc (c ⊔ ℓ₁ ⊔ ℓ₂)) where
 
   open DivisionRing divisionRing public
     using
-    ( _≉_; _≤_; _>_; _≥_
-    ; rawRing; rawField; ring
+    ( rawRing; rawField; ring
     ; +-rawMagma; +-rawMonoid; +-rawGroup
     ; +-magma; +-semigroup; +-monoid; +-group; +-abelianGroup
     ; *-rawMagma; *-rawMonoid; *-rawAlmostGroup
