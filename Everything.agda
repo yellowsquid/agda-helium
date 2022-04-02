@@ -69,6 +69,9 @@ import Helium.Algebra.Ordered.StrictTotal.Properties.Semigroup
 -- operations, etc.)
 import Helium.Algebra.Ordered.StrictTotal.Structures
 
+-- Properties of almost groups
+import Helium.Algebra.Properties.AlmostGroup
+
 -- Some more algebraic structures
 import Helium.Algebra.Structures
 
