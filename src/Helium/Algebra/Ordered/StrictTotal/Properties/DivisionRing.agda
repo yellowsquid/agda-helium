@@ -59,7 +59,7 @@ open import Helium.Algebra.Ordered.StrictTotal.Properties.Ring ring public
   ; n≢0∧n×x≥0⇒x≥0; n≢0∧n×x≤0⇒x≤0
 
   ; -‿anti-mono-<; -‿anti-mono-≤
-  ; -‿cancel; -‿anti-cancel-<; -‿anti-cancel-≤
+  ; -‿anti-cancel-<; -‿anti-cancel-≤
 
   ; x<0⇒-x>0; x>0⇒-x<0; x≤0⇒-x≥0; x≥0⇒-x≤0
   ; -x<0⇒x>0; -x>0⇒x<0; -x≤0⇒x≥0; -x≥0⇒x≤0

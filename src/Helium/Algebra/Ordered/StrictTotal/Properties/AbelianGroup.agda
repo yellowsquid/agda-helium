@@ -61,7 +61,7 @@ open import Helium.Algebra.Ordered.StrictTotal.Properties.Group group public
 
   ; ⁻¹-anti-mono-<; ⁻¹-anti-mono-≤
 
-  ; ⁻¹-cancel; ⁻¹-anti-cancel-<; ⁻¹-anti-cancel-≤
+  ; ⁻¹-anti-cancel-<; ⁻¹-anti-cancel-≤
 
   ; x<ε⇒x⁻¹>ε; x>ε⇒x⁻¹<ε
   ; x≤ε⇒x⁻¹≥ε; x≥ε⇒x⁻¹≤ε

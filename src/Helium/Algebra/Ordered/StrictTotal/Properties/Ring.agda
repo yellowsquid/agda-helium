@@ -102,7 +102,6 @@ open import Helium.Algebra.Ordered.StrictTotal.Properties.AbelianGroup +-abelian
   ; ⁻¹-anti-mono-< to -‿anti-mono-<
   ; ⁻¹-anti-mono-≤ to -‿anti-mono-≤
 
-  ; ⁻¹-cancel        to -‿cancel
   ; ⁻¹-anti-cancel-< to -‿anti-cancel-<
   ; ⁻¹-anti-cancel-≤ to -‿anti-cancel-≤
 

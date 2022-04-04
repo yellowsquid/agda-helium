@@ -94,17 +94,6 @@ open import Helium.Relation.Binary.Properties.StrictTotalOrder strictTotalOrder 
 
 ---- Cancellative
 
--- _≈_
-
-⁻¹-cancel : Injective _≈_ _≈_ _⁻¹
-⁻¹-cancel {x} {y} x⁻¹≈y⁻¹ = begin-equality
-  x       ≈⟨ inverseˡ-unique x (y ⁻¹) (begin-equality
-    x ∙ y ⁻¹ ≈˘⟨ ∙-congˡ x⁻¹≈y⁻¹ ⟩
-    x ∙ x ⁻¹ ≈⟨  inverseʳ x ⟩
-    ε        ∎) ⟩
-  y ⁻¹ ⁻¹ ≈⟨ ⁻¹-involutive y ⟩
-  y       ∎
-
 -- _<_
 
 ⁻¹-anti-cancel-< : Injective _<_ _>_ _⁻¹
