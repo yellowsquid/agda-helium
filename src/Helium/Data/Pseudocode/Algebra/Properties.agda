@@ -22,6 +22,7 @@ open import Data.Sum using (_⊎_; inj₁; inj₂; map)
 import Data.Unit
 open import Function using (_∘_)
 import Helium.Algebra.Ordered.StrictTotal.Properties.CommutativeRing as CommRingₚ
+import Helium.Algebra.Ordered.StrictTotal.Properties.Field as Fieldₚ
 open import Level using (_⊔_)
 open import Relation.Binary.Core using (_Preserves_⟶_)
 open import Relation.Binary.Definitions using (tri<; tri≈; tri>)
@@ -77,7 +78,7 @@ module ℝ where
     )
   module Reasoning = pseudocode.ℝ-Reasoning
 
-  open CommRingₚ commutativeRing public
+  open Fieldₚ realField public
     hiding ()
 
   1≉0 : 1ℝ ≉ 0ℝ
@@ -91,16 +92,6 @@ module ℝ where
     where
     open ℤ.Reasoning
     open pseudocode using (module /1; module ⌊⌋)
-
-  x>0⇒x⁻¹>0 : ∀ {x} → (x≉0 : x ≉ 0ℝ) → x > 0ℝ → x≉0 ⁻¹ > 0ℝ
-  x>0⇒x⁻¹>0 {x} x≉0 x>0 = ≰⇒> (λ x⁻¹≤0 → <⇒≱ x>0 (begin
-    x               ≈˘⟨ *-identityˡ x ⟩
-    1ℝ * x          ≈˘⟨ *-congʳ (⁻¹-inverseˡ x≉0) ⟩
-    x≉0 ⁻¹ * x * x  ≤⟨  x≥0⇒*-monoʳ-≤ (<⇒≤ x>0) (x≤0⇒*-anti-monoˡ-≤ x⁻¹≤0 (<⇒≤ x>0)) ⟩
-    x≉0 ⁻¹ * 0ℝ * x ≈⟨  *-congʳ (zeroʳ (x≉0 ⁻¹)) ⟩
-    0ℝ * x          ≈⟨  zeroˡ x ⟩
-    0ℝ              ∎))
-    where open Reasoning
 
   record IsMonotoneContinuous (f : ℝ → ℝ) : Set (r₁ ⊔ r₂ ⊔ r₃) where
     field

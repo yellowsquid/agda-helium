@@ -23,6 +23,16 @@ open Field field′
 
 open import Algebra.Properties.Ring Unordered.ring public
   renaming (-0#≈0# to -0≈0)
+open import Helium.Algebra.Properties.AlmostGroup *-almostGroup public
+  renaming
+  ( x≉0⇒∙-cancelˡ to x≉0⇒*-cancelˡ
+  ; x≉0⇒∙-cancelʳ to x≉0⇒*-cancelʳ
+  ; ⁻¹-anti-homo-∙ to ⁻¹-anti-homo-*
+  ; identityˡ-unique to *-identityˡ-unique
+  ; identityʳ-unique to *-identityʳ-unique
+  ; inverseˡ-unique to *-inverseˡ-unique
+  ; inverseʳ-unique to *-inverseʳ-unique
+  )
 open import Algebra.Properties.Semiring.Mult.TCOptimised Unordered.semiring public
 open import Algebra.Properties.CommutativeSemiring.Exp.TCOptimised Unordered.commutativeSemiring public
 open import Helium.Relation.Binary.Properties.StrictTotalOrder strictTotalOrder public
@@ -97,4 +107,15 @@ open import Helium.Algebra.Ordered.StrictTotal.Properties.DivisionRing divisionR
 
   ; x>1∧n≢0⇒x^n>1; 0≤x<1∧n≢0⇒x^n<1
   ; x≥1⇒x^n≥1; 0≤x≤1⇒x^n≤1
+
+  ; x>0⇒x⁻¹>0 ; x<0⇒x⁻¹<0
+
+  ; x⁻¹>0⇒x>0 ; x⁻¹<0⇒x<0
+
+  ; x>1⇒x⁻¹<1; 0<x<1⇒x⁻¹>1
+
+  ; x⁻¹>1⇒x<1; 0<x⁻¹<1⇒x>1
+
+  ; -‿⁻¹-comm
+  ; x≉0⇒x⁻¹≉0
   )
