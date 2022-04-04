@@ -66,7 +66,7 @@ open import Helium.Algebra.Ordered.StrictTotal.Properties.Ring ring public
 
   ; x<y⇒0<y-x; 0<y-x⇒x<y
 
-  ; 0≤1; 1≈0⇒x≈y; x<y⇒0<1
+  ; 0≤1; 1≈0⇒x≈y; x≉y⇒0<1; x<y⇒0<1
 
   ; x>0⇒*-monoˡ-<; x>0⇒*-monoʳ-<; x<0⇒*-anti-monoˡ-<; x<0⇒*-anti-monoʳ-<
   ; x≥0⇒*-monoˡ-≤; x≥0⇒*-monoʳ-≤; x≤0⇒*-anti-monoˡ-≤; x≤0⇒*-anti-monoʳ-≤
