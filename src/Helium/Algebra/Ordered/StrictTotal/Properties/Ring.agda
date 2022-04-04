@@ -105,11 +105,13 @@ open import Helium.Algebra.Ordered.StrictTotal.Properties.AbelianGroup +-abelian
   ; ⁻¹-anti-cancel-< to -‿anti-cancel-<
   ; ⁻¹-anti-cancel-≤ to -‿anti-cancel-≤
 
+  ; x≈ε⇒x⁻¹≈ε to x≈0⇒-x≈0
   ; x<ε⇒x⁻¹>ε to x<0⇒-x>0
   ; x>ε⇒x⁻¹<ε to x>0⇒-x<0
   ; x≤ε⇒x⁻¹≥ε to x≤0⇒-x≥0
   ; x≥ε⇒x⁻¹≤ε to x≥0⇒-x≤0
 
+  ; x⁻¹≈ε⇒x≈ε to -x≈0⇒x≈0
   ; x⁻¹<ε⇒x>ε to -x<0⇒x>0
   ; x⁻¹>ε⇒x<ε to -x>0⇒x<0
   ; x⁻¹≤ε⇒x≥ε to -x≤0⇒x≥0

@@ -61,8 +61,8 @@ open import Helium.Algebra.Ordered.StrictTotal.Properties.DivisionRing divisionR
   ; -‿anti-mono-<; -‿anti-mono-≤
   ; -‿anti-cancel-<; -‿anti-cancel-≤
 
-  ; x<0⇒-x>0; x>0⇒-x<0; x≤0⇒-x≥0; x≥0⇒-x≤0
-  ; -x<0⇒x>0; -x>0⇒x<0; -x≤0⇒x≥0; -x≥0⇒x≤0
+  ; x≈0⇒-x≈0 ; x<0⇒-x>0; x>0⇒-x<0; x≤0⇒-x≥0; x≥0⇒-x≤0
+  ; -x≈0⇒x≈0 ; -x<0⇒x>0; -x>0⇒x<0; -x≤0⇒x≥0; -x≥0⇒x≤0
 
   ; x<y⇒0<y-x; 0<y-x⇒x<y
 

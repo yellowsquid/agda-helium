@@ -164,6 +164,14 @@ x⁻¹≥ε⇒x≤ε {x} x⁻¹≥ε = begin
   x ⁻¹ ⁻¹ ≤⟨  x≥ε⇒x⁻¹≤ε x⁻¹≥ε ⟩
   ε       ∎
 
+---- Preserves and respects signs (_≈_)
+
+x≈ε⇒x⁻¹≈ε : ∀ {x} → x ≈ ε → x ⁻¹ ≈ ε
+x≈ε⇒x⁻¹≈ε {x} x≈ε = ≮∧≯⇒≈ (<-irrefl (Eq.sym x≈ε) ∘ x⁻¹<ε⇒x>ε) (<-irrefl x≈ε ∘ x⁻¹>ε⇒x<ε)
+
+x⁻¹≈ε⇒x≈ε : ∀ {x} → x ⁻¹ ≈ ε → x ≈ ε
+x⁻¹≈ε⇒x≈ε {x} x⁻¹≈ε = ≮∧≯⇒≈ (<-irrefl (Eq.sym x⁻¹≈ε) ∘ x<ε⇒x⁻¹>ε) (<-irrefl x⁻¹≈ε ∘ x>ε⇒x⁻¹<ε)
+
 -- ---- Infer signs
 
 -- -- _≈_
