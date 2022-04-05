@@ -21,6 +21,9 @@ open Field field′
   ; 0<a+0<b⇒0<ab to x>0∧y>0⇒x*y>0
   )
 
+open import Function using (_∘_)
+open import Relation.Binary.Reasoning.StrictPartialOrder strictPartialOrder
+
 open import Algebra.Properties.Ring Unordered.ring public
   renaming (-0#≈0# to -0≈0)
 open import Helium.Algebra.Properties.AlmostGroup *-almostGroup public
@@ -122,3 +125,13 @@ open import Helium.Algebra.Ordered.StrictTotal.Properties.DivisionRing divisionR
   ; -‿⁻¹-comm
   ; x≉0⇒x⁻¹≉0
   )
+
+--------------------------------------------------------------------------------
+---- Properties of _⁻¹ and _^_
+
+⁻¹-^-comm : ∀ {x} (x≉0 : x ≉ 0#) k → x≉0 ⁻¹ ^ k ≈ (x≉0 ∘ x^n≈0⇒x≈0 x k) ⁻¹
+⁻¹-^-comm {x} x≉0 k = *-inverseˡ-unique (x≉0 ∘ x^n≈0⇒x≈0 x k) (begin-equality
+  x≉0 ⁻¹ ^ k * x ^ k ≈˘⟨ ^-distrib-* _ x k ⟩
+  (x≉0 ⁻¹ * x) ^ k   ≈⟨  ^-congˡ k (⁻¹-inverseˡ x≉0) ⟩
+  1# ^ k             ≈⟨  ^-zeroˡ k ⟩
+  1#                 ∎)
