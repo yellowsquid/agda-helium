@@ -126,6 +126,7 @@ open import Helium.Algebra.Ordered.StrictTotal.Properties.DivisionRing divisionR
 
   ; -‿⁻¹-comm
   ; x≉0⇒x⁻¹≉0
+  ; y>0∧x<y⇒x*y⁻¹<1
   )
 
 --------------------------------------------------------------------------------

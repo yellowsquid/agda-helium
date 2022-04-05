@@ -187,6 +187,18 @@ x⁻¹>1⇒x<1 {x} {x≉0} x⁻¹>1 = ≰⇒>
   ∘ 0≤x<1∧y≤1⇒x*y<1 (<⇒≤ 0<x⁻¹) x⁻¹<1
   )
 
+---- Miscellaneous
+
+y>0∧x<y⇒x*y⁻¹<1 : ∀ {x y} (y>0 : y > 0#) → x < y → x * (<⇒≉ y>0 ∘ Eq.sym) ⁻¹ < 1#
+y>0∧x<y⇒x*y⁻¹<1 {x} {y} y>0 x<y = x≥0⇒*-cancelʳ-< (<⇒≤ y>0) (begin-strict
+  x * y≉0 ⁻¹ * y   ≈⟨  *-assoc x _ y ⟩
+  x * (y≉0 ⁻¹ * y) ≈⟨  *-congˡ (⁻¹-inverseˡ y≉0) ⟩
+  x * 1#           ≈⟨  *-identityʳ x ⟩
+  x                <⟨  x<y ⟩
+  y                ≈˘⟨ *-identityˡ y ⟩
+  1# * y           ∎)
+  where y≉0 = <⇒≉ y>0 ∘ Eq.sym
+
 --------------------------------------------------------------------------------
 ---- Properties of -_ and _⁻¹
 
