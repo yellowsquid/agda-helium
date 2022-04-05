@@ -213,3 +213,18 @@ x<y⇒ε<y∙x⁻¹ {x} {y} x<y = begin-strict
   y ∙ (x ⁻¹ ∙ x) ≈⟨  ∙-congˡ (inverseˡ x) ⟩
   y ∙ ε          ≈⟨  identityʳ y ⟩
   y              ∎
+
+x≤y⇒ε≤y∙x⁻¹ : ∀ {x y} → x ≤ y → ε ≤ y ∙ x ⁻¹
+x≤y⇒ε≤y∙x⁻¹ {x} {y} x≤y = begin
+  ε        ≈˘⟨ inverseʳ x ⟩
+  x ∙ x ⁻¹ ≤⟨  ∙-monoʳ-≤ x≤y ⟩
+  y ∙ x ⁻¹ ∎
+
+ε≤y∙x⁻¹⇒x≤y : ∀ {x y} → ε ≤ y ∙ x ⁻¹ → x ≤ y
+ε≤y∙x⁻¹⇒x≤y {x} {y} ε≤y∙x⁻¹ = begin
+  x              ≈˘⟨ identityˡ x ⟩
+  ε ∙ x          ≤⟨  ∙-monoʳ-≤ ε≤y∙x⁻¹ ⟩
+  y ∙ x ⁻¹ ∙ x   ≈⟨  assoc y (x ⁻¹) x ⟩
+  y ∙ (x ⁻¹ ∙ x) ≈⟨  ∙-congˡ (inverseˡ x) ⟩
+  y ∙ ε          ≈⟨  identityʳ y ⟩
+  y              ∎
