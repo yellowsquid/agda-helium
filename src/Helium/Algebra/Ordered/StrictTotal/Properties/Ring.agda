@@ -22,8 +22,9 @@ open Ring ring
   )
 
 open import Algebra.Definitions
+open import Data.Empty using (⊥-elim)
 open import Data.Nat as ℕ using (suc; NonZero)
-open import Data.Sum using (inj₁; inj₂)
+open import Data.Sum using (_⊎_; inj₁; inj₂; fromInj₂)
 open import Function using (_∘_)
 open import Function.Definitions
 open import Helium.Algebra.Ordered.StrictTotal.Consequences strictTotalOrder
@@ -441,6 +442,18 @@ x*x≥0 x with compare x 0#
 ... | tri≈ _ x≈0 _ = ≤-reflexive (Eq.sym (x≈0⇒x*y≈0 x≈0 x))
 ... | tri> _ _ x>0 = <⇒≤ (x>0∧y>0⇒x*y>0 x>0 x>0)
 
+x*y≈0⇒x≈0⊎y≈0 : ∀ {x y} → x * y ≈ 0# → x ≈ 0# ⊎ y ≈ 0#
+x*y≈0⇒x≈0⊎y≈0 {x} {y} x*y≈0 with compare x 0#
+x*y≈0⇒x≈0⊎y≈0 {x} {y} x*y≈0 | tri< x<0 _ _ with compare y 0#
+... | tri< y<0 _ _ = ⊥-elim (<-irrefl (Eq.sym x*y≈0) (x<0∧y<0⇒x*y>0 x<0 y<0))
+... | tri≈ _ y≈0 _ = inj₂ y≈0
+... | tri> _ _ y>0 = ⊥-elim (<-irrefl x*y≈0 (x<0∧y>0⇒x*y<0 x<0 y>0))
+x*y≈0⇒x≈0⊎y≈0 {x} {y} x*y≈0 | tri≈ _ x≈0 _ = inj₁ x≈0
+x*y≈0⇒x≈0⊎y≈0 {x} {y} x*y≈0 | tri> _ _ x>0 with compare y 0#
+... | tri< y<0 _ _ = ⊥-elim (<-irrefl x*y≈0 (x>0∧y<0⇒x*y<0 x>0 y<0))
+... | tri≈ _ y≈0 _ = inj₂ y≈0
+... | tri> _ _ y>0 = ⊥-elim (<-irrefl (Eq.sym x*y≈0) (x>0∧y>0⇒x*y>0 x>0 y>0))
+
 --------------------------------------------------------------------------------
 ---- Properties of _^_
 
@@ -481,6 +494,13 @@ x>0⇒x^n>0 {x} x>0 (suc n) = begin-strict
   0#        <⟨  x>0∧y>0⇒x*y>0 x>0 (x>0⇒x^n>0 x>0 n) ⟩
   x * x ^ n ≈˘⟨ ^-homo-* x 1 n ⟩
   x ^ suc n ∎
+
+---- Respects sign
+
+x^n≈0⇒x≈0 : ∀ x n → x ^ n ≈ 0# → x ≈ 0#
+x^n≈0⇒x≈0 x 0             x^n≈0 = 1≈0⇒x≈y x^n≈0
+x^n≈0⇒x≈0 x 1             x^n≈0 = x^n≈0
+x^n≈0⇒x≈0 x (suc (suc n)) x^n≈0 = fromInj₂ (x^n≈0⇒x≈0 x (suc n)) (x*y≈0⇒x≈0⊎y≈0 x^n≈0)
 
 ---- Preserves size
 

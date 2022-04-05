@@ -94,7 +94,7 @@ open import Helium.Algebra.Ordered.StrictTotal.Properties.DivisionRing divisionR
   ; x>1∧y≥1⇒x*y>1; x≥1∧y>1⇒x*y>1; 0≤x<1∧y≤1⇒x*y<1; x≤1∧0≤y<1⇒x*y<1
   ; x≥1∧y≥1⇒x*y≥1; 0≤x≤1∧y≤1⇒x*y≤1; x≤1∧0≤y≤1⇒x*y≤1
 
-  ; x*x≥0
+  ; x*x≥0; x*y≈0⇒x≈0⊎y≈0
 
   ; ^-zeroˡ; ^-zeroʳ
   ; ^-identityʳ
@@ -105,6 +105,8 @@ open import Helium.Algebra.Ordered.StrictTotal.Properties.DivisionRing divisionR
 
   ; x>0⇒x^n>0
   ; x≥0⇒x^n≥0
+
+  ; x^n≈0⇒x≈0
 
   ; x>1∧n≢0⇒x^n>1; 0≤x<1∧n≢0⇒x^n<1
   ; x≥1⇒x^n≥1; 0≤x≤1⇒x^n≤1
