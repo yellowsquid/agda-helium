@@ -238,11 +238,6 @@ module ⌊⌋ where
     ⌊ x ⌋ ℤ.+ ⌊ y ⌋ ℤ.+ 1ℤ      ∎
     where open ℤ.Reasoning
 
-  -- ⌊⌊x⌋+m/n⌋≈⌊x+m/n⌋ : ∀ x m {n} → (n>0 : n ℤ.> 0) →
-  --   let n≉0 = ℤ.<⇒≉ n>0 ∘ ℤ.Eq.sym in
-  --   ⌊ ⌊ x ⌋ /1 ℝ.* m /1 ℝ.* n≉0 ℤ.⁻¹ ⌋ ℤ.≈ ⌊ x ℝ.* m /1 ℝ.* n≉0 ℤ.⁻¹ ⌋
-  -- ⌊⌊x⌋+m/n⌋≈⌊x+m/n⌋ x m {n} n>0 = ℤ.≤∧≮⇒≈ {!!} {!!}
-
   f-monocont+int-preimage⇒⌊f⌊x⌋⌋≈⌊fx⌋  :
     ∀ (f : ℝ → ℝ) → ℝ.IsMonotoneContinuous f → ℝ.IntegerPreimage f →
     ∀ x → ⌊ f (⌊ x ⌋ /1) ⌋ ℤ.≈ ⌊ f x ⌋
