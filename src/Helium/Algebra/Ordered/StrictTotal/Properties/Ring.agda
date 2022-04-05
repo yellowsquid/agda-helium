@@ -122,6 +122,8 @@ open import Helium.Algebra.Ordered.StrictTotal.Properties.AbelianGroup +-abelian
   ; ε<y∙x⁻¹⇒x<y to 0<y-x⇒x<y
   ; x≤y⇒ε≤y∙x⁻¹ to x≤y⇒0≤y-x
   ; ε≤y∙x⁻¹⇒x≤y to 0≤y-x⇒x≤y
+
+  ; x<y∙z⇒x∙z⁻¹<y to x<y+z⇒x-z<y
   )
 
 --------------------------------------------------------------------------------

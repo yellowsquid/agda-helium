@@ -73,4 +73,6 @@ open import Helium.Algebra.Ordered.StrictTotal.Properties.Group group public
 
   ; x<y⇒ε<y∙x⁻¹ ; ε<y∙x⁻¹⇒x<y
   ; x≤y⇒ε≤y∙x⁻¹ ; ε≤y∙x⁻¹⇒x≤y
+
+  ; x<y∙z⇒x∙z⁻¹<y
   )

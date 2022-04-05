@@ -228,3 +228,30 @@ x≤y⇒ε≤y∙x⁻¹ {x} {y} x≤y = begin
   y ∙ (x ⁻¹ ∙ x) ≈⟨  ∙-congˡ (inverseˡ x) ⟩
   y ∙ ε          ≈⟨  identityʳ y ⟩
   y              ∎
+
+---- Transport
+
+-- x∙y⁻¹<z⇒x<z∙y
+-- x⁻¹∙y<z⇒y<x∙z
+-- x∙y⁻¹>z⇒x>z∙y
+-- x⁻¹∙y>z⇒y>x∙z
+-- x∙y⁻¹≤z⇒x≤z∙y
+-- x⁻¹∙y≤z⇒y≤x∙z
+-- x∙y⁻¹≥z⇒x≥z∙y
+-- x⁻¹∙y≥z⇒y≥x∙z
+
+x<y∙z⇒x∙z⁻¹<y : ∀ {x y z} → x < y ∙ z → x ∙ z ⁻¹ < y
+x<y∙z⇒x∙z⁻¹<y {x} {y} {z} x<y∙z = ∙-cancelʳ-< _ _ (begin-strict
+  x ∙ z ⁻¹ ∙ z   ≈⟨ assoc x _ z ⟩
+  x ∙ (z ⁻¹ ∙ z) ≈⟨ ∙-congˡ (inverseˡ z) ⟩
+  x ∙ ε          ≈⟨ identityʳ x ⟩
+  x              <⟨ x<y∙z ⟩
+  y ∙ z          ∎)
+
+-- x<y∙z⇒y⁻¹∙x<z
+-- x>y∙z⇒x∙z⁻¹>y
+-- x>y∙z⇒y⁻¹∙x>z
+-- x≤y∙z⇒x∙z⁻¹≤y
+-- x≤y∙z⇒y⁻¹∙x≤z
+-- x≥y∙z⇒x∙z⁻¹≥y
+-- x≥y∙z⇒y⁻¹∙x≥z

@@ -100,4 +100,6 @@ open import Helium.Algebra.Ordered.StrictTotal.Properties.Ring ring public
 
   ; x>1∧n≢0⇒x^n>1; 0≤x<1∧n≢0⇒x^n<1
   ; x≥1⇒x^n≥1; 0≤x≤1⇒x^n≤1
+
+  ; x<y+z⇒x-z<y
   )
