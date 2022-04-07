@@ -125,3 +125,6 @@ import Helium.Semantics.Axiomatic.Triple
 
 -- Base definitions for the denotational semantics.
 import Helium.Semantics.Denotational.Core
+
+-- Ring solver tactic using integers as coefficients
+import Helium.Tactic.CommutativeRing.NonReflective
