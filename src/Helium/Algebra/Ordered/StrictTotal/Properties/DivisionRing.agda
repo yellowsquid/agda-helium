@@ -199,6 +199,16 @@ y>0∧x<y⇒x*y⁻¹<1 {x} {y} y>0 x<y = x≥0⇒*-cancelʳ-< (<⇒≤ y>0) (beg
   1# * y           ∎)
   where y≉0 = <⇒≉ y>0 ∘ Eq.sym
 
+y>0∧x≤y⇒x*y⁻¹≤1 : ∀ {x y} (y>0 : y > 0#) → x ≤ y → x * (<⇒≉ y>0 ∘ Eq.sym) ⁻¹ ≤ 1#
+y>0∧x≤y⇒x*y⁻¹≤1 {x} {y} y>0 x≤y = x>0⇒*-cancelʳ-≤ y>0 (begin
+  x * y≉0 ⁻¹ * y   ≈⟨  *-assoc x _ y ⟩
+  x * (y≉0 ⁻¹ * y) ≈⟨  *-congˡ (⁻¹-inverseˡ y≉0) ⟩
+  x * 1#           ≈⟨  *-identityʳ x ⟩
+  x                ≤⟨  x≤y ⟩
+  y                ≈˘⟨ *-identityˡ y ⟩
+  1# * y           ∎)
+  where y≉0 = <⇒≉ y>0 ∘ Eq.sym
+
 --------------------------------------------------------------------------------
 ---- Properties of -_ and _⁻¹
 

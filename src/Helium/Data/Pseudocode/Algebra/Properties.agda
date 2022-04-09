@@ -20,7 +20,7 @@ import Data.Nat.Literals as ℕₗ
 open import Data.Product as × using (∃; _×_; _,_)
 open import Data.Sum using (_⊎_; inj₁; inj₂; map)
 import Data.Unit
-open import Function using (_∘_)
+open import Function using (_∘_; Injective)
 import Helium.Algebra.Ordered.StrictTotal.Properties.CommutativeRing as CommRingₚ
 import Helium.Algebra.Ordered.StrictTotal.Properties.Field as Fieldₚ
 open import Level using (_⊔_)
@@ -144,6 +144,14 @@ module /1 where
   mono-≤ : ∀ {x y} → x ℤ.≤ y → x /1 ℝ.≤ y /1
   mono-≤ = map mono-< cong
 
+  injective : Injective ℤ._≈_ ℝ._≈_ _/1
+  injective {x} {y} x≈y = begin-equality
+    x        ≈˘⟨ ⌊x/1⌋≈x x ⟩
+    ⌊ x /1 ⌋ ≈⟨  pseudocode.⌊⌋.cong x≈y ⟩
+    ⌊ y /1 ⌋ ≈⟨  ⌊x/1⌋≈x y ⟩
+    y        ∎
+    where open ℤ.Reasoning
+
   cancel-< : ∀ {x y} → x /1 ℝ.< y /1 → x ℤ.< y
   cancel-< {x} {y} x<y = ℤ.≤∧≉⇒<
     (begin
@@ -161,6 +169,26 @@ module /1 where
       ⌊ y /1 ⌋ ≈⟨  ⌊x/1⌋≈x y ⟩
       y        ∎
     where open ℤ.Reasoning
+
+  ×-homo : ∀ n x → (n ℤ.× x) /1 ℝ.≈ n ℝ.× x /1
+  ×-homo 0       x = 0#-homo
+  ×-homo (suc n) x = begin-equality
+    (suc n ℤ.× x) /1      ≈⟨  cong (ℤ.1+× n x) ⟩
+    (x ℤ.+ n ℤ.× x) /1    ≈⟨  +-homo x _ ⟩
+    x /1 ℝ.+ (n ℤ.× x) /1 ≈⟨  ℝ.+-congˡ (×-homo n x) ⟩
+    x /1 ℝ.+ n ℝ.× x /1   ≈˘⟨ ℝ.1+× n (x /1) ⟩
+    suc n ℝ.× x /1        ∎
+    where open ℝ.Reasoning
+
+  ^-homo : ∀ x n → (x ℤ.^ n) /1 ℝ.≈ x /1 ℝ.^ n
+  ^-homo x 0       = 1#-homo
+  ^-homo x (suc n) = begin-equality
+    (x ℤ.^ suc n) /1      ≈⟨  cong (ℤ.^-homo-* x 1 n) ⟩
+    (x ℤ.* x ℤ.^ n) /1    ≈⟨  *-homo x _ ⟩
+    x /1 ℝ.* (x ℤ.^ n) /1 ≈⟨  ℝ.*-congˡ (^-homo x n) ⟩
+    x /1 ℝ.* (x /1) ℝ.^ n ≈˘⟨ ℝ.^-homo-* (x /1) 1 n ⟩
+    x /1 ℝ.^ suc n        ∎
+    where open ℝ.Reasoning
 
 module ⌊⌋ where
   open pseudocode.⌊⌋ public
