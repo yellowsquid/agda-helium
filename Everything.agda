@@ -84,6 +84,9 @@ import Helium.Algebra.Structures
 -- Definition of types and operations used by the Armv8-M pseudocode.
 import Helium.Data.Pseudocode.Algebra
 
+-- A proof of correctness for Barrett reduction.
+import Helium.Data.Pseudocode.Algebra.Barrett
+
 -- Algebraic properties of types used by the Armv8-M pseudocode.
 import Helium.Data.Pseudocode.Algebra.Properties
 
