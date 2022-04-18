@@ -7,40 +7,61 @@
 {-# OPTIONS --safe --without-K #-}
 
 open import Helium.Data.Pseudocode.Algebra using (RawPseudocode)
+import Helium.Semantics.Core as Core
 
 module Helium.Semantics.Axiomatic.Triple
   {b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃}
   (rawPseudocode : RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃)
+  (2≉0 : Core.2≉0 rawPseudocode)
   where
 
 private
   open module C = RawPseudocode rawPseudocode
 
 import Data.Bool as Bool
-import Data.Fin as Fin
+open import Data.Fin using (fromℕ; suc; inject₁)
 open import Data.Fin.Patterns
-open import Data.Nat using (suc)
+open import Data.Nat using (ℕ; suc)
 open import Data.Vec using (Vec; _∷_)
+open import Data.Vec.Relation.Unary.All as All using (All)
 open import Function using (_∘_)
 open import Helium.Data.Pseudocode.Core
 open import Helium.Semantics.Axiomatic.Assertion rawPseudocode as Asrt
-open import Helium.Semantics.Axiomatic.Term rawPseudocode as Term using (var; meta; func₀; func₁; 𝒦; ℰ; ℰ′)
+open import Helium.Semantics.Axiomatic.Term rawPseudocode as Term using (↓_)
 open import Level using (_⊔_; lift; lower) renaming (suc to ℓsuc)
 open import Relation.Nullary.Decidable.Core using (toWitness)
-open import Relation.Unary using (_⊆′_)
 
-module _ (2≉0 : Term.2≉0) {o} {Σ : Vec Type o} where
-  open Code Σ
-  data HoareTriple {n} {Γ : Vec Type n} {m} {Δ : Vec Type m} : Assertion Σ Γ Δ → Statement Γ → Assertion Σ Γ Δ → Set (ℓsuc (b₁ ⊔ i₁ ⊔ r₁)) where
-    _∙_ : ∀ {P Q R s₁ s₂} → HoareTriple P s₁ Q → HoareTriple Q s₂ R → HoareTriple P (s₁ ∙ s₂) R
-    skip : ∀ {P} → HoareTriple P skip P
+open Term.Term
+open Semantics 2≉0
 
-    assign : ∀ {P t ref canAssign e} → HoareTriple (subst 2≉0 P (toWitness canAssign) (ℰ 2≉0 e)) (_≔_ {t = t} ref {canAssign} e) P
-    declare : ∀ {t P Q e s} → HoareTriple (P ∧ equal (var 0F) (Term.wknVar (ℰ 2≉0 e))) s (Asrt.wknVar Q) → HoareTriple (Asrt.elimVar P (ℰ 2≉0 e)) (declare {t = t} e s) Q
-    invoke : ∀ {m ts P Q s es} → HoareTriple P s (Asrt.addVars Q) → HoareTriple (Asrt.substVars P (ℰ′ 2≉0 es)) (invoke {m = m} {ts} (s ∙end) es) (Asrt.addVars Q)
-    if : ∀ {P Q e s} → HoareTriple (P ∧ equal (ℰ 2≉0 e) (𝒦 (Bool.true ′b))) s Q → HoareTriple (P ∧ equal (ℰ 2≉0 e) (𝒦 (Bool.false ′b))) skip Q → HoareTriple P (if e then s) Q
-    if-else : ∀ {P Q e s₁ s₂} → HoareTriple (P ∧ equal (ℰ 2≉0 e) (𝒦 (Bool.true ′b))) s₁ Q → HoareTriple (P ∧ equal (ℰ 2≉0 e) (𝒦 (Bool.false ′b))) s₂ Q → HoareTriple P (if e then s₁ else s₂) Q
-    for : ∀ {m} {I : Assertion Σ Γ (fin (suc m) ∷ Δ)} {s} → HoareTriple (some (Asrt.wknVar (Asrt.wknMetaAt 1F I) ∧ equal (meta 1F) (var 0F) ∧ equal (meta 0F) (func₁ (lift ∘ Fin.inject₁ ∘ lower) (meta 1F)))) s (some (Asrt.wknVar (Asrt.wknMetaAt 1F I) ∧ equal (meta 0F) (func₁ (lift ∘ Fin.suc ∘ lower) (meta 1F)))) → HoareTriple (some (I ∧ equal (meta 0F) (func₀ (lift 0F)))) (for m s) (some (I ∧ equal (meta 0F) (func₀ (lift (Fin.fromℕ m)))))
+private
+  variable
+    i j k m n : ℕ
+    t : Type
+    Σ Γ Δ ts : Vec Type n
+    P Q R S : Assertion Σ Γ Δ
+    ref : Reference Σ Γ t
+    e val : Expression Σ Γ t
+    es : All (Expression Σ Γ) ts
+    s s₁ s₂ : Statement Σ Γ
 
-    consequence : ∀ {P₁ P₂ Q₁ Q₂ s} → (∀ σ γ δ → ⟦ P₁ ⟧ σ γ δ → ⟦ P₂ ⟧ σ γ δ) → HoareTriple P₂ s Q₂ → (∀ σ γ δ → ⟦ Q₂ ⟧ σ γ δ → ⟦ Q₁ ⟧ σ γ δ) → HoareTriple P₁ s Q₁
-    some : ∀ {t P Q s} → HoareTriple P s Q → HoareTriple (some {t = t} P) s (some Q)
+  ℓ = b₁ ⊔ i₁ ⊔ r₁
+
+infix 4 _⊆_
+record _⊆_ (P : Assertion Σ Γ Δ) (Q : Assertion Σ Γ Δ) : Set ℓ where
+  constructor arr
+  field
+    implies : ∀ σ γ δ → ⟦ P ⟧ σ γ δ → ⟦ Q ⟧ σ γ δ
+
+open _⊆_ public
+
+data HoareTriple {Σ : Vec Type i} {Γ : Vec Type j} {Δ : Vec Type k} : Assertion Σ Γ Δ → Statement Σ Γ → Assertion Σ Γ Δ → Set (ℓsuc (b₁ ⊔ i₁ ⊔ r₁)) where
+  seq     : ∀ Q → HoareTriple P s Q → HoareTriple Q s₁ R → HoareTriple P (s ∙ s₁) R
+  skip    : P ⊆ Q → HoareTriple P skip Q
+  assign  : subst P ref (↓ val) ⊆ Q → HoareTriple P (ref ≔ val) Q
+  declare : HoareTriple (Var.weaken 0F P ∧ equal (var 0F) (Term.Var.weaken 0F (↓ e))) s (Var.weaken 0F Q) → HoareTriple P (declare e s) Q
+  invoke  : ∀ (Q R : Assertion Σ ts Δ) → P ⊆ Var.elimAll Q (All.map ↓_ es) → HoareTriple Q s R → Var.inject Γ R ⊆ Var.raise ts S → HoareTriple P (invoke (s ∙end) es) S
+  if      : HoareTriple (P ∧ pred (↓ e)) s Q → P ∧ pred (↓ inv e) ⊆ Q → HoareTriple P (if e then s) Q
+  if-else : HoareTriple (P ∧ pred (↓ e)) s Q → HoareTriple (P ∧ pred (↓ inv e)) s Q → HoareTriple P (if e then s) Q
+  for     : ∀ (I : Assertion _ _ (fin _ ∷ _)) → P ⊆ Meta.elim 0F I (↓ lit 0F) → HoareTriple {Δ = fin _ ∷ Δ} (Var.weaken 0F (Meta.elim 1F (Meta.weaken 0F I) (fin inject₁ (cons (meta 0F) nil)))) s (Var.weaken 0F (Meta.elim 1F (Meta.weaken 0F I) (fin suc (cons (meta 0F) nil)))) → Meta.elim 0F I (↓ lit (fromℕ m)) ⊆ Q → HoareTriple P (for m s) Q
+  some    : HoareTriple P s Q → HoareTriple (some P) s (some Q)

@@ -11,20 +11,18 @@ module Helium.Data.Pseudocode.Core where
 open import Data.Bool using (Bool; true; false)
 open import Data.Fin as Fin using (Fin)
 open import Data.Fin.Patterns
+open import Data.Integer as ℤ using (ℤ)
 open import Data.Nat as ℕ using (ℕ; zero; suc)
 open import Data.Nat.Properties using (+-comm)
-open import Data.Product using (∃; _,_; proj₂; uncurry)
-open import Data.Sum using ([_,_]′; inj₁; inj₂)
+open import Data.Product using (_×_; _,_)
+open import Data.Unit using (⊤)
 open import Data.Vec using (Vec; []; _∷_; lookup; map)
-open import Data.Vec.Relation.Unary.All using (All; []; _∷_; reduce)
-open import Data.Vec.Relation.Unary.Any using (Any; here; there)
-open import Function as F using (_∘_; _∘′_; _∋_)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl)
-open import Relation.Nullary using (Dec; yes; no)
-open import Relation.Nullary.Decidable.Core using (True; False; toWitness; fromWitness; map′)
-open import Relation.Nullary.Product using (_×-dec_)
-open import Relation.Nullary.Sum using (_⊎-dec_)
-open import Relation.Unary using (Decidable)
+open import Data.Vec.Relation.Unary.All using (All; []; _∷_)
+open import Relation.Binary.PropositionalEquality using (_≡_)
+
+private
+  variable
+    k m n o : ℕ
 
 --- The set of types and boolean properties of them
 data Type : Set where
@@ -33,297 +31,221 @@ data Type : Set where
   fin   : (n : ℕ) → Type
   real  : Type
   bit   : Type
-  bits  : (n : ℕ) → Type
-  tuple : ∀ n → Vec Type n → Type
+  tuple : Vec Type n → Type
   array : Type → (n : ℕ) → Type
 
-data HasEquality : Type → Set where
-  bool : HasEquality bool
-  int  : HasEquality int
-  fin  : ∀ {n} → HasEquality (fin n)
-  real : HasEquality real
-  bit  : HasEquality bit
-  bits : ∀ {n} → HasEquality (bits n)
+bits : ℕ → Type
+bits = array bit
 
-hasEquality? : Decidable HasEquality
-hasEquality? bool        = yes bool
-hasEquality? int         = yes int
-hasEquality? (fin n)     = yes fin
-hasEquality? real        = yes real
-hasEquality? bit         = yes bit
-hasEquality? (bits n)    = yes bits
-hasEquality? (tuple n x) = no (λ ())
-hasEquality? (array t n) = no (λ ())
+private
+  variable
+    t t′ t₁ t₂ : Type
+    Σ Γ Δ ts : Vec Type n
+
+data HasEquality : Type → Set where
+  instance bool  : HasEquality bool
+  instance int   : HasEquality int
+  instance fin   : HasEquality (fin n)
+  instance real  : HasEquality real
+  instance bit   : HasEquality bit
+  instance array : ∀ {t n} → ⦃ HasEquality t ⦄ → HasEquality (array t n)
+
+data Ordered : Type → Set where
+  instance int  : Ordered int
+  instance fin  : Ordered (fin n)
+  instance real : Ordered real
 
 data IsNumeric : Type → Set where
-  int  : IsNumeric int
-  real : IsNumeric real
+  instance int  : IsNumeric int
+  instance real : IsNumeric real
 
-isNumeric? : Decidable IsNumeric
-isNumeric? bool        = no (λ ())
-isNumeric? int         = yes int
-isNumeric? (fin n)     = no (λ ())
-isNumeric? real        = yes real
-isNumeric? bit         = no (λ ())
-isNumeric? (bits n)    = no (λ ())
-isNumeric? (tuple n x) = no (λ ())
-isNumeric? (array t n) = no (λ ())
+_+ᵗ_ : IsNumeric t₁ → IsNumeric t₂ → Type
+int  +ᵗ int  = int
+int  +ᵗ real = real
+real +ᵗ t₂   = real
 
-combineNumeric : ∀ t₁ t₂ → (isNumeric₁ : True (isNumeric? t₁)) → (isNumeric₂ : True (isNumeric? t₂)) → Type
-combineNumeric int  int  _ _ = int
-combineNumeric int  real _ _ = real
-combineNumeric real _    _ _ = real
+literalType : Type → Set
+literalTypes : Vec Type n → Set
 
-data Sliced : Set where
-  bits  : Sliced
-  array : Type → Sliced
+literalType bool        = Bool
+literalType int         = ℤ
+literalType (fin n)     = Fin n
+literalType real        = ℤ
+literalType bit         = Bool
+literalType (tuple ts)  = literalTypes ts
+literalType (array t n) = Vec (literalType t) n
 
-asType : Sliced → ℕ → Type
-asType bits      n = bits n
-asType (array t) n = array t n
+literalTypes []            = ⊤
+literalTypes (t ∷ [])      = literalType t
+literalTypes (t ∷ t′ ∷ ts) = literalType t × literalTypes (t′ ∷ ts)
 
-elemType : Sliced → Type
-elemType bits      = bit
-elemType (array t) = t
+infix  8 -_
+infixr 7 _^_
+infixl 6 _*_ _and_ _>>_
+infixl 5 _+_ _or_ _&&_ _||_
+infix  4 _≟_ _<?_
+infix  3 _≔_
 
---- Literals
+infixl 2 if_then_ if_then_else_
+infixl 1 _∙_ _∙return_
+infix  1 _∙end
 
-data Literal : Type → Set where
-  _′b  : Bool → Literal bool
-  _′i  : ℕ → Literal int
-  _′f  : ∀ {n} → Fin n → Literal (fin n)
-  _′r  : ℕ → Literal real
-  _′x  : Bool → Literal bit
-  _′xs : ∀ {n} → Vec Bool n → Literal (bits n)
-  _′a  : ∀ {n t} → Literal t → Literal (array t n)
+data Expression (Σ : Vec Type o) (Γ : Vec Type n) : Type → Set
+data Reference (Σ : Vec Type o) (Γ : Vec Type n) : Type → Set
+data LocalReference (Σ : Vec Type o) (Γ : Vec Type n) : Type → Set
+data Statement (Σ : Vec Type o) (Γ : Vec Type n) : Set
+data LocalStatement (Σ : Vec Type o) (Γ : Vec Type n) : Set
+data Function (Σ : Vec Type o) (Γ : Vec Type n) (ret : Type) : Set
+data Procedure (Σ : Vec Type o) (Γ : Vec Type n) : Set
 
---- Expressions, references, statements, functions and procedures
+data Expression Σ Γ where
+  lit           : literalType t → Expression Σ Γ t
+  state         : ∀ i → Expression Σ Γ (lookup Σ i)
+  var           : ∀ i → Expression Σ Γ (lookup Γ i)
+  _≟_           : ⦃ HasEquality t ⦄ → Expression Σ Γ t → Expression Σ Γ t → Expression Σ Γ bool
+  _<?_          : ⦃ Ordered t ⦄ → Expression Σ Γ t → Expression Σ Γ t → Expression Σ Γ bool
+  inv           : Expression Σ Γ bool → Expression Σ Γ bool
+  _&&_          : Expression Σ Γ bool → Expression Σ Γ bool → Expression Σ Γ bool
+  _||_          : Expression Σ Γ bool → Expression Σ Γ bool → Expression Σ Γ bool
+  not           : Expression Σ Γ (bits n) → Expression Σ Γ (bits n)
+  _and_         : Expression Σ Γ (bits n) → Expression Σ Γ (bits n) → Expression Σ Γ (bits n)
+  _or_          : Expression Σ Γ (bits n) → Expression Σ Γ (bits n) → Expression Σ Γ (bits n)
+  [_]           : Expression Σ Γ t → Expression Σ Γ (array t 1)
+  unbox         : Expression Σ Γ (array t 1) → Expression Σ Γ t
+  merge         : Expression Σ Γ (array t m) → Expression Σ Γ (array t n) → Expression Σ Γ (fin (suc n)) → Expression Σ Γ (array t (n ℕ.+ m))
+  slice         : Expression Σ Γ (array t (n ℕ.+ m)) → Expression Σ Γ (fin (suc n)) → Expression Σ Γ (array t m)
+  cut           : Expression Σ Γ (array t (n ℕ.+ m)) → Expression Σ Γ (fin (suc n)) → Expression Σ Γ (array t n)
+  cast          : .(eq : m ≡ n) → Expression Σ Γ (array t m) → Expression Σ Γ (array t n)
+  -_            : ⦃ IsNumeric t ⦄ → Expression Σ Γ t → Expression Σ Γ t
+  _+_           : ⦃ isNum₁ : IsNumeric t₁ ⦄ → ⦃ isNum₂ : IsNumeric t₂ ⦄ → Expression Σ Γ t₁ → Expression Σ Γ t₂ → Expression Σ Γ (isNum₁ +ᵗ isNum₂)
+  _*_           : ⦃ isNum₁ : IsNumeric t₁ ⦄ → ⦃ isNum₂ : IsNumeric t₂ ⦄ → Expression Σ Γ t₁ → Expression Σ Γ t₂ → Expression Σ Γ (isNum₁ +ᵗ isNum₂)
+  _^_           : ⦃ IsNumeric t ⦄ → Expression Σ Γ t → ℕ → Expression Σ Γ t
+  _>>_          : Expression Σ Γ int → (n : ℕ) → Expression Σ Γ int
+  rnd           : Expression Σ Γ real → Expression Σ Γ int
+  fin           : ∀ {ms} (f : literalTypes (map fin ms) → Fin n) → Expression Σ Γ (tuple {n = k} (map fin ms)) → Expression Σ Γ (fin n)
+  asInt         : Expression Σ Γ (fin n) → Expression Σ Γ int
+  nil           : Expression Σ Γ (tuple [])
+  cons          : Expression Σ Γ t → Expression Σ Γ (tuple ts) → Expression Σ Γ (tuple (t ∷ ts))
+  head          : Expression Σ Γ (tuple (t ∷ ts)) → Expression Σ Γ t
+  tail          : Expression Σ Γ (tuple (t ∷ ts)) → Expression Σ Γ (tuple ts)
+  call          : (f : Function Σ Δ t) → All (Expression Σ Γ) Δ → Expression Σ Γ t
+  if_then_else_ : Expression Σ Γ bool → Expression Σ Γ t → Expression Σ Γ t → Expression Σ Γ t
 
-module Code {o} (Σ : Vec Type o) where
-  data Expression {n} (Γ : Vec Type n) : Type → Set
-  data CanAssign {n Γ} : ∀ {t} → Expression {n} Γ t → Set
-  canAssign? : ∀ {n Γ t} → Decidable (CanAssign {n} {Γ} {t})
-  data ReferencesState {n Γ} : ∀ {t} → Expression {n} Γ t → Set
-  referencesState? : ∀ {n Γ t} → Decidable (ReferencesState {n} {Γ} {t})
-  data Statement {n} (Γ : Vec Type n) : Set
-  data ChangesState {n Γ} : Statement {n} Γ → Set
-  changesState? : ∀ {n Γ} → Decidable (ChangesState {n} {Γ})
-  data Function {n} (Γ : Vec Type n) (ret : Type) : Set
-  data Procedure {n} (Γ : Vec Type n) : Set
+data Reference Σ Γ where
+  state : ∀ i → Reference Σ Γ (lookup Σ i)
+  var   : ∀ i → Reference Σ Γ (lookup Γ i)
+  [_]   : Reference Σ Γ t → Reference Σ Γ (array t 1)
+  unbox : Reference Σ Γ (array t 1) → Reference Σ Γ t
+  merge : Reference Σ Γ (array t m) → Reference Σ Γ (array t n) → Expression Σ Γ (fin (suc n)) → Reference Σ Γ (array t (n ℕ.+ m))
+  slice : Reference Σ Γ (array t (n ℕ.+ m)) → Expression Σ Γ (fin (suc n)) → Reference Σ Γ (array t m)
+  cut   : Reference Σ Γ (array t (n ℕ.+ m)) → Expression Σ Γ (fin (suc n)) → Reference Σ Γ (array t n)
+  cast  : .(eq : m ≡ n) → Reference Σ Γ (array t m) → Reference Σ Γ (array t n)
+  nil   : Reference Σ Γ (tuple [])
+  cons  : Reference Σ Γ t → Reference Σ Γ (tuple ts) → Reference Σ Γ (tuple (t ∷ ts))
+  head  : Reference Σ Γ (tuple (t ∷ ts)) → Reference Σ Γ t
+  tail  : Reference Σ Γ (tuple (t ∷ ts)) → Reference Σ Γ (tuple ts)
 
-  infix  8 -_
-  infixr 7 _^_
-  infixl 6 _*_ _and_ _>>_
-  -- infixl 6 _/_
-  infixl 5 _+_ _or_ _&&_ _||_
-  infix  4 _≟_ _<?_
+data LocalReference Σ Γ where
+  var   : ∀ i → LocalReference Σ Γ (lookup Γ i)
+  [_]   : LocalReference Σ Γ t → LocalReference Σ Γ (array t 1)
+  unbox : LocalReference Σ Γ (array t 1) → LocalReference Σ Γ t
+  merge : LocalReference Σ Γ (array t m) → LocalReference Σ Γ (array t n) → Expression Σ Γ (fin (suc n)) → LocalReference Σ Γ (array t (n ℕ.+ m))
+  slice : LocalReference Σ Γ (array t (n ℕ.+ m)) → Expression Σ Γ (fin (suc n)) → LocalReference Σ Γ (array t m)
+  cut   : LocalReference Σ Γ (array t (n ℕ.+ m)) → Expression Σ Γ (fin (suc n)) → LocalReference Σ Γ (array t n)
+  cast  : .(eq : m ≡ n) → LocalReference Σ Γ (array t m) → LocalReference Σ Γ (array t n)
+  nil   : LocalReference Σ Γ (tuple [])
+  cons  : LocalReference Σ Γ t → LocalReference Σ Γ (tuple ts) → LocalReference Σ Γ (tuple (t ∷ ts))
+  head  : LocalReference Σ Γ (tuple (t ∷ ts)) → LocalReference Σ Γ t
+  tail  : LocalReference Σ Γ (tuple (t ∷ ts)) → LocalReference Σ Γ (tuple ts)
 
-  data Expression {n} Γ where
-    lit    : ∀ {t} → Literal t → Expression Γ t
-    state  : ∀ i → Expression Γ (lookup Σ i)
-    var    : ∀ i → Expression Γ (lookup Γ i)
-    abort  : ∀ {t} → Expression Γ (fin 0) → Expression Γ t
-    _≟_    : ∀ {t} {hasEquality : True (hasEquality? t)} → Expression Γ t → Expression Γ t → Expression Γ bool
-    _<?_   : ∀ {t} {isNumeric : True (isNumeric? t)} → Expression Γ t → Expression Γ t → Expression Γ bool
-    inv    : Expression Γ bool → Expression Γ bool
-    _&&_   : Expression Γ bool → Expression Γ bool → Expression Γ bool
-    _||_   : Expression Γ bool → Expression Γ bool → Expression Γ bool
-    not    : ∀ {m} → Expression Γ (bits m) → Expression Γ (bits m)
-    _and_  : ∀ {m} → Expression Γ (bits m) → Expression Γ (bits m) → Expression Γ (bits m)
-    _or_   : ∀ {m} → Expression Γ (bits m) → Expression Γ (bits m) → Expression Γ (bits m)
-    [_]    : ∀ {t} → Expression Γ (elemType t) → Expression Γ (asType t 1)
-    unbox  : ∀ {t} → Expression Γ (asType t 1) → Expression Γ (elemType t)
-    splice : ∀ {m n t} → Expression Γ (asType t m) → Expression Γ (asType t n) → Expression Γ (fin (suc n)) → Expression Γ (asType t (n ℕ.+ m))
-    cut    : ∀ {m n t} → Expression Γ (asType t (n ℕ.+ m)) → Expression Γ (fin (suc n)) → Expression Γ (tuple 2 (asType t m ∷ asType t n ∷ []))
-    cast   : ∀ {i j t} → .(eq : i ≡ j) → Expression Γ (asType t i) → Expression Γ (asType t j)
-    -_     : ∀ {t} {isNumeric : True (isNumeric? t)} → Expression Γ t → Expression Γ t
-    _+_    : ∀ {t₁ t₂} {isNumeric₁ : True (isNumeric? t₁)} {isNumeric₂ : True (isNumeric? t₂)} → Expression Γ t₁ → Expression Γ t₂ → Expression Γ (combineNumeric t₁ t₂ isNumeric₁ isNumeric₂)
-    _*_    : ∀ {t₁ t₂} {isNumeric₁ : True (isNumeric? t₁)} {isNumeric₂ : True (isNumeric? t₂)} → Expression Γ t₁ → Expression Γ t₂ → Expression Γ (combineNumeric t₁ t₂ isNumeric₁ isNumeric₂)
-    -- _/_   : Expression Γ real → Expression Γ real → Expression Γ real
-    _^_    : ∀ {t} {isNumeric : True (isNumeric? t)} → Expression Γ t → ℕ → Expression Γ t
-    _>>_   : Expression Γ int → ℕ → Expression Γ int
-    rnd    : Expression Γ real → Expression Γ int
-    fin    : ∀ {k ms n} → (All (Fin) ms → Fin n) → Expression Γ (tuple k (map fin ms)) → Expression Γ (fin n)
-    asInt  : ∀ {m} → Expression Γ (fin m) → Expression Γ int
-    nil    : Expression Γ (tuple 0 [])
-    cons   : ∀ {m t ts} → Expression Γ t → Expression Γ (tuple m ts) → Expression Γ (tuple (suc m) (t ∷ ts))
-    head   : ∀ {m t ts} → Expression Γ (tuple (suc m) (t ∷ ts)) → Expression Γ t
-    tail   : ∀ {m t ts} → Expression Γ (tuple (suc m) (t ∷ ts)) → Expression Γ (tuple m ts)
-    call   : ∀ {t m Δ} → Function Δ t → All (Expression Γ) {m} Δ → Expression Γ t
-    if_then_else_ : ∀ {t} → Expression Γ bool → Expression Γ t → Expression Γ t → Expression Γ t
+data Statement Σ Γ where
+  _∙_           : Statement Σ Γ → Statement Σ Γ → Statement Σ Γ
+  skip          : Statement Σ Γ
+  _≔_           : Reference Σ Γ t → Expression Σ Γ t → Statement Σ Γ
+  declare       : Expression Σ Γ t → Statement Σ (t ∷ Γ) → Statement Σ Γ
+  invoke        : (f : Procedure Σ Δ) → All (Expression Σ Γ) Δ → Statement Σ Γ
+  if_then_      : Expression Σ Γ bool → Statement Σ Γ → Statement Σ Γ
+  if_then_else_ : Expression Σ Γ bool → Statement Σ Γ → Statement Σ Γ → Statement Σ Γ
+  for           : ∀ n → Statement Σ (fin n ∷ Γ) → Statement Σ Γ
 
-  data CanAssign {n} {Γ} where
-    state : ∀ i → CanAssign (state i)
-    var   : ∀ i → CanAssign (var i)
-    abort : ∀ {t} e → CanAssign (abort {t = t} e)
-    [_]   : ∀ {t e} → CanAssign e → CanAssign ([_] {t = t} e)
-    unbox : ∀ {t e} → CanAssign e → CanAssign (unbox {t = t} e)
-    splice : ∀ {m n t e₁ e₂} → CanAssign e₁ → CanAssign e₂ → ∀ e₃ → CanAssign (splice {m = m} {n} {t} e₁ e₂ e₃)
-    cut    : ∀ {m n t e₁} → CanAssign e₁ → ∀ e₂ → CanAssign (cut {m = m} {n} {t} e₁ e₂)
-    cast  : ∀ {i j t e} .(eq : i ≡ j) → CanAssign e → CanAssign (cast {t = t} eq e)
-    nil   : CanAssign nil
-    cons  : ∀ {m t ts e₁ e₂} → CanAssign e₁ → CanAssign e₂ → CanAssign (cons {m = m} {t} {ts} e₁ e₂)
-    head  : ∀ {m t ts e} → CanAssign e → CanAssign (head {m = m} {t} {ts} e)
-    tail  : ∀ {m t ts e} → CanAssign e → CanAssign (tail {m = m} {t} {ts} e)
+data LocalStatement Σ Γ where
+  _∙_           : LocalStatement Σ Γ → LocalStatement Σ Γ → LocalStatement Σ Γ
+  skip          : LocalStatement Σ Γ
+  _≔_           : LocalReference Σ Γ t → Expression Σ Γ t → LocalStatement Σ Γ
+  declare       : Expression Σ Γ t → LocalStatement Σ (t ∷ Γ) → LocalStatement Σ Γ
+  if_then_      : Expression Σ Γ bool → LocalStatement Σ Γ → LocalStatement Σ Γ
+  if_then_else_ : Expression Σ Γ bool → LocalStatement Σ Γ → LocalStatement Σ Γ → LocalStatement Σ Γ
+  for           : ∀ n → LocalStatement Σ (fin n ∷ Γ) → LocalStatement Σ Γ
 
-  canAssign? (lit x)      = no λ ()
-  canAssign? (state i)    = yes (state i)
-  canAssign? (var i)      = yes (var i)
-  canAssign? (abort e)    = yes (abort e)
-  canAssign? (e ≟ e₁)     = no λ ()
-  canAssign? (e <? e₁)    = no λ ()
-  canAssign? (inv e)      = no λ ()
-  canAssign? (e && e₁)    = no λ ()
-  canAssign? (e || e₁)    = no λ ()
-  canAssign? (not e)      = no λ ()
-  canAssign? (e and e₁)   = no λ ()
-  canAssign? (e or e₁)    = no λ ()
-  canAssign? [ e ]        = map′ [_] (λ { [ e ] → e }) (canAssign? e)
-  canAssign? (unbox e)    = map′ unbox (λ { (unbox e) → e }) (canAssign? e)
-  canAssign? (splice e e₁ e₂) = map′ (λ (e , e₁) → splice e e₁ e₂) (λ { (splice e e₁ _) → e , e₁ }) (canAssign? e ×-dec canAssign? e₁)
-  canAssign? (cut e e₁)       = map′ (λ e → cut e e₁) (λ { (cut e e₁) → e }) (canAssign? e)
-  canAssign? (cast eq e)  = map′ (cast eq) (λ { (cast eq e) → e }) (canAssign? e)
-  canAssign? (- e)        = no λ ()
-  canAssign? (e + e₁)     = no λ ()
-  canAssign? (e * e₁)     = no λ ()
-  -- canAssign? (e / e₁)     = no λ ()
-  canAssign? (e ^ e₁)     = no λ ()
-  canAssign? (e >> e₁)    = no λ ()
-  canAssign? (rnd e)      = no λ ()
-  canAssign? (fin x e)    = no λ ()
-  canAssign? (asInt e)    = no λ ()
-  canAssign? nil          = yes nil
-  canAssign? (cons e e₁)  = map′ (uncurry cons) (λ { (cons e e₁) → e , e₁ }) (canAssign? e ×-dec canAssign? e₁)
-  canAssign? (head e)     = map′ head (λ { (head e) → e }) (canAssign? e)
-  canAssign? (tail e)     = map′ tail (λ { (tail e) → e }) (canAssign? e)
-  canAssign? (call x e)   = no λ ()
-  canAssign? (if e then e₁ else e₂) = no λ ()
+data Function Σ Γ ret where
+  declare   : Expression Σ Γ t → Function Σ (t ∷ Γ) ret → Function Σ Γ ret
+  _∙return_ : LocalStatement Σ Γ → Expression Σ Γ ret → Function Σ Γ ret
 
-  data ReferencesState where
-    state : ∀ i → ReferencesState (state i)
-    [_] : ∀ {t e} → ReferencesState e → ReferencesState ([_] {t = t} e)
-    unbox : ∀ {t e} → ReferencesState e → ReferencesState (unbox {t = t} e)
-    spliceˡ : ∀ {m n t e} → ReferencesState e → ∀ e₁ e₂ → ReferencesState (splice {m = m} {n} {t} e e₁ e₂)
-    spliceʳ : ∀ {m n t} e {e₁} → ReferencesState e₁ → ∀ e₂ → ReferencesState (splice {m = m} {n} {t} e e₁ e₂)
-    cut : ∀ {m n t e} → ReferencesState e → ∀ e₁ → ReferencesState (cut {m = m} {n} {t} e e₁)
-    cast : ∀ {i j t} .(eq : i ≡ j) {e} → ReferencesState e → ReferencesState (cast {t = t} eq e)
-    consˡ : ∀ {m t ts e} → ReferencesState e → ∀ e₁ → ReferencesState (cons {m = m} {t} {ts} e e₁)
-    consʳ : ∀ {m t ts} e {e₁} → ReferencesState e₁ → ReferencesState (cons {m = m} {t} {ts} e e₁)
-    head : ∀ {m t ts e} → ReferencesState e → ReferencesState (head {m = m} {t} {ts} e)
-    tail : ∀ {m t ts e} → ReferencesState e → ReferencesState (tail {m = m} {t} {ts} e)
+data Procedure Σ Γ where
+  _∙end : Statement Σ Γ → Procedure Σ Γ
 
-  referencesState? (lit x) = no λ ()
-  referencesState? (state i) = yes (state i)
-  referencesState? (var i) = no λ ()
-  referencesState? (abort e) = no λ ()
-  referencesState? (e ≟ e₁) = no λ ()
-  referencesState? (e <? e₁) = no λ ()
-  referencesState? (inv e) = no λ ()
-  referencesState? (e && e₁) = no λ ()
-  referencesState? (e || e₁) = no λ ()
-  referencesState? (not e) = no λ ()
-  referencesState? (e and e₁) = no λ ()
-  referencesState? (e or e₁) = no λ ()
-  referencesState? [ e ] = map′ [_] (λ { [ e ] → e }) (referencesState? e)
-  referencesState? (unbox e) = map′ unbox (λ { (unbox e) → e }) (referencesState? e)
-  referencesState? (splice e e₁ e₂) = map′ [ (λ e → spliceˡ e e₁ e₂) , (λ e₁ → spliceʳ e e₁ e₂) ]′ (λ { (spliceˡ e e₁ e₂) → inj₁ e ; (spliceʳ e e₁ e₂) → inj₂ e₁ }) (referencesState? e ⊎-dec referencesState? e₁)
-  referencesState? (cut e e₁) = map′ (λ e → cut e e₁) (λ { (cut e e₁) → e }) (referencesState? e)
-  referencesState? (cast eq e) = map′ (cast eq) (λ { (cast eq e) → e }) (referencesState? e)
-  referencesState? (- e) = no λ ()
-  referencesState? (e + e₁) = no λ ()
-  referencesState? (e * e₁) = no λ ()
-  referencesState? (e ^ x) = no λ ()
-  referencesState? (e >> x) = no λ ()
-  referencesState? (rnd e) = no λ ()
-  referencesState? (fin x e) = no λ ()
-  referencesState? (asInt e) = no λ ()
-  referencesState? nil = no λ ()
-  referencesState? (cons e e₁) = map′ [ (λ e → consˡ e e₁) , (λ e₁ → consʳ e e₁) ]′ (λ { (consˡ e e₁) → inj₁ e ; (consʳ e e₁) → inj₂ e₁ }) (referencesState? e ⊎-dec referencesState? e₁)
-  referencesState? (head e) = map′ head (λ { (head e) → e }) (referencesState? e)
-  referencesState? (tail e) = map′ tail (λ { (tail e) → e }) (referencesState? e)
-  referencesState? (call f es) = no λ ()
-  referencesState? (if e then e₁ else e₂) = no λ ()
+infixl 6 _<<_
+infixl 5 _-_ _∶_
 
-  infix  4 _≔_
-  infixl 2 if_then_else_ if_then_
-  infixl 1 _∙_ _∙return_
-  infix  1 _∙end
+tup : All (Expression Σ Γ) ts → Expression Σ Γ (tuple ts)
+tup []       = nil
+tup (e ∷ es) = cons e (tup es)
 
-  data Statement Γ where
-    _∙_           : Statement Γ → Statement Γ → Statement Γ
-    skip          : Statement Γ
-    _≔_           : ∀ {t} → (ref : Expression Γ t) → {canAssign : True (canAssign? ref)} → Expression Γ t → Statement Γ
-    declare       : ∀ {t} → Expression Γ t → Statement (t ∷ Γ) → Statement Γ
-    invoke        : ∀ {m Δ} → Procedure Δ → All (Expression Γ) {m} Δ → Statement Γ
-    if_then_      : Expression Γ bool → Statement Γ → Statement Γ
-    if_then_else_ : Expression Γ bool → Statement Γ → Statement Γ → Statement Γ
-    for           : ∀ m → Statement (fin m ∷ Γ) → Statement Γ
+_∶_ : Expression Σ Γ (array t m) → Expression Σ Γ (array t n) → Expression Σ Γ (array t (n ℕ.+ m))
+e ∶ e₁ = merge e e₁ (lit (Fin.fromℕ _))
 
-  data ChangesState where
-    _∙ˡ_           : ∀ {s} → ChangesState s → ∀ s₁ → ChangesState (s ∙ s₁)
-    _∙ʳ_           : ∀ s {s₁} → ChangesState s₁ → ChangesState (s ∙ s₁)
-    _≔_            : ∀ {t} ref {canAssign : True (canAssign? ref)} {refsState : True (referencesState? ref)} e₂ → ChangesState (_≔_ {t = t} ref {canAssign} e₂)
-    declare        : ∀ {t} e {s} → ChangesState s → ChangesState (declare {t = t} e s)
-    invoke         : ∀ {m Δ} p es → ChangesState (invoke {m = m} {Δ} p es)
-    if_then_       : ∀ e {s} → ChangesState s → ChangesState (if e then s)
-    if_then′_else_ : ∀ e {s} → ChangesState s → ∀ s₁ → ChangesState (if e then s else s₁)
-    if_then_else′_ : ∀ e s {s₁} → ChangesState s₁ → ChangesState (if e then s else s₁)
-    for            : ∀ m {s} → ChangesState s → ChangesState (for m s)
+slice′ : Expression Σ Γ (array t (n ℕ.+ m)) → Expression Σ Γ (fin (suc m)) → Expression Σ Γ (array t n)
+slice′ {m = m} e = slice (cast (+-comm _ m) e)
 
-  changesState? (s ∙ s₁)              = map′ [ _∙ˡ s₁ , s ∙ʳ_ ]′ (λ { (s ∙ˡ s₁) → inj₁ s ; (s ∙ʳ s₁) → inj₂ s₁ }) (changesState? s ⊎-dec changesState? s₁)
-  changesState? skip                  = no λ ()
-  changesState? (_≔_ ref e)           = map′ (λ refsState → _≔_ ref {refsState = fromWitness refsState} e) (λ { (_≔_ ref {refsState = refsState} e) → toWitness refsState }) (referencesState? ref)
-  changesState? (declare e s)         = map′ (declare e) (λ { (declare e s) → s }) (changesState? s)
-  changesState? (invoke p e)          = yes (invoke p e)
-  changesState? (if e then s)         = map′ (if e then_) (λ { (if e then s) → s }) (changesState? s)
-  changesState? (if e then s else s₁) = map′ [ if e then′_else s₁ , if e then s else′_ ]′ (λ { (if e then′ s else s₁) → inj₁ s ; (if e then s else′ s₁) → inj₂ s₁ }) (changesState? s ⊎-dec changesState? s₁)
-  changesState? (for m s)             = map′ (for m) (λ { (for m s) → s }) (changesState? s)
+_-_ : Expression Σ Γ t₁ → ⦃ isNum₁ : IsNumeric t₁ ⦄ → Expression Σ Γ t₂ → ⦃ isNum₂ : IsNumeric t₂ ⦄ → Expression Σ Γ (isNum₁ +ᵗ isNum₂)
+e - e₁ = e + (- e₁)
 
-  data Function Γ ret where
-    _∙return_ : (s : Statement Γ) → {False (changesState? s)} → Expression Γ ret → Function Γ ret
-    declare   : ∀ {t} → Expression Γ t → Function (t ∷ Γ) ret → Function Γ ret
+_<<_ : Expression Σ Γ int → (n : ℕ) → Expression Σ Γ int
+e << n = e * lit (ℤ.+ (2 ℕ.^ n))
 
-  data Procedure Γ where
-    _∙end   : Statement Γ → Procedure Γ
+getBit : ℕ → Expression Σ Γ int → Expression Σ Γ bit
+getBit i x = if x - x >> suc i << suc i <? lit (ℤ.+ (2 ℕ.^ i)) then lit false else lit true
 
-  infixl  6 _<<_
-  infixl 5 _-_ _∶_
+uint : Expression Σ Γ (bits m) → Expression Σ Γ int
+uint {m = 0}     x = lit ℤ.0ℤ
+uint {m = suc m} x =
+  lit (ℤ.+ 2) * uint {m = m} (slice x (lit 1F)) +
+  ( if slice′ x (lit 0F) ≟ lit (true ∷ [])
+    then lit ℤ.1ℤ
+    else lit ℤ.0ℤ)
 
-  tup : ∀ {n Γ m ts} → All (Expression {n} Γ) ts → Expression Γ (tuple m ts)
-  tup []       = nil
-  tup (e ∷ es) = cons e (tup es)
+sint : Expression Σ Γ (bits m) → Expression Σ Γ int
+sint {m = 0}           x = lit ℤ.0ℤ
+sint {m = 1}           x = if x ≟ lit (true ∷ []) then lit ℤ.-1ℤ else lit ℤ.0ℤ
+sint {m = suc (suc m)} x =
+  lit (ℤ.+ 2) * sint {m = m} (slice x (lit 1F)) +
+  ( if slice′ x (lit 0F) ≟ lit (true ∷ [])
+    then lit ℤ.1ℤ
+    else lit ℤ.0ℤ)
 
-  _∶_ : ∀ {n Γ i j t} → Expression {n} Γ (asType t j) → Expression Γ (asType t i) → Expression Γ (asType t (i ℕ.+ j))
-  e₁ ∶ e₂ = splice e₁ e₂ (lit (Fin.fromℕ _ ′f))
+!_ : Reference Σ Γ t → Expression Σ Γ t
+! state i          = state i
+! var i            = var i
+! [ ref ]          = [ ! ref ]
+! unbox ref        = unbox (! ref)
+! merge ref ref₁ e = merge (! ref) (! ref₁) e
+! slice ref x      = slice (! ref) x
+! cut ref x        = cut (! ref) x
+! cast eq ref      = cast eq (! ref)
+! nil              = nil
+! cons ref ref₁    = cons (! ref) (! ref₁)
+! head ref         = head (! ref)
+! tail ref         = tail (! ref)
 
-  slice : ∀ {n Γ i j t} → Expression {n} Γ (asType t (i ℕ.+ j)) → Expression Γ (fin (suc i)) → Expression Γ (asType t j)
-  slice e₁ e₂ = head (cut e₁ e₂)
-
-  slice′ : ∀ {n Γ i j t} → Expression {n} Γ (asType t (i ℕ.+ j)) → Expression Γ (fin (suc j)) → Expression Γ (asType t i)
-  slice′ {i = i} e₁ e₂ = slice (cast (+-comm i _) e₁) e₂
-
-  _-_   : ∀ {n Γ t₁ t₂} {isNumeric₁ : True (isNumeric? t₁)} {isNumeric₂ : True (isNumeric? t₂)} → Expression {n} Γ t₁ → Expression Γ t₂ → Expression Γ (combineNumeric t₁ t₂ isNumeric₁ isNumeric₂)
-  _-_ {isNumeric₂ = isNumeric₂} x y = x + (-_ {isNumeric = isNumeric₂} y)
-
-  _<<_ : ∀ {n Γ} → Expression {n} Γ int → ℕ → Expression Γ int
-  x << n = rnd (x * lit (2 ′r) ^ n)
-
-  get : ∀ {n Γ} → ℕ → Expression {n} Γ int → Expression Γ bit
-  get i x = if x - x >> suc i << suc i <? lit (2 ′i) ^ i then lit (false ′x) else lit (true ′x)
-
-  uint : ∀ {n Γ m} → Expression {n} Γ (bits m) → Expression Γ int
-  uint {m = zero}  x = lit (0 ′i)
-  uint {m = suc m} x =
-    lit (2 ′i) * uint {m = m} (slice x (lit (1F ′f))) +
-    ( if slice′ x (lit (0F ′f)) ≟ lit ((true ∷ []) ′xs)
-      then lit (1 ′i)
-      else lit (0 ′i))
-
-  sint : ∀ {n Γ m} → Expression {n} Γ (bits m) → Expression Γ int
-  sint {m = zero}        x = lit (0 ′i)
-  sint {m = suc zero}    x = if x ≟ lit ((true ∷ []) ′xs) then - lit (1 ′i) else lit (0 ′i)
-  sint {m = suc (suc m)} x =
-    lit (2 ′i) * sint (slice {i = 1} x (lit (1F ′f))) +
-    ( if slice′ x (lit (0F ′f)) ≟ lit ((true ∷ []) ′xs)
-      then lit (1 ′i)
-      else lit (0 ′i))
+!!_ : LocalReference Σ Γ t → Expression Σ Γ t
+!! var i            = var i
+!! [ ref ]          = [ !! ref ]
+!! unbox ref        = unbox (!! ref)
+!! merge ref ref₁ x = merge (!! ref) (!! ref₁) x
+!! slice ref x      = slice (!! ref) x
+!! cut ref x        = cut (!! ref) x
+!! cast eq ref      = cast eq (!! ref)
+!! nil              = nil
+!! cons ref ref₁    = cons (!! ref) (!! ref₁)
+!! head ref         = head (!! ref)
+!! tail ref         = tail (!! ref)

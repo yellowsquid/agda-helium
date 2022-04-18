@@ -22,11 +22,11 @@ open import Helium.Instructions.Core
 --   | z | < 2 ^ 31
 -- Computes:
 --   z mod n
-barret : (m -n : Expression [] (bits 32)) (t z : VecReg) (im : GenReg) → Procedure []
+barret : (m -n : Expression State [] (bits 32)) (t z : VecReg) (im : GenReg) → Procedure State []
 barret m -n t z im =
-  index R (lit (im ′f)) ≔ m ∙
+  *index R (lit im) ≔ m ∙
   invoke vqrdmulh-s32,t,z,m [] ∙
-  index R (lit (im ′f)) ≔ -n ∙
+  *index R (lit im) ≔ -n ∙
   invoke vmla-s32,z,t,-n [] ∙end
   where
   vqrdmulh-s32,t,z,m =

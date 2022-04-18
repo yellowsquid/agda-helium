@@ -96,9 +96,6 @@ import Helium.Data.Pseudocode.Core
 -- Ways to modify pseudocode statements and expressions.
 import Helium.Data.Pseudocode.Manipulate
 
--- Basic properties of the pseudocode data types
-import Helium.Data.Pseudocode.Properties
-
 -- Definition of instructions using the Armv8-M pseudocode.
 import Helium.Instructions.Base
 
@@ -117,14 +114,14 @@ import Helium.Semantics.Axiomatic
 -- Definition of assertions used in correctness triples
 import Helium.Semantics.Axiomatic.Assertion
 
--- Base definitions for the axiomatic semantics
-import Helium.Semantics.Axiomatic.Core
-
 -- Definition of terms for use in assertions
 import Helium.Semantics.Axiomatic.Term
 
 -- Definition of Hoare triples
 import Helium.Semantics.Axiomatic.Triple
+
+-- Base definitions for semantics
+import Helium.Semantics.Core
 
 -- Base definitions for the denotational semantics.
 import Helium.Semantics.Denotational.Core

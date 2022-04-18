@@ -17,31 +17,38 @@ open import Helium.Data.Pseudocode.Algebra.Properties pseudocode
 
 open import Data.Nat using (ℕ)
 import Data.Unit
-open import Data.Vec using (Vec)
 open import Function using (_∘_)
-open import Helium.Data.Pseudocode.Core
-import Helium.Semantics.Axiomatic.Core rawPseudocode as Core
-import Helium.Semantics.Axiomatic.Assertion rawPseudocode as Assertion
-import Helium.Semantics.Axiomatic.Term rawPseudocode as Term
-import Helium.Semantics.Axiomatic.Triple rawPseudocode as Triple
+import Helium.Semantics.Core rawPseudocode as Core′
+import Helium.Semantics.Axiomatic.Term rawPseudocode as Term′
+import Helium.Semantics.Axiomatic.Assertion rawPseudocode as Assertion′
 
-open Assertion.Construct public
-open Assertion.Assertion public
+private
+  proof-2≉0 : Core′.2≉0
+  proof-2≉0 = ℝ.<⇒≉ (ℝ.n≢0∧x>0⇒n×x>0 2 (ℝ.≤∧≉⇒< ℝ.0≤1 (ℝ.1≉0 ∘ ℝ.Eq.sym))) ∘ ℝ.Eq.sym
 
-open Assertion public
-  using (Assertion)
+module Core where
+  open Core′ public hiding (shift)
 
+  shift : ℤ → ℕ → ℤ
+  shift = Core′.shift proof-2≉0
+
+open Core public using (⟦_⟧ₜ; ⟦_⟧ₜ′; Κ[_]_; 2≉0)
+
+module Term where
+  open Term′ public hiding (module Semantics)
+  module Semantics {i} {j} {k} where
+    open Term′.Semantics {i} {j} {k} proof-2≉0 public
+
+open Term public using (Term; ↓_) hiding (module Term)
 open Term.Term public
-open Term public
-  using (Term)
 
-2≉0 : 2 ℝ.× 1ℝ ℝ.≉ 0ℝ
-2≉0 = ℝ.<⇒≉ (ℝ.n≢0∧x>0⇒n×x>0 2 (ℝ.≤∧≉⇒< ℝ.0≤1 (ℝ.1≉0 ∘ ℝ.Eq.sym))) ∘ ℝ.Eq.sym
+module Assertion where
+  open Assertion′ public hiding (module Semantics)
+  module Semantics where
+    open Assertion′.Semantics proof-2≉0 public
 
-HoareTriple : ∀ {o} {Σ : Vec Type o} {n} {Γ : Vec Type n} {m} {Δ : Vec Type m} → Assertion Σ Γ Δ → Code.Statement Σ Γ → Assertion Σ Γ Δ → Set _
-HoareTriple = Triple.HoareTriple 2≉0
+open Assertion public using (Assertion) hiding (module Assertion)
+open Assertion.Assertion public
+open Assertion.Construct public
 
-ℰ : ∀ {o} {Σ : Vec Type o} {n} {Γ : Vec Type n} {m} {Δ : Vec Type m} {t : Type} → Code.Expression Σ Γ t → Term Σ Γ Δ t
-ℰ = Term.ℰ 2≉0
-
-open Triple.HoareTriple 2≉0 public
+open import Helium.Semantics.Axiomatic.Triple rawPseudocode proof-2≉0 public
