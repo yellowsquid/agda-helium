@@ -18,6 +18,7 @@
                         #:select? (git-predicate %source-dir)))
     (build-system agda-build-system)
     (inputs (list agda-stdlib-1.7.1))
+    (arguments '(#:readme "Everything.agda"))
     (synopsis "Semantics of the Arm M-profile Vector Extension (MVE) in Agda")
     (description "")
     (license license:expat)))
