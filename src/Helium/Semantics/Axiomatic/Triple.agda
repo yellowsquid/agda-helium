@@ -22,7 +22,7 @@ import Data.Bool as Bool
 open import Data.Fin using (fromℕ; suc; inject₁)
 open import Data.Fin.Patterns
 open import Data.Nat using (ℕ; suc)
-open import Data.Vec using (Vec; _∷_)
+open import Data.Vec using (Vec; _∷_; [])
 open import Data.Vec.Relation.Unary.All as All using (All)
 open import Function using (_∘_)
 open import Helium.Data.Pseudocode.Core
@@ -58,10 +58,13 @@ open _⊆_ public
 data HoareTriple {Σ : Vec Type i} {Γ : Vec Type j} {Δ : Vec Type k} : Assertion Σ Γ Δ → Statement Σ Γ → Assertion Σ Γ Δ → Set (ℓsuc (b₁ ⊔ i₁ ⊔ r₁)) where
   seq     : ∀ Q → HoareTriple P s Q → HoareTriple Q s₁ R → HoareTriple P (s ∙ s₁) R
   skip    : P ⊆ Q → HoareTriple P skip Q
-  assign  : subst P ref (↓ val) ⊆ Q → HoareTriple P (ref ≔ val) Q
+  assign  : P ⊆ subst Q ref (↓ val) → HoareTriple P (ref ≔ val) Q
   declare : HoareTriple (Var.weaken 0F P ∧ equal (var 0F) (Term.Var.weaken 0F (↓ e))) s (Var.weaken 0F Q) → HoareTriple P (declare e s) Q
-  invoke  : ∀ (Q R : Assertion Σ ts Δ) → P ⊆ Var.elimAll Q (All.map ↓_ es) → HoareTriple Q s R → Var.inject Γ R ⊆ Var.raise ts S → HoareTriple P (invoke (s ∙end) es) S
+  invoke  : let metas = All.map (Term.Meta.inject Δ) (All.tabulate meta) in
+            let varsToMetas = λ P → Var.elimAll (Meta.weakenAll [] Γ P) metas in
+            let termVarsToMetas = λ t → Term.Var.elimAll (Term.Meta.weakenAll [] Γ t) metas in
+    HoareTriple (varsToMetas P ∧ equal (↓ tup (All.tabulate var)) (termVarsToMetas (↓ tup es))) s (varsToMetas Q) →
+    HoareTriple P (invoke (s ∙end) es) Q
   if      : HoareTriple (P ∧ pred (↓ e)) s Q → P ∧ pred (↓ inv e) ⊆ Q → HoareTriple P (if e then s) Q
   if-else : HoareTriple (P ∧ pred (↓ e)) s Q → HoareTriple (P ∧ pred (↓ inv e)) s Q → HoareTriple P (if e then s) Q
   for     : ∀ (I : Assertion _ _ (fin _ ∷ _)) → P ⊆ Meta.elim 0F I (↓ lit 0F) → HoareTriple {Δ = fin _ ∷ Δ} (Var.weaken 0F (Meta.elim 1F (Meta.weaken 0F I) (fin inject₁ (cons (meta 0F) nil)))) s (Var.weaken 0F (Meta.elim 1F (Meta.weaken 0F I) (fin suc (cons (meta 0F) nil)))) → Meta.elim 0F I (↓ lit (fromℕ m)) ⊆ Q → HoareTriple P (for m s) Q
-  some    : HoareTriple P s Q → HoareTriple (some P) s (some Q)

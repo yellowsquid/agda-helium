@@ -38,6 +38,7 @@ module Term where
   open Term′ public hiding (module Semantics)
   module Semantics {i} {j} {k} where
     open Term′.Semantics {i} {j} {k} proof-2≉0 public
+  open Semantics public using (⟦_⟧)
 
 open Term public using (Term; ↓_) hiding (module Term)
 open Term.Term public
@@ -46,6 +47,7 @@ module Assertion where
   open Assertion′ public hiding (module Semantics)
   module Semantics where
     open Assertion′.Semantics proof-2≉0 public
+  open Semantics public using (⟦_⟧)
 
 open Assertion public using (Assertion) hiding (module Assertion)
 open Assertion.Assertion public

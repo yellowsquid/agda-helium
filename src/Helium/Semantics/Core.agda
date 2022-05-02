@@ -24,7 +24,8 @@ import Data.Fin.Properties as Finₚ
 open import Data.Integer as 𝕀 using () renaming (ℤ to 𝕀)
 open import Data.Nat as ℕ using (ℕ; suc)
 import Data.Nat.Properties as ℕₚ
-open import Data.Product as × using (_×_; _,_)
+open import Data.Product using (_×_; _,_; proj₁; proj₂; _-×-_)
+open import Data.Product.Relation.Binary.Pointwise.NonDependent using (×-decidable) renaming (Pointwise to ×-Pointwise)
 open import Data.Sign using (Sign)
 open import Data.Unit using (⊤)
 open import Data.Vec as Vec using (Vec; []; _∷_; _++_; lookup; map; take; drop)
@@ -36,7 +37,7 @@ open import Level hiding (suc)
 open import Relation.Binary
 import Relation.Binary.Construct.On as On
 open import Relation.Binary.PropositionalEquality
-open import Relation.Nullary using (¬_)
+open import Relation.Nullary using (¬_; yes)
 open import Relation.Nullary.Decidable.Core using (map′)
 
 private
