@@ -59,10 +59,10 @@ private
 open ℕₚ.≤-Reasoning
 
 𝕀⇒ℤ : 𝕀 → ℤ
-𝕀⇒ℤ z = Sign⇒- (𝕀.sign z) ℤ.-_ (𝕀.∣ z ∣ ℤ′.×′ 1ℤ)
+𝕀⇒ℤ z = Sign⇒- (𝕀.sign z) ℤ.-_ (𝕀.∣ z ∣ ℤ.× 1ℤ)
 
 𝕀⇒ℝ : 𝕀 → ℝ
-𝕀⇒ℝ z = Sign⇒- (𝕀.sign z) ℝ.-_ (𝕀.∣ z ∣ ℝ′.×′ 1ℝ)
+𝕀⇒ℝ z = Sign⇒- (𝕀.sign z) ℝ.-_ (𝕀.∣ z ∣ ℝ.× 1ℝ)
 
 castVec : .(eq : m ≡ n) → Vec A m → Vec A n
 castVec {m = .0}     {0}     eq []       = []
@@ -110,7 +110,7 @@ _≈_ ⦃ bool ⦄  = Lift ℓ₁ ∘₂ _≡_ on lower
 _≈_ ⦃ int ⦄   = Lift ℓ₁ ∘₂ ℤ._≈_ on lower
 _≈_ ⦃ fin ⦄   = Lift ℓ₁ ∘₂ _≡_ on lower
 _≈_ ⦃ real ⦄  = Lift ℓ₁ ∘₂ ℝ._≈_ on lower
-_≈_ ⦃ bit ⦄   = Lift ℓ₁ ∘₂ 𝔹._≈_ on lower
+_≈_ ⦃ bit ⦄   = Lift ℓ₁ ∘₂ Bit._≈_ on lower
 _≈_ ⦃ array ⦄ = Pointwise _≈_
 
 _<_ : ⦃ Ordered t ⦄ → Rel ⟦ t ⟧ₜ ℓ₂
@@ -120,16 +120,16 @@ _<_ ⦃ real ⦄ = Lift ℓ₂ ∘₂ ℝ._<_ on lower
 
 ≈-dec : ⦃ hasEq : HasEquality t ⦄ → Decidable (_≈_ ⦃ hasEq ⦄)
 ≈-dec ⦃ bool ⦄  = map′ lift lower ∘₂ On.decidable lower _≡_ Bool._≟_
-≈-dec ⦃ int ⦄   = map′ lift lower ∘₂ On.decidable lower ℤ._≈_ _≟ᶻ_
+≈-dec ⦃ int ⦄   = map′ lift lower ∘₂ On.decidable lower ℤ._≈_ ℤ._≟_
 ≈-dec ⦃ fin ⦄   = map′ lift lower ∘₂ On.decidable lower _≡_ Fin._≟_
-≈-dec ⦃ real ⦄  = map′ lift lower ∘₂ On.decidable lower ℝ._≈_ _≟ʳ_
-≈-dec ⦃ bit ⦄   = map′ lift lower ∘₂ On.decidable lower 𝔹._≈_ _≟ᵇ₁_
+≈-dec ⦃ real ⦄  = map′ lift lower ∘₂ On.decidable lower ℝ._≈_ ℝ._≟_
+≈-dec ⦃ bit ⦄   = map′ lift lower ∘₂ On.decidable lower Bit._≈_ Bit._≟_
 ≈-dec ⦃ array ⦄ = decidable ≈-dec
 
 <-dec : ⦃ ordered : Ordered t ⦄ → Decidable (_<_ ⦃ ordered ⦄)
-<-dec ⦃ int ⦄  = map′ lift lower ∘₂ On.decidable lower ℤ._<_ _<ᶻ?_
+<-dec ⦃ int ⦄  = map′ lift lower ∘₂ On.decidable lower ℤ._<_ ℤ._<?_
 <-dec ⦃ fin ⦄  = map′ lift lower ∘₂ On.decidable lower Fin._<_ Fin._<?_
-<-dec ⦃ real ⦄ = map′ lift lower ∘₂ On.decidable lower ℝ._<_ _<ʳ?_
+<-dec ⦃ real ⦄ = map′ lift lower ∘₂ On.decidable lower ℝ._<_ ℝ._<?_
 
 Κ[_]_ : ∀ t → literalType t → ⟦ t ⟧ₜ
 Κ[ bool ]                x        = lift x
@@ -143,7 +143,7 @@ _<_ ⦃ real ⦄ = Lift ℓ₂ ∘₂ ℝ._<_ on lower
 Κ[ array t n ]           x        = map Κ[ t ]_ x
 
 2≉0 : Set _
-2≉0 = ¬ 2 ℝ′.×′ 1ℝ ℝ.≈ 0ℝ
+2≉0 = ¬ 2 ℝ.× 1ℝ ℝ.≈ 0ℝ
 
 neg : ⦃ IsNumeric t ⦄ → Op₁ ⟦ t ⟧ₜ
 neg ⦃ int ⦄  = lift ∘ ℤ.-_ ∘ lower
@@ -162,11 +162,11 @@ mul ⦃ real ⦄ ⦃ int ⦄  x y = lift (lower x ℝ.* lower y /1)
 mul ⦃ real ⦄ ⦃ real ⦄ x y = lift (lower x ℝ.* lower y)
 
 pow : ⦃ IsNumeric t ⦄ → ⟦ t ⟧ₜ → ℕ → ⟦ t ⟧ₜ
-pow ⦃ int ⦄  = lift ∘₂ ℤ′._^′_ ∘ lower
-pow ⦃ real ⦄ = lift ∘₂ ℝ′._^′_ ∘ lower
+pow ⦃ int ⦄  = lift ∘₂ ℤ._^_ ∘ lower
+pow ⦃ real ⦄ = lift ∘₂ ℝ._^_ ∘ lower
 
 shift : 2≉0 → ℤ → ℕ → ℤ
-shift 2≉0 z n = ⌊ z /1 ℝ.* 2≉0 ℝ.⁻¹ ℝ′.^′ n ⌋
+shift 2≉0 z n = ⌊ z /1 ℝ.* 2≉0 ℝ.⁻¹ ℝ.^ n ⌋
 
 lowerFin : ∀ (ms : Vec ℕ n) → ⟦ tuple (map fin ms) ⟧ₜ → literalTypes (map fin ms)
 lowerFin []            _        = _

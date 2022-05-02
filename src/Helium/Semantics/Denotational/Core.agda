@@ -58,9 +58,9 @@ module Semantics (2≉0 : 2≉0) where
   expr (inv e)                = lift ∘ Bool.not ∘ lower ∘ expr e
   expr (e && e₁)              = lift ∘ uncurry (Bool._∧_ on lower) ∘ < expr e , expr e₁ >
   expr (e || e₁)              = lift ∘ uncurry (Bool._∨_ on lower) ∘ < expr e , expr e₁ >
-  expr (not e)                = map (lift ∘ 𝔹.¬_ ∘ lower) ∘ expr e
-  expr (e and e₁)             = uncurry (zipWith (lift ∘₂ 𝔹._∧_ on lower)) ∘ < expr e , expr e₁ >
-  expr (e or e₁)              = uncurry (zipWith (lift ∘₂ 𝔹._∨_ on lower)) ∘ < expr e , expr e₁ >
+  expr (not e)                = map (lift ∘ Bit.¬_ ∘ lower) ∘ expr e
+  expr (e and e₁)             = uncurry (zipWith (lift ∘₂ Bit._∧_ on lower)) ∘ < expr e , expr e₁ >
+  expr (e or e₁)              = uncurry (zipWith (lift ∘₂ Bit._∨_ on lower)) ∘ < expr e , expr e₁ >
   expr [ e ]                  = (_∷ []) ∘ expr e
   expr (unbox e)              = Vec.head ∘ expr e
   expr (merge e e₁ e₂)        = uncurry (uncurry mergeVec) ∘ < < expr e , expr e₁ > , lower ∘ expr e₂ >

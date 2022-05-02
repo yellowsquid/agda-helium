@@ -32,7 +32,7 @@ module Core where
   shift : ℤ → ℕ → ℤ
   shift = Core′.shift proof-2≉0
 
-open Core public using (⟦_⟧ₜ; ⟦_⟧ₜ′; Κ[_]_; 2≉0)
+open Core public using (⟦_⟧ₜ; ⟦_⟧ₜ′; _≈_; _<_; Κ[_]_; 2≉0)
 
 module Term where
   open Term′ public hiding (module Semantics)

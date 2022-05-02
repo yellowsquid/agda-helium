@@ -37,22 +37,18 @@ private
 open pseudocode public
   hiding
   ( integerDiscrete; 1≉0; ⌊⌋-floor
-  ; module ℤ; module ℤ′; module ℤ-Reasoning
-  ; module ℝ; module ℝ′; module ℝ-Reasoning
-  ; module ⌊⌋
-  ; module /1
+  ; module ℤ; module ℝ; module ⌊⌋; module /1
   )
 
 module ℤ where
   open pseudocode.ℤ public
-    hiding (ℤ; 0ℤ; 1ℤ)
+    hiding (ℤ; 0ℤ; 1ℤ; _^_; _×_)
     renaming
     ( trans to <-trans
     ; irrefl to <-irrefl
     ; asym to <-asym
     ; 0<a+0<b⇒0<ab to x>0∧y>0⇒xy>0
     )
-  module Reasoning = pseudocode.ℤ-Reasoning
 
   open CommRingₚ integerRing public
 
@@ -69,17 +65,15 @@ module ℤ where
 
 module ℝ where
   open pseudocode.ℝ public
-    hiding (ℝ; 0ℝ; 1ℝ)
+    hiding (ℝ; 0ℝ; 1ℝ; _^_; _×_)
     renaming
     ( trans to <-trans
     ; irrefl to <-irrefl
     ; asym to <-asym
     ; 0<a+0<b⇒0<ab to x>0∧y>0⇒x*y>0
     )
-  module Reasoning = pseudocode.ℝ-Reasoning
 
   open Fieldₚ realField public
-    hiding ()
 
   1≉0 : 1ℝ ≉ 0ℝ
   1≉0 1≈0 = ℤ.1≉0 (begin-equality

@@ -21,9 +21,6 @@ import Helium.Algebra.Core
 -- (packed in records together with sets, operations, etc.)
 import Helium.Algebra.Decidable.Bundles
 
--- Construct decidable algebras of vectors in a pointwise manner
-import Helium.Algebra.Decidable.Construct.Pointwise
-
 -- Some decidable algebraic structures (not packed up with sets,
 -- operations, etc.)
 import Helium.Algebra.Decidable.Structures

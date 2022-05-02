@@ -12,7 +12,7 @@ open import Algebra.Core
 import Algebra.Definitions.RawSemiring as RS
 open import Data.Bool.Base using (Bool; if_then_else_)
 open import Data.Empty using (⊥-elim)
-open import Data.Fin.Base as Fin hiding (cast)
+open import Data.Fin.Base as Fin hiding (cast; _<_)
 import Data.Fin.Properties as Fₚ
 import Data.Fin.Induction as Induction
 open import Data.Nat.Base using (ℕ; zero; suc)
@@ -23,7 +23,6 @@ import Data.Vec.Functional.Relation.Binary.Pointwise.Properties as Pwₚ
 open import Function using (_$_; _∘′_; id)
 open import Helium.Algebra.Decidable.Bundles
   using (BooleanAlgebra; RawBooleanAlgebra)
-import Helium.Algebra.Decidable.Construct.Pointwise as Pw
 open import Helium.Algebra.Ordered.StrictTotal.Bundles
 open import Helium.Algebra.Ordered.StrictTotal.Morphism.Structures
 open import Level using (_⊔_) renaming (suc to ℓsuc)
@@ -32,7 +31,7 @@ import Relation.Binary.Construct.StrictToNonStrict as ToNonStrict
 open import Relation.Binary.Definitions
 open import Relation.Binary.Morphism.Structures
 open import Relation.Binary.PropositionalEquality as P using (_≡_)
-import Relation.Binary.Reasoning.StrictPartialOrder as Reasoning
+import Relation.Binary.Reasoning.StrictPartialOrder as RawReasoning
 open import Relation.Binary.Structures using (IsStrictTotalOrder)
 open import Relation.Nullary using (does; yes; no) renaming (¬_ to ¬′_)
 open import Relation.Nullary.Decidable.Core
@@ -44,40 +43,54 @@ record RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ : Set (ℓsuc (b₁
     integerRawRing : RawRing i₁ i₂ i₃
     realRawField : RawField r₁ r₂ r₃
 
-  bitsRawBooleanAlgebra : ℕ → RawBooleanAlgebra b₁ b₂
-  bitsRawBooleanAlgebra =  Pw.rawBooleanAlgebra  bitRawBooleanAlgebra
+  infix 4 _≟ᶻ_ _<ᶻ?_ _≟ʳ_ _<ʳ?_ _≟ᵇ_
+  field
+    _≟ᶻ_  : Decidable (RawRing._≈_ integerRawRing)
+    _<ᶻ?_ : Decidable (RawRing._<_ integerRawRing)
+    _≟ʳ_  : Decidable (RawField._≈_ realRawField)
+    _<ʳ?_ : Decidable (RawField._<_ realRawField)
+    _≟ᵇ_  : Decidable (RawBooleanAlgebra._≈_ bitRawBooleanAlgebra)
 
-  module 𝔹 = RawBooleanAlgebra bitRawBooleanAlgebra
-    renaming (Carrier to Bit; ⊤ to 1𝔹; ⊥ to 0𝔹)
-  module Bits {n} = RawBooleanAlgebra (bitsRawBooleanAlgebra n)
-    renaming (⊤ to ones; ⊥ to zeros)
-  module ℤ = RawRing integerRawRing renaming (Carrier to ℤ; 1# to 1ℤ; 0# to 0ℤ)
-  module ℝ = RawField realRawField renaming (Carrier to ℝ; 1# to 1ℝ; 0# to 0ℝ)
-  module ℤ′ = RS ℤ.Unordered.rawSemiring
-  module ℝ′ = RS ℝ.Unordered.rawSemiring
+  field
+    _/1 : RawRing.Carrier integerRawRing → RawField.Carrier realRawField
+    ⌊_⌋ : RawField.Carrier realRawField → RawRing.Carrier integerRawRing
 
-  Bits : ℕ → Set b₁
-  Bits n = Bits.Carrier {n}
+  module Bit where
+    open RawBooleanAlgebra bitRawBooleanAlgebra public
+      renaming (Carrier to Bit; ⊤ to 1𝔹; ⊥ to 0𝔹)
 
-  open 𝔹 public using (Bit; 1𝔹; 0𝔹)
-  open Bits public using (ones; zeros)
+    _≟_ : Decidable _≈_
+    _≟_ = _≟ᵇ_
+
+  module ℤ where
+    open RawRing integerRawRing public
+      renaming (Carrier to ℤ; 1# to 1ℤ; 0# to 0ℤ)
+    open RS Unordered.rawSemiring public
+      hiding (_×_; _^_)
+      renaming (_×′_ to _×_; _^′_ to _^_)
+
+    _≟_ : Decidable _≈_
+    _≟_ = _≟ᶻ_
+
+    _<?_ : Decidable _<_
+    _<?_ = _<ᶻ?_
+
+  module ℝ where
+    open RawField realRawField public
+      renaming (Carrier to ℝ; 1# to 1ℝ; 0# to 0ℝ)
+    open RS Unordered.rawSemiring public
+      hiding (_×_; _^_)
+      renaming (_×′_ to _×_; _^′_ to _^_)
+
+    _≟_ : Decidable _≈_
+    _≟_ = _≟ʳ_
+
+    _<?_ : Decidable _<_
+    _<?_ = _<ʳ?_
+
+  open Bit public using (Bit; 1𝔹; 0𝔹)
   open ℤ public using (ℤ; 1ℤ; 0ℤ)
   open ℝ public using (ℝ; 1ℝ; 0ℝ)
-
-  infix 4 _≟ᶻ_ _<ᶻ?_ _≟ʳ_ _<ʳ?_ _≟ᵇ₁_ _≟ᵇ_
-  field
-    _≟ᶻ_  : Decidable ℤ._≈_
-    _<ᶻ?_ : Decidable ℤ._<_
-    _≟ʳ_  : Decidable ℝ._≈_
-    _<ʳ?_ : Decidable ℝ._<_
-    _≟ᵇ₁_ : Decidable 𝔹._≈_
-
-  _≟ᵇ_ : ∀ {n} → Decidable (Bits._≈_ {n})
-  _≟ᵇ_ = Pwₚ.decidable _≟ᵇ₁_
-
-  field
-    _/1 : ℤ → ℝ
-    ⌊_⌋ : ℝ → ℤ
 
 record Pseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ :
                   Set (ℓsuc (b₁ ⊔ b₂ ⊔ i₁ ⊔ i₂ ⊔ i₃ ⊔ r₁ ⊔ r₂ ⊔ r₃)) where
@@ -86,43 +99,44 @@ record Pseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ :
     integerRing       : CommutativeRing i₁ i₂ i₃
     realField         : Field r₁ r₂ r₃
 
-  bitsBooleanAlgebra : ℕ → BooleanAlgebra b₁ b₂
-  bitsBooleanAlgebra = Pw.booleanAlgebra bitBooleanAlgebra
-
-  module 𝔹 = BooleanAlgebra bitBooleanAlgebra
-    renaming (Carrier to Bit; ⊤ to 1𝔹; ⊥ to 0𝔹)
-  module Bits {n} = BooleanAlgebra (bitsBooleanAlgebra n)
-    renaming (⊤ to ones; ⊥ to zeros)
-  module ℤ = CommutativeRing integerRing
-    renaming (Carrier to ℤ; 1# to 1ℤ; 0# to 0ℤ)
-  module ℝ = Field realField
-    renaming (Carrier to ℝ; 1# to 1ℝ; 0# to 0ℝ)
-
-  Bits : ℕ → Set b₁
-  Bits n = Bits.Carrier {n}
-
-  open 𝔹 public using (Bit; 1𝔹; 0𝔹)
-  open Bits public using (ones; zeros)
-  open ℤ public using (ℤ; 1ℤ; 0ℤ)
-  open ℝ public using (ℝ; 1ℝ; 0ℝ)
-
-  module ℤ-Reasoning = Reasoning ℤ.strictPartialOrder
-  module ℝ-Reasoning = Reasoning ℝ.strictPartialOrder
-
   private
-    module ℤ-ord = ToNonStrict ℤ._≈_ ℤ._<_
-    module ℝ-ord = ToNonStrict ℝ._≈_ ℝ._<_
+    module ℤ′ = CommutativeRing integerRing
+    module ℝ′ = Field realField
+    module ℤ-ord = ToNonStrict ℤ′._≈_ ℤ′._<_
+    module ℝ-ord = ToNonStrict ℝ′._≈_ ℝ′._<_
 
   field
-    integerDiscrete : ∀ x y → y ℤ-ord.≤ x ⊎ x ℤ.+ 1ℤ ℤ-ord.≤ y
-    1≉0 : ¬′ 1ℤ ℤ.≈ 0ℤ
+    integerDiscrete : ∀ x y → y ℤ-ord.≤ x ⊎ x ℤ′.+ ℤ′.1# ℤ-ord.≤ y
+    1≉0 : ¬′ ℤ′.1# ℤ′.≈ ℤ′.0#
 
-    _/1 : ℤ → ℝ
-    ⌊_⌋ : ℝ → ℤ
-    /1-isHomo : IsRingHomomorphism ℤ.rawRing ℝ.rawRing _/1
-    ⌊⌋-isHomo : IsOrderHomomorphism ℝ._≈_ ℤ._≈_ ℝ-ord._≤_ ℤ-ord._≤_ ⌊_⌋
-    ⌊⌋-floor : ∀ x y → x ℝ.< y /1 → ⌊ x ⌋ ℤ.< y
-    ⌊x/1⌋≈x : ∀ x → ⌊ x /1 ⌋ ℤ.≈ x
+    _/1 : ℤ′.Carrier → ℝ′.Carrier
+    ⌊_⌋ : ℝ′.Carrier → ℤ′.Carrier
+    /1-isHomo : IsRingHomomorphism ℤ′.rawRing ℝ′.rawRing _/1
+    ⌊⌋-isHomo : IsOrderHomomorphism ℝ′._≈_ ℤ′._≈_ ℝ-ord._≤_ ℤ-ord._≤_ ⌊_⌋
+    ⌊⌋-floor : ∀ x y → x ℝ′.< y /1 → ⌊ x ⌋ ℤ′.< y
+    ⌊x/1⌋≈x : ∀ x → ⌊ x /1 ⌋ ℤ′.≈ x
+
+  module Bit where
+    open BooleanAlgebra bitBooleanAlgebra public
+      renaming (Carrier to Bit; ⊤ to 1𝔹; ⊥ to 0𝔹)
+
+  module ℤ where
+    open CommutativeRing integerRing public
+      renaming (Carrier to ℤ; 1# to 1ℤ; 0# to 0ℤ)
+    open RS Unordered.rawSemiring public
+
+    module Reasoning = RawReasoning strictPartialOrder
+
+  module ℝ where
+    open Field realField public
+      renaming (Carrier to ℝ; 1# to 1ℝ; 0# to 0ℝ)
+    open RS Unordered.rawSemiring public
+
+    module Reasoning = RawReasoning strictPartialOrder
+
+  open Bit public using (Bit; 1𝔹; 0𝔹)
+  open ℤ public using (ℤ; 1ℤ; 0ℤ)
+  open ℝ public using (ℝ; 1ℝ; 0ℝ)
 
   module /1 = IsRingHomomorphism /1-isHomo
   module ⌊⌋ = IsOrderHomomorphism ⌊⌋-isHomo
@@ -147,9 +161,7 @@ record Pseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃ :
     ; _<ᶻ?_ = ℤ._<?_
     ; _≟ʳ_ = ℝ._≟_
     ; _<ʳ?_ = ℝ._<?_
-    ; _≟ᵇ₁_ = 𝔹._≟_
+    ; _≟ᵇ_ = Bit._≟_
     ; _/1 = _/1
     ; ⌊_⌋ = ⌊_⌋
     }
-
-  open RawPseudocode rawPseudocode using (module ℤ′; module ℝ′) public
