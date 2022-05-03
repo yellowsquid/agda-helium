@@ -14,7 +14,7 @@ open import Data.Fin.Patterns
 open import Data.Integer as ℤ using (1ℤ; 0ℤ; -1ℤ)
 open import Data.Nat as ℕ using (ℕ; zero; suc)
 import Data.Nat.Properties as ℕₚ
-open import Data.Product using (uncurry)
+open import Data.Product using (_,_; uncurry)
 open import Data.Sum using ([_,_]′; inj₂)
 open import Data.Vec as Vec using (Vec; []; _∷_)
 open import Data.Vec.Relation.Unary.All using (All; []; _∷_)
@@ -124,31 +124,38 @@ sliceⁱ {m = suc m} n i = sliceⁱ (suc n) i ∶ [ getBit n i ]
 --- Functions
 
 Int : Function State (bits n ∷ bool ∷ []) int
-Int = skip ∙return (if var 1F then uint (var 0F) else sint (var 0F))
+Int = init if var 1F then uint (var 0F) else sint (var 0F) ∙ skip end
 
 -- arguments swapped, pred n
 SignedSatQ : ∀ n → Function State (int ∷ []) (tuple (bits (suc n) ∷ bool ∷ []))
-SignedSatQ n = declare (lit true) (
-  if max <? var 1F
-  then
-    var 1F ≔ max
-  else if var 1F <? min
-  then
-    var 1F ≔ min
-  else
-    var 0F ≔ lit false
-  ∙return tup (sliceⁱ 0 (var 1F) ∷ var 0F ∷ []))
+SignedSatQ n =
+  init
+    lit (Vec.replicate false , true) ∙
+    ( if max <? var 1F
+      then
+        var 1F ≔ max
+      else if var 1F <? min
+      then
+        var 1F ≔ min
+      else
+        head (tail (var 0F)) ≔ lit false ∙
+      head (var 0F) ≔ sliceⁱ 0 (var 1F))
+  end
   where
   max = lit (ℤ.+ (2 ℕ.^ n) ℤ.+ -1ℤ)
   min = lit (ℤ.- ℤ.+ (2 ℕ.^ n))
 
--- actual shift if 'shift + 1'
+-- actual shift is 'shift + 1'
 LSL-C : ∀ (shift : ℕ) → Function State (bits n ∷ []) (tuple (bits n ∷ bit ∷ []))
-LSL-C {n} shift = declare (var 0F ∶ lit ((Vec.replicate {n = (suc shift)} false)))
-  (skip ∙return tup
-    ( slice (var 0F) (lit 0F)
-    ∷ unbox (slice (cast eq (var 0F)) (lit (Fin.inject+ shift (Fin.fromℕ n))))
-    ∷ []))
+LSL-C {n} shift =
+  init
+    lit (Vec.replicate false , false) ∙
+    declare (var 1F ∶ lit (Vec.replicate {n = suc shift} false)) (
+      var 1F ≔ tup (
+        slice (var 0F) (lit 0F) ∷
+        unbox (slice (cast eq (var 0F)) (lit (Fin.inject+ shift (Fin.fromℕ n)))) ∷
+        []))
+  end
   where
   eq = P.trans (ℕₚ.+-comm 1 (shift ℕ.+ n)) (P.cong (ℕ._+ 1) (ℕₚ.+-comm shift n))
 
@@ -190,15 +197,16 @@ VPTAdvance = declare (fin div2 (tup (var 0F ∷ []))) (
     ∙end
 
 VPTActive : Function State (beat ∷ []) bool
-VPTActive = skip ∙return inv (elem 4 (! VPR-mask) (fin div2 (tup (var 0F ∷ []))) ≟ lit (Vec.replicate false))
+VPTActive = init inv (elem 4 (! VPR-mask) (fin div2 (tup (var 0F ∷ []))) ≟ lit (Vec.replicate false)) ∙ skip end
 
 GetCurInstrBeat : Function State [] (tuple (beat ∷ elmtMask ∷ []))
-GetCurInstrBeat = declare (lit (Vec.replicate true)) (
-  -- 0:elmtMask 1:beat
-  if call VPTActive (! BeatId ∷ [])
-  then
-    var 0F ≔ var 0F and elem 4 (! VPR-P0) (! BeatId)
-  ∙return tup (! BeatId ∷ var 0F ∷ []))
+GetCurInstrBeat =
+  init
+    tup (! BeatId ∷ lit (Vec.replicate true) ∷ []) ∙
+    if call VPTActive (! BeatId ∷ [])
+    then
+      head (tail (var 0F)) ≔ head (tail (var 0F)) and elem 4 (! VPR-P0) (head (var 0F))
+  end
 
 -- Assumes:
 --   MAX_OVERLAPPING_INSTRS = 1
@@ -257,30 +265,30 @@ module _ (d : Instr.VecOp₂) where
   vec-op₂ op = vec-op₂′ (*index-32 size (var 3F) (var 1F) ≔ call op (index-32 size (var 2F) (var 1F) ∷ var 0F ∷ []))
 
 vadd : Instr.VAdd → Procedure State []
-vadd d = vec-op₂ d (skip ∙return sliceⁱ 0 (uint (var 0F) + uint (var 1F)))
+vadd d = vec-op₂ d (init sliceⁱ 0 (uint (var 0F) + uint (var 1F)) ∙ skip end)
 
 vsub : Instr.VSub → Procedure State []
-vsub d = vec-op₂ d (skip ∙return sliceⁱ 0 (uint (var 0F) - uint (var 1F)))
+vsub d = vec-op₂ d (init sliceⁱ 0 (uint (var 0F) - uint (var 1F)) ∙ skip end)
 
 vhsub : Instr.VHSub → Procedure State []
-vhsub d = vec-op₂ op₂ (skip ∙return sliceⁱ 1 (toInt (var 0F) - toInt (var 1F)))
+vhsub d = vec-op₂ op₂ (init sliceⁱ 1 (toInt (var 0F) - toInt (var 1F)) ∙ skip end)
   where open Instr.VHSub d; toInt = λ i → call Int (i ∷ lit unsigned ∷ [])
 
 vmul : Instr.VMul → Procedure State []
-vmul d = vec-op₂ d (skip ∙return sliceⁱ 0 (sint (var 0F) * sint (var 1F)))
+vmul d = vec-op₂ d (init sliceⁱ 0 (sint (var 0F) * sint (var 1F)) ∙ skip end)
 
 vmulh : Instr.VMulH → Procedure State []
-vmulh d = vec-op₂ op₂ (skip ∙return sliceⁱ (toℕ esize) (toInt (var 0F) * toInt (var 1F)))
+vmulh d = vec-op₂ op₂ (init sliceⁱ (toℕ esize) (toInt (var 0F) * toInt (var 1F)) ∙ skip end)
   where
   open Instr.VMulH d; toInt = λ i → call Int (i ∷ lit unsigned ∷ [])
 
 vrmulh : Instr.VRMulH → Procedure State []
-vrmulh d = vec-op₂ op₂ (skip ∙return sliceⁱ (toℕ esize) (toInt (var 0F) * toInt (var 1F) + lit 1ℤ << toℕ esize-1))
+vrmulh d = vec-op₂ op₂ (init sliceⁱ (toℕ esize) (toInt (var 0F) * toInt (var 1F) + lit 1ℤ << toℕ esize-1) ∙ skip end)
   where
   open Instr.VRMulH d; toInt = λ i → call Int (i ∷ lit unsigned ∷ [])
 
 vmla : Instr.VMlA → Procedure State []
-vmla d = vec-op₂ op₂ (skip ∙return sliceⁱ (toℕ esize) (toInt (var 0F) * element₂ + toInt (var 1F)))
+vmla d = vec-op₂ op₂ (init sliceⁱ (toℕ esize) (toInt (var 0F) * element₂ + toInt (var 1F))∙ skip end)
   where
   open Instr.VMlA d
   op₂ = record { size = size ; dest = acc ; src₁ = src₁ ; src₂ = inj₂ acc }
@@ -310,9 +318,9 @@ private
       helper Instr.32bit i = Fin.combine i zero
 
 vqdmulh : Instr.VQDMulH → Procedure State []
-vqdmulh d = vqr?dmulh d (skip ∙return lit (ℤ.+ 2) * var 0F * var 1F >> toℕ esize)
+vqdmulh d = vqr?dmulh d (init lit (ℤ.+ 2) * var 0F * var 1F >> toℕ esize ∙ skip end)
   where open Instr.VecOp₂ d using (esize)
 
 vqrdmulh : Instr.VQRDMulH → Procedure State []
-vqrdmulh d = vqr?dmulh d (skip ∙return lit (ℤ.+ 2) * var 0F * var 1F + lit 1ℤ << toℕ esize-1 >> toℕ esize)
+vqrdmulh d = vqr?dmulh d (init lit (ℤ.+ 2) * var 0F * var 1F + lit 1ℤ << toℕ esize-1 >> toℕ esize ∙ skip end)
   where open Instr.VecOp₂ d using (esize; esize-1)

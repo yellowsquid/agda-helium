@@ -18,7 +18,7 @@ private
 
 import Data.Bool as Bool
 open import Data.Empty using (⊥-elim)
-import Data.Fin as Fin
+open import Data.Fin as Fin using (zero)
 import Data.Integer as 𝕀
 open import Data.Nat using (ℕ)
 open import Data.Product using (_×_; _,_; proj₁; proj₂; <_,_>; uncurry)
@@ -27,7 +27,7 @@ open import Data.Vec.Relation.Unary.All using (All; []; _∷_)
 open import Function
 open import Helium.Data.Pseudocode.Core
 open import Helium.Semantics.Core rawPseudocode
-open import Level
+open import Level hiding (zero)
 open import Relation.Binary.PropositionalEquality using (sym)
 open import Relation.Nullary using (does)
 
@@ -153,7 +153,6 @@ module Semantics (2≉0 : 2≉0) where
   locStmt (if e then s else s₁) = uncurry (uncurry Bool.if_then_else_) ∘ < < lower ∘ expr e , locStmt s > , locStmt s₁ >
   locStmt {Γ = Γ} (for m s)     = proj₂ ∘ Vec.foldl _ (flip λ i → (< proj₁ , tail′ Γ ∘ locStmt s > ∘ < proj₁ , cons′ Γ (lift i) ∘ proj₂ >) ∘_) id (Vec.allFin m)
 
-  fun {Γ = Γ} (declare e f) = fun f ∘ < proj₁ , uncurry (cons′ Γ) ∘ < expr e , proj₂ > >
-  fun         (s ∙return e) = expr e ∘ < proj₁ , locStmt s >
+  fun {Γ = Γ} (init e ∙ s end) = fetch zero (_ ∷ Γ) ∘ locStmt s ∘ < proj₁ , uncurry (cons′ Γ) ∘ < expr e , proj₂ > >
 
   proc (s ∙end) = proj₁ ∘ stmt s

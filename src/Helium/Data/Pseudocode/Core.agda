@@ -87,7 +87,7 @@ infix  4 _≟_ _<?_
 infix  3 _≔_
 
 infixl 2 if_then_ if_then_else_
-infixl 1 _∙_ _∙return_
+infixl 1 _∙_ init_∙_end
 infix  1 _∙end
 
 data Expression (Σ : Vec Type o) (Γ : Vec Type n) : Type → Set
@@ -178,8 +178,7 @@ data LocalStatement Σ Γ where
   for           : ∀ n → LocalStatement Σ (fin n ∷ Γ) → LocalStatement Σ Γ
 
 data Function Σ Γ ret where
-  declare   : Expression Σ Γ t → Function Σ (t ∷ Γ) ret → Function Σ Γ ret
-  _∙return_ : LocalStatement Σ Γ → Expression Σ Γ ret → Function Σ Γ ret
+  init_∙_end : Expression Σ Γ ret → LocalStatement Σ (ret ∷ Γ) → Function Σ Γ ret
 
 data Procedure Σ Γ where
   _∙end : Statement Σ Γ → Procedure Σ Γ
@@ -207,19 +206,18 @@ getBit : ℕ → Expression Σ Γ int → Expression Σ Γ bit
 getBit i x = if x - x >> suc i << suc i <? lit (ℤ.+ (2 ℕ.^ i)) then lit false else lit true
 
 uint : Expression Σ Γ (bits m) → Expression Σ Γ int
-uint {m = 0}     x = lit ℤ.0ℤ
-uint {m = suc m} x =
-  lit (ℤ.+ 2) * uint {m = m} (slice x (lit 1F)) +
-  ( if slice′ x (lit 0F) ≟ lit (true ∷ [])
-    then lit ℤ.1ℤ
-    else lit ℤ.0ℤ)
+uint {m = 0}           x = lit ℤ.0ℤ
+uint {m = 1}           x = if x ≟ lit (true ∷ []) then lit ℤ.1ℤ else lit ℤ.0ℤ
+uint {m = suc (suc m)} x =
+  lit (ℤ.+ 2) * uint (slice {n = _} {n = 1} x (lit 1F)) +
+  uint (cut {n = _} {n = 1} x (lit 1F))
 
 sint : Expression Σ Γ (bits m) → Expression Σ Γ int
 sint {m = 0}           x = lit ℤ.0ℤ
 sint {m = 1}           x = if x ≟ lit (true ∷ []) then lit ℤ.-1ℤ else lit ℤ.0ℤ
 sint {m = suc (suc m)} x =
   lit (ℤ.+ 2) * sint {m = m} (slice x (lit 1F)) +
-  ( if slice′ x (lit 0F) ≟ lit (true ∷ [])
+  ( if cut x (lit 1F) ≟ lit (true ∷ [])
     then lit ℤ.1ℤ
     else lit ℤ.0ℤ)
 

@@ -206,8 +206,7 @@ module CallDepth where
   locStmt (if x then s else s₁) = locStmt s ⊔ locStmt s₁ ⊔ expr x
   locStmt (for n s)             = locStmt s
 
-  fun (declare x f) = fun f ⊔ expr x
-  fun (s ∙return e) = locStmt s ⊔ expr e
+  fun (init e ∙ s end) = expr e ⊔ locStmt s
 
   homo-!! : ∀ (ref : LocalReference Σ Γ t) → expr (!! ref) ≡ locRef ref
   homo-!! (var i)            = refl
@@ -973,26 +972,34 @@ module Inline where
     helper′ s = Wf.All.wfRec ≺-wellFounded _ (P _) helper (-, -, s)
 
   fun : Function Σ Δ ret → All (Expression Σ Γ) Δ → Expression Σ Γ ret
-  fun (declare e f) es = fun f (SubstAll.expr e es ∷ es)
-  fun (s ∙return e) es = SubstAll.expr (proj₁ (helper′ s e)) es
+  fun (init e ∙ s end) es = SubstAll.expr (proj₁ (helper′ s (var 0F))) (SubstAll.expr e es ∷ es)
 
   fun-depth : ∀ (f : Function Σ Δ ret) (es : All (Expression Σ Γ) Δ) → CallDepth.expr (fun f es) ≤ CallDepth.fun f ⊔ CallDepth.exprs es
-  fun-depth (declare e f) es = begin
-    CallDepth.expr (fun f (SubstAll.expr e es ∷ es))
-      ≤⟨ fun-depth f (SubstAll.expr e es ∷ es) ⟩
-    CallDepth.fun f ⊔ (CallDepth.exprs es ⊔ CallDepth.expr (SubstAll.expr e es))
-      ≤⟨ ℕₚ.⊔-monoʳ-≤ (CallDepth.fun f) (ℕₚ.⊔-monoʳ-≤ (CallDepth.exprs es) (SubstAll.expr-depth e es)) ⟩
-    CallDepth.fun f ⊔ (CallDepth.exprs es ⊔ (CallDepth.expr e ⊔ CallDepth.exprs es))
-      ≡⟨ solve-⊔ 3 (λ a b c → a ⊕ (c ⊕ (b ⊕ c)) ⊜ (a ⊕ b) ⊕ c) refl (CallDepth.fun f) _ _ ⟩
-    CallDepth.fun f ⊔ CallDepth.expr e ⊔ CallDepth.exprs es
+  fun-depth (init e ∙ s end) es = begin
+    CallDepth.expr (fun init e ∙ s end es)
+      ≤⟨ SubstAll.expr-depth (proj₁ (helper′ s (var 0F))) (SubstAll.expr e es ∷ es) ⟩
+    CallDepth.expr (proj₁ (helper′ s (var 0F))) ⊔ (CallDepth.exprs es ⊔ CallDepth.expr (SubstAll.expr e es))
+      ≤⟨ ℕₚ.⊔-mono-≤ (proj₂ (helper′ s (var 0F))) (ℕₚ.⊔-monoʳ-≤ (CallDepth.exprs es) (SubstAll.expr-depth e es)) ⟩
+    CallDepth.locStmt s ⊔ 0 ⊔ (CallDepth.exprs es ⊔ (CallDepth.expr e ⊔ CallDepth.exprs es))
+      ≡⟨ solve-⊔ 3 (λ a b c → (b ⊕ ε) ⊕ c ⊕ a ⊕ c ⊜ (a ⊕ b) ⊕ c) refl (CallDepth.expr e) _ _ ⟩
+    CallDepth.fun init e ∙ s end ⊔ CallDepth.exprs es
       ∎
-  fun-depth (s ∙return e) es = begin
-    CallDepth.expr (SubstAll.expr (proj₁ (helper′ s e)) es)
-      ≤⟨ SubstAll.expr-depth (proj₁ (helper′ s e)) es ⟩
-    CallDepth.expr (proj₁ (helper′ s e)) ⊔ CallDepth.exprs es
-      ≤⟨ ℕₚ.⊔-monoˡ-≤ _ (proj₂ (helper′ s e)) ⟩
-    CallDepth.locStmt s ⊔ CallDepth.expr e ⊔ CallDepth.exprs es
-      ∎
+  -- fun-depth (declare e f) es = begin
+  --   CallDepth.expr (fun f (SubstAll.expr e es ∷ es))
+  --     ≤⟨ fun-depth f (SubstAll.expr e es ∷ es) ⟩
+  --   CallDepth.fun f ⊔ (CallDepth.exprs es ⊔ CallDepth.expr (SubstAll.expr e es))
+  --     ≤⟨ ℕₚ.⊔-monoʳ-≤ (CallDepth.fun f) (ℕₚ.⊔-monoʳ-≤ (CallDepth.exprs es) (SubstAll.expr-depth e es)) ⟩
+  --   CallDepth.fun f ⊔ (CallDepth.exprs es ⊔ (CallDepth.expr e ⊔ CallDepth.exprs es))
+  --     ≡⟨ solve-⊔ 3 (λ a b c → a ⊕ (c ⊕ (b ⊕ c)) ⊜ (a ⊕ b) ⊕ c) refl (CallDepth.fun f) _ _ ⟩
+  --   CallDepth.fun f ⊔ CallDepth.expr e ⊔ CallDepth.exprs es
+  --     ∎
+  -- fun-depth (s ∙return e) es = begin
+  --   CallDepth.expr (SubstAll.expr (proj₁ (helper′ s e)) es)
+  --     ≤⟨ SubstAll.expr-depth (proj₁ (helper′ s e)) es ⟩
+  --   CallDepth.expr (proj₁ (helper′ s e)) ⊔ CallDepth.exprs es
+  --     ≤⟨ ℕₚ.⊔-monoˡ-≤ _ (proj₂ (helper′ s e)) ⟩
+  --   CallDepth.locStmt s ⊔ CallDepth.expr e ⊔ CallDepth.exprs es
+  --     ∎
 
 module Flatten where
   private
