@@ -9,8 +9,8 @@
 open import Helium.Data.Pseudocode.Algebra using (RawPseudocode)
 
 module Helium.Semantics.Axiomatic.Term
-  {b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃}
-  (rawPseudocode : RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃)
+  {i₁ i₂ i₃ r₁ r₂ r₃}
+  (rawPseudocode : RawPseudocode i₁ i₂ i₃ r₁ r₂ r₃)
   where
 
 
@@ -43,7 +43,7 @@ private
     i j k m n o : ℕ
     Γ Δ Σ ts    : Vec Type m
 
-  ℓ = b₁ L.⊔ i₁ L.⊔ r₁
+  ℓ = i₁ L.⊔ r₁
 
   punchOut-insert : ∀ {a} {A : Set a} (xs : Vec A n) {i j} (i≢j : i ≢ j) x → lookup xs (punchOut i≢j) ≡ lookup (insert xs i x) j
   punchOut-insert xs {i} {j} i≢j x = begin
@@ -635,9 +635,9 @@ module Semantics (2≉0 : 2≉0) {Σ : Vec Type i} {Γ : Vec Type j} {Δ : Vec T
   ⟦ inv e ⟧                σ γ δ = lift ∘ Bool.not ∘ lower $ ⟦ e ⟧ σ γ δ
   ⟦ e && e₁ ⟧              σ γ δ = (lift ∘₂ Bool._∧_ on lower) (⟦ e ⟧ σ γ δ) (⟦ e₁ ⟧ σ γ δ)
   ⟦ e || e₁ ⟧              σ γ δ = (lift ∘₂ Bool._∨_ on lower) (⟦ e ⟧ σ γ δ) (⟦ e₁ ⟧ σ γ δ)
-  ⟦ not e ⟧                σ γ δ = map (lift ∘ Bit.¬_ ∘ lower) (⟦ e ⟧ σ γ δ)
-  ⟦ e and e₁ ⟧             σ γ δ = zipWith (lift ∘₂ Bit._∧_ on lower) (⟦ e ⟧ σ γ δ) (⟦ e₁ ⟧ σ γ δ)
-  ⟦ e or e₁ ⟧              σ γ δ = zipWith (lift ∘₂ Bit._∨_ on lower) (⟦ e ⟧ σ γ δ) (⟦ e₁ ⟧ σ γ δ)
+  ⟦ not e ⟧                σ γ δ = map (lift ∘ Bool.not ∘ lower) (⟦ e ⟧ σ γ δ)
+  ⟦ e and e₁ ⟧             σ γ δ = zipWith (lift ∘₂ Bool._∧_ on lower) (⟦ e ⟧ σ γ δ) (⟦ e₁ ⟧ σ γ δ)
+  ⟦ e or e₁ ⟧              σ γ δ = zipWith (lift ∘₂ Bool._∨_ on lower) (⟦ e ⟧ σ γ δ) (⟦ e₁ ⟧ σ γ δ)
   ⟦ [ e ] ⟧                σ γ δ = ⟦ e ⟧ σ γ δ ∷ []
   ⟦ unbox e ⟧              σ γ δ = Vec.head (⟦ e ⟧ σ γ δ)
   ⟦ merge e e₁ e₂ ⟧        σ γ δ = mergeVec (⟦ e ⟧ σ γ δ) (⟦ e₁ ⟧ σ γ δ) (lower (⟦ e₂ ⟧ σ γ δ))

@@ -9,8 +9,8 @@
 open import Helium.Data.Pseudocode.Algebra using (RawPseudocode)
 
 module Helium.Semantics.Core
-  {b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃}
-  (rawPseudocode : RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃)
+  {i₁ i₂ i₃ r₁ r₂ r₃}
+  (rawPseudocode : RawPseudocode i₁ i₂ i₃ r₁ r₂ r₃)
   where
 
 private
@@ -48,9 +48,9 @@ private
     m n        : ℕ
     Γ Δ Σ ts   : Vec Type m
 
-  ℓ = b₁ ⊔ i₁ ⊔ r₁
-  ℓ₁ = ℓ ⊔ b₂ ⊔ i₂ ⊔ r₂
-  ℓ₂ = i₁ ⊔ i₃ ⊔ r₁ ⊔ r₃
+  ℓ = i₁ ⊔ r₁
+  ℓ₁ = ℓ ⊔ i₂ ⊔ r₂
+  ℓ₂ = ℓ ⊔ i₃ ⊔ r₃
 
   Sign⇒- : Sign → Op₁ A → Op₁ A
   Sign⇒- Sign.+ f = id
@@ -75,7 +75,7 @@ castVec {m = .suc m} {suc n} eq (x ∷ xs) = x ∷ castVec (ℕₚ.suc-injective
 ⟦ int ⟧ₜ       = Lift ℓ ℤ
 ⟦ fin n ⟧ₜ     = Lift ℓ (Fin n)
 ⟦ real ⟧ₜ      = Lift ℓ ℝ
-⟦ bit ⟧ₜ       = Lift ℓ Bit
+⟦ bit ⟧ₜ       = Lift ℓ Bool
 ⟦ tuple ts ⟧ₜ  = ⟦ ts ⟧ₜ′
 ⟦ array t n ⟧ₜ = Vec ⟦ t ⟧ₜ n
 
@@ -110,7 +110,7 @@ _≈_ ⦃ bool ⦄  = Lift ℓ₁ ∘₂ _≡_ on lower
 _≈_ ⦃ int ⦄   = Lift ℓ₁ ∘₂ ℤ._≈_ on lower
 _≈_ ⦃ fin ⦄   = Lift ℓ₁ ∘₂ _≡_ on lower
 _≈_ ⦃ real ⦄  = Lift ℓ₁ ∘₂ ℝ._≈_ on lower
-_≈_ ⦃ bit ⦄   = Lift ℓ₁ ∘₂ Bit._≈_ on lower
+_≈_ ⦃ bit ⦄   = Lift ℓ₁ ∘₂ _≡_ on lower
 _≈_ ⦃ array ⦄ = Pointwise _≈_
 
 _<_ : ⦃ Ordered t ⦄ → Rel ⟦ t ⟧ₜ ℓ₂
@@ -123,7 +123,7 @@ _<_ ⦃ real ⦄ = Lift ℓ₂ ∘₂ ℝ._<_ on lower
 ≈-dec ⦃ int ⦄   = map′ lift lower ∘₂ On.decidable lower ℤ._≈_ ℤ._≟_
 ≈-dec ⦃ fin ⦄   = map′ lift lower ∘₂ On.decidable lower _≡_ Fin._≟_
 ≈-dec ⦃ real ⦄  = map′ lift lower ∘₂ On.decidable lower ℝ._≈_ ℝ._≟_
-≈-dec ⦃ bit ⦄   = map′ lift lower ∘₂ On.decidable lower Bit._≈_ Bit._≟_
+≈-dec ⦃ bit ⦄   = map′ lift lower ∘₂ On.decidable lower _≡_ Bool._≟_
 ≈-dec ⦃ array ⦄ = decidable ≈-dec
 
 <-dec : ⦃ ordered : Ordered t ⦄ → Decidable (_<_ ⦃ ordered ⦄)
@@ -136,7 +136,7 @@ _<_ ⦃ real ⦄ = Lift ℓ₂ ∘₂ ℝ._<_ on lower
 Κ[ int ]                 x        = lift (𝕀⇒ℤ x)
 Κ[ fin n ]               x        = lift x
 Κ[ real ]                x        = lift (𝕀⇒ℝ x)
-Κ[ bit ]                 x        = lift (Bool.if x then 1𝔹 else 0𝔹)
+Κ[ bit ]                 x        = lift x
 Κ[ tuple [] ]            x        = _
 Κ[ tuple (t ∷ []) ]      x        = Κ[ t ] x
 Κ[ tuple (t ∷ t₁ ∷ ts) ] (x , xs) = Κ[ t ] x , Κ[ tuple (t₁ ∷ ts) ] xs

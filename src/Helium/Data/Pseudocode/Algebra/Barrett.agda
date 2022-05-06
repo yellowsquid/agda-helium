@@ -9,8 +9,8 @@
 open import Helium.Data.Pseudocode.Algebra
 
 module Helium.Data.Pseudocode.Algebra.Barrett
-  {b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃}
-  (pseudocode : Pseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃)
+  {i₁ i₂ i₃ r₁ r₂ r₃}
+  (pseudocode : Pseudocode i₁ i₂ i₃ r₁ r₂ r₃)
   where
 
 open import Helium.Data.Pseudocode.Algebra.Properties pseudocode

@@ -9,8 +9,8 @@
 open import Helium.Data.Pseudocode.Algebra using (RawPseudocode)
 
 module Helium.Semantics.Denotational.Core
-  {b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃}
-  (rawPseudocode : RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃)
+  {i₁ i₂ i₃ r₁ r₂ r₃}
+  (rawPseudocode : RawPseudocode i₁ i₂ i₃ r₁ r₂ r₃)
   where
 
 private
@@ -58,9 +58,9 @@ module Semantics (2≉0 : 2≉0) where
   expr (inv e)                = lift ∘ Bool.not ∘ lower ∘ expr e
   expr (e && e₁)              = lift ∘ uncurry (Bool._∧_ on lower) ∘ < expr e , expr e₁ >
   expr (e || e₁)              = lift ∘ uncurry (Bool._∨_ on lower) ∘ < expr e , expr e₁ >
-  expr (not e)                = map (lift ∘ Bit.¬_ ∘ lower) ∘ expr e
-  expr (e and e₁)             = uncurry (zipWith (lift ∘₂ Bit._∧_ on lower)) ∘ < expr e , expr e₁ >
-  expr (e or e₁)              = uncurry (zipWith (lift ∘₂ Bit._∨_ on lower)) ∘ < expr e , expr e₁ >
+  expr (not e)                = map (lift ∘ Bool.not ∘ lower) ∘ expr e
+  expr (e and e₁)             = uncurry (zipWith (lift ∘₂ Bool._∧_ on lower)) ∘ < expr e , expr e₁ >
+  expr (e or e₁)              = uncurry (zipWith (lift ∘₂ Bool._∨_ on lower)) ∘ < expr e , expr e₁ >
   expr [ e ]                  = (_∷ []) ∘ expr e
   expr (unbox e)              = Vec.head ∘ expr e
   expr (merge e e₁ e₂)        = uncurry (uncurry mergeVec) ∘ < < expr e , expr e₁ > , lower ∘ expr e₂ >

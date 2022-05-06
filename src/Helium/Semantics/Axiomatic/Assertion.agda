@@ -9,8 +9,8 @@
 open import Helium.Data.Pseudocode.Algebra using (RawPseudocode)
 
 module Helium.Semantics.Axiomatic.Assertion
-  {b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃}
-  (rawPseudocode : RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃)
+  {i₁ i₂ i₃ r₁ r₂ r₃}
+  (rawPseudocode : RawPseudocode i₁ i₂ i₃ r₁ r₂ r₃)
   where
 
 open RawPseudocode rawPseudocode
@@ -39,7 +39,7 @@ private
     i j k m n o    : ℕ
     Γ Δ Σ ts : Vec Type m
 
-  ℓ = b₁ L.⊔ i₁ L.⊔ r₁
+  ℓ = i₁ L.⊔ r₁
 
 open Term.Term
 

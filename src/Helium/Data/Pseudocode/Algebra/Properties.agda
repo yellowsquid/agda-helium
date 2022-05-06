@@ -9,17 +9,13 @@
 open import Helium.Data.Pseudocode.Algebra
 
 module Helium.Data.Pseudocode.Algebra.Properties
-  {b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃}
-  (pseudocode : Pseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃)
+  {i₁ i₂ i₃ r₁ r₂ r₃}
+  (pseudocode : Pseudocode i₁ i₂ i₃ r₁ r₂ r₃)
   where
 
-open import Agda.Builtin.FromNat
-open import Agda.Builtin.FromNeg
 open import Data.Nat using (ℕ; suc; NonZero)
-import Data.Nat.Literals as ℕₗ
 open import Data.Product as × using (∃; _×_; _,_)
 open import Data.Sum using (_⊎_; inj₁; inj₂; map)
-import Data.Unit
 open import Function using (_∘_; Injective)
 import Helium.Algebra.Ordered.StrictTotal.Properties.CommutativeRing as CommRingₚ
 import Helium.Algebra.Ordered.StrictTotal.Properties.Field as Fieldₚ
@@ -30,9 +26,6 @@ open import Relation.Nullary.Negation using (contradiction)
 
 private
   module pseudocode = Pseudocode pseudocode
-  instance
-    numberℕ : Number ℕ
-    numberℕ = ℕₗ.number
 
 open pseudocode public
   hiding

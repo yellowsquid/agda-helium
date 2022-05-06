@@ -10,8 +10,8 @@ open import Helium.Data.Pseudocode.Algebra using (RawPseudocode)
 import Helium.Semantics.Core as Core
 
 module Helium.Semantics.Axiomatic.Triple
-  {b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃}
-  (rawPseudocode : RawPseudocode b₁ b₂ i₁ i₂ i₃ r₁ r₂ r₃)
+  {i₁ i₂ i₃ r₁ r₂ r₃}
+  (rawPseudocode : RawPseudocode i₁ i₂ i₃ r₁ r₂ r₃)
   (2≉0 : Core.2≉0 rawPseudocode)
   where
 
@@ -45,7 +45,7 @@ private
     es : All (Expression Σ Γ) ts
     s s₁ s₂ : Statement Σ Γ
 
-  ℓ = b₁ ⊔ i₁ ⊔ r₁
+  ℓ = i₁ ⊔ r₁
 
 infix 4 _⊆_
 record _⊆_ (P : Assertion Σ Γ Δ) (Q : Assertion Σ Γ Δ) : Set ℓ where
@@ -55,7 +55,7 @@ record _⊆_ (P : Assertion Σ Γ Δ) (Q : Assertion Σ Γ Δ) : Set ℓ where
 
 open _⊆_ public
 
-data HoareTriple {Σ : Vec Type i} {Γ : Vec Type j} {Δ : Vec Type k} : Assertion Σ Γ Δ → Statement Σ Γ → Assertion Σ Γ Δ → Set (ℓsuc (b₁ ⊔ i₁ ⊔ r₁)) where
+data HoareTriple {Σ : Vec Type i} {Γ : Vec Type j} {Δ : Vec Type k} : Assertion Σ Γ Δ → Statement Σ Γ → Assertion Σ Γ Δ → Set (ℓsuc ℓ) where
   seq     : ∀ Q → HoareTriple P s Q → HoareTriple Q s₁ R → HoareTriple P (s ∙ s₁) R
   skip    : P ⊆ Q → HoareTriple P skip Q
   assign  : P ⊆ subst Q ref (↓ val) → HoareTriple P (ref ≔ val) Q

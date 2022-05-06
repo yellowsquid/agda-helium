@@ -17,14 +17,6 @@ import Helium.Algebra.Consequences.Setoid
 -- More core algebraic definitions
 import Helium.Algebra.Core
 
--- Definitions of decidable algebraic structures like monoids and rings
--- (packed in records together with sets, operations, etc.)
-import Helium.Algebra.Decidable.Bundles
-
--- Some decidable algebraic structures (not packed up with sets,
--- operations, etc.)
-import Helium.Algebra.Decidable.Structures
-
 -- More properties of functions
 import Helium.Algebra.Definitions
 
