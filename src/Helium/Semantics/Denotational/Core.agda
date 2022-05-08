@@ -44,7 +44,7 @@ module Semantics (2≉0 : 2≉0) where
   ref       : Reference Σ Γ t → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ t ⟧ₜ
   locRef    : LocalReference Σ Γ t → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ t ⟧ₜ
   assign    : Reference Σ Γ t → ⟦ t ⟧ₜ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′
-  locAssign : LocalReference Σ Γ t → ⟦ t ⟧ₜ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ Γ ⟧ₜ′
+  locAssign : LocalReference Σ Γ t → ⟦ t ⟧ₜ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Γ ⟧ₜ′
   stmt      : Statement Σ Γ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′
   locStmt   : LocalStatement Σ Γ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ Γ ⟧ₜ′
   fun       : Function Σ Γ t → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ t ⟧ₜ
@@ -124,15 +124,15 @@ module Semantics (2≉0 : 2≉0) where
   assign (head {ts = ts} r)    val σ,γ = assign r (cons′ ts val (ref (tail r) σ,γ)) σ,γ
   assign (tail {ts = ts} r)    val σ,γ = assign r (cons′ ts (ref (head r) σ,γ) val) σ,γ
 
-  locAssign {Γ = Γ} (var i)       val σ,γ = updateAt i Γ val ∘ proj₂
+  locAssign {Γ = Γ} (var i)       val σ,γ = updateAt i Γ val
   locAssign [ r ]                 val σ,γ = locAssign r (Vec.head val) σ,γ
   locAssign (unbox r)             val σ,γ = locAssign r (val ∷ []) σ,γ
-  locAssign (merge r r₁ e)        val σ,γ = locAssign r₁ (cutVec val (lower (expr e σ,γ))) σ,γ ∘ < proj₁ , locAssign r (sliceVec val (lower (expr e σ,γ))) σ,γ >
+  locAssign (merge r r₁ e)        val σ,γ = locAssign r₁ (cutVec val (lower (expr e σ,γ))) σ,γ ∘ locAssign r (sliceVec val (lower (expr e σ,γ))) σ,γ
   locAssign (slice r e)           val σ,γ = locAssign r (mergeVec val (cutVec (locRef r σ,γ) (lower (expr e σ,γ))) (lower (expr e σ,γ))) σ,γ
   locAssign (cut r e)             val σ,γ = locAssign r (mergeVec (sliceVec (locRef r σ,γ) (lower (expr e σ,γ))) val (lower (expr e σ,γ))) σ,γ
   locAssign (cast eq r)           val σ,γ = locAssign r (castVec (sym eq) val) σ,γ
-  locAssign nil                   val σ,γ = proj₂
-  locAssign (cons {ts = ts} r r₁) val σ,γ = locAssign r₁ (tail′ ts val) σ,γ ∘ < proj₁ , locAssign r (head′ ts val) σ,γ >
+  locAssign nil                   val σ,γ = id
+  locAssign (cons {ts = ts} r r₁) val σ,γ = locAssign r₁ (tail′ ts val) σ,γ ∘ locAssign r (head′ ts val) σ,γ
   locAssign (head {ts = ts} r)    val σ,γ = locAssign r (cons′ ts val (locRef (tail r) σ,γ)) σ,γ
   locAssign (tail {ts = ts} r)    val σ,γ = locAssign r (cons′ ts (locRef (head r) σ,γ) val) σ,γ
 
@@ -147,7 +147,7 @@ module Semantics (2≉0 : 2≉0) where
 
   locStmt (s ∙ s₁)              = locStmt s₁ ∘ < proj₁ , locStmt s >
   locStmt skip                  = proj₂
-  locStmt (ref ≔ val)           = uncurry (uncurry (locAssign ref)) ∘ < < expr val , id > , id >
+  locStmt (ref ≔ val)           = uncurry (uncurry (locAssign ref)) ∘ < < expr val , id > , proj₂ >
   locStmt {Γ = Γ} (declare e s) = tail′ Γ ∘ locStmt s ∘ < proj₁ , uncurry (cons′ Γ) ∘ < expr e , proj₂ > >
   locStmt (if e then s)         = uncurry (uncurry Bool.if_then_else_) ∘ < < lower ∘ expr e , locStmt s > , proj₂ >
   locStmt (if e then s else s₁) = uncurry (uncurry Bool.if_then_else_) ∘ < < lower ∘ expr e , locStmt s > , locStmt s₁ >
