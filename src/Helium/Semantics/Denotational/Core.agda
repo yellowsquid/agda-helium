@@ -39,16 +39,16 @@ private
 
 
 module Semantics (2≉0 : 2≉0) where
-  expr      : Expression Σ Γ t → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ t ⟧ₜ
-  exprs     : All (Expression Σ Γ) ts → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ ts ⟧ₜ′
-  ref       : Reference Σ Γ t → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ t ⟧ₜ
-  locRef    : LocalReference Σ Γ t → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ t ⟧ₜ
-  assign    : Reference Σ Γ t → ⟦ t ⟧ₜ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′
-  locAssign : LocalReference Σ Γ t → ⟦ t ⟧ₜ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Γ ⟧ₜ′
-  stmt      : Statement Σ Γ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′
-  locStmt   : LocalStatement Σ Γ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ Γ ⟧ₜ′
-  fun       : Function Σ Γ t → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ t ⟧ₜ
-  proc      : Procedure Σ Γ → ⟦ Σ ⟧ₜ′ × ⟦ Γ ⟧ₜ′ → ⟦ Σ ⟧ₜ′
+  expr      : Expression Σ Γ t → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ t ⟧ₜ
+  exprs     : All (Expression Σ Γ) ts → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ ts ⟧ₜₛ
+  ref       : Reference Σ Γ t → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ t ⟧ₜ
+  locRef    : LocalReference Σ Γ t → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ t ⟧ₜ
+  assign    : Reference Σ Γ t → ⟦ t ⟧ₜ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ
+  locAssign : LocalReference Σ Γ t → ⟦ t ⟧ₜ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ Γ ⟧ₜₛ → ⟦ Γ ⟧ₜₛ
+  stmt      : Statement Σ Γ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ
+  locStmt   : LocalStatement Σ Γ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ Γ ⟧ₜₛ
+  fun       : Function Σ Γ t → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ t ⟧ₜ
+  proc      : Procedure Σ Γ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ Σ ⟧ₜₛ
 
   expr (lit {t = t} x)        = const (Κ[ t ] x)
   expr {Σ = Σ} (state i)      = fetch i Σ ∘ proj₁

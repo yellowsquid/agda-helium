@@ -69,26 +69,25 @@ castVec {m = .0}     {0}     eq []       = []
 castVec {m = .suc m} {suc n} eq (x ∷ xs) = x ∷ castVec (ℕₚ.suc-injective eq) xs
 
 ⟦_⟧ₜ  : Type → Set ℓ
-⟦_⟧ₜ′ : Vec Type n → Set ℓ
+⟦_⟧ₜₛ : Vec Type n → Set ℓ
 
 ⟦ bool ⟧ₜ      = Lift ℓ Bool
 ⟦ int ⟧ₜ       = Lift ℓ ℤ
 ⟦ fin n ⟧ₜ     = Lift ℓ (Fin n)
 ⟦ real ⟧ₜ      = Lift ℓ ℝ
-⟦ bit ⟧ₜ       = Lift ℓ Bool
-⟦ tuple ts ⟧ₜ  = ⟦ ts ⟧ₜ′
+⟦ tuple ts ⟧ₜ  = ⟦ ts ⟧ₜₛ
 ⟦ array t n ⟧ₜ = Vec ⟦ t ⟧ₜ n
 
-⟦ [] ⟧ₜ′          = Lift ℓ ⊤
-⟦ t ∷ [] ⟧ₜ′      = ⟦ t ⟧ₜ
-⟦ t ∷ t₁ ∷ ts ⟧ₜ′ = ⟦ t ⟧ₜ × ⟦ t₁ ∷ ts ⟧ₜ′
+⟦ [] ⟧ₜₛ          = Lift ℓ ⊤
+⟦ t ∷ [] ⟧ₜₛ      = ⟦ t ⟧ₜ
+⟦ t ∷ t₁ ∷ ts ⟧ₜₛ = ⟦ t ⟧ₜ × ⟦ t₁ ∷ ts ⟧ₜₛ
 
-fetch : ∀ (i : Fin n) Γ → ⟦ Γ ⟧ₜ′ → ⟦ lookup Γ i ⟧ₜ
+fetch : ∀ (i : Fin n) Γ → ⟦ Γ ⟧ₜₛ → ⟦ lookup Γ i ⟧ₜ
 fetch 0F      (t ∷ [])     x        = x
 fetch 0F      (t ∷ t₁ ∷ Γ) (x , xs) = x
 fetch (suc i) (t ∷ t₁ ∷ Γ) (x , xs) = fetch i (t₁ ∷ Γ) xs
 
-updateAt : ∀ (i : Fin n) Γ → ⟦ lookup Γ i ⟧ₜ → ⟦ Γ ⟧ₜ′ → ⟦ Γ ⟧ₜ′
+updateAt : ∀ (i : Fin n) Γ → ⟦ lookup Γ i ⟧ₜ → ⟦ Γ ⟧ₜₛ → ⟦ Γ ⟧ₜₛ
 updateAt 0F      (t ∷ [])     v x        = v
 updateAt 0F      (t ∷ t₁ ∷ Γ) v (x , xs) = v , xs
 updateAt (suc i) (t ∷ t₁ ∷ Γ) v (x , xs) = x , updateAt i (t₁ ∷ Γ) v xs
@@ -110,7 +109,6 @@ _≈_ ⦃ bool ⦄  = Lift ℓ₁ ∘₂ _≡_ on lower
 _≈_ ⦃ int ⦄   = Lift ℓ₁ ∘₂ ℤ._≈_ on lower
 _≈_ ⦃ fin ⦄   = Lift ℓ₁ ∘₂ _≡_ on lower
 _≈_ ⦃ real ⦄  = Lift ℓ₁ ∘₂ ℝ._≈_ on lower
-_≈_ ⦃ bit ⦄   = Lift ℓ₁ ∘₂ _≡_ on lower
 _≈_ ⦃ array ⦄ = Pointwise _≈_
 
 _<_ : ⦃ Ordered t ⦄ → Rel ⟦ t ⟧ₜ ℓ₂
@@ -123,7 +121,6 @@ _<_ ⦃ real ⦄ = Lift ℓ₂ ∘₂ ℝ._<_ on lower
 ≈-dec ⦃ int ⦄   = map′ lift lower ∘₂ On.decidable lower ℤ._≈_ ℤ._≟_
 ≈-dec ⦃ fin ⦄   = map′ lift lower ∘₂ On.decidable lower _≡_ Fin._≟_
 ≈-dec ⦃ real ⦄  = map′ lift lower ∘₂ On.decidable lower ℝ._≈_ ℝ._≟_
-≈-dec ⦃ bit ⦄   = map′ lift lower ∘₂ On.decidable lower _≡_ Bool._≟_
 ≈-dec ⦃ array ⦄ = decidable ≈-dec
 
 <-dec : ⦃ ordered : Ordered t ⦄ → Decidable (_<_ ⦃ ordered ⦄)
@@ -136,7 +133,6 @@ _<_ ⦃ real ⦄ = Lift ℓ₂ ∘₂ ℝ._<_ on lower
 Κ[ int ]                 x        = lift (𝕀⇒ℤ x)
 Κ[ fin n ]               x        = lift x
 Κ[ real ]                x        = lift (𝕀⇒ℝ x)
-Κ[ bit ]                 x        = lift x
 Κ[ tuple [] ]            x        = _
 Κ[ tuple (t ∷ []) ]      x        = Κ[ t ] x
 Κ[ tuple (t ∷ t₁ ∷ ts) ] (x , xs) = Κ[ t ] x , Κ[ tuple (t₁ ∷ ts) ] xs

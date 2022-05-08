@@ -65,7 +65,6 @@ module Construct where
   equal {t = int}                 x y = pred (x ≟ y)
   equal {t = fin n}               x y = pred (x ≟ y)
   equal {t = real}                x y = pred (x ≟ y)
-  equal {t = bit}                 x y = pred (x ≟ y)
   equal {t = tuple []}            x y = true
   equal {t = tuple (t ∷ [])}      x y = equal (head x) (head y)
   equal {t = tuple (t ∷ t₁ ∷ ts)} x y = equal (head x) (head y) ∧ equal (tail x) (tail y)
@@ -192,7 +191,7 @@ subst (P ⟶ Q)     ref val = subst P ref val ⟶ subst Q ref val
 module Semantics (2≉0 : 2≉0) where
   module TS {i} {j} {k} = Term.Semantics {i} {j} {k} 2≉0
 
-  ⟦_⟧ : Assertion Σ Γ Δ → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Δ ⟧ₜ′ → Set ℓ
+  ⟦_⟧ : Assertion Σ Γ Δ → ⟦ Σ ⟧ₜₛ → ⟦ Γ ⟧ₜₛ → ⟦ Δ ⟧ₜₛ → Set ℓ
 
   ⟦_⟧ {Δ = Δ} (all P)  σ γ δ = ∀ x → ⟦ P ⟧ σ γ (cons′ Δ x δ)
   ⟦_⟧ {Δ = Δ} (some P) σ γ δ = ∃ λ x → ⟦ P ⟧ σ γ (cons′ Δ x δ)

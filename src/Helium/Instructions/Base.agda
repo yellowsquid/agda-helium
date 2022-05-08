@@ -115,7 +115,7 @@ elem {k = k} (suc m) x i = index-group (cast (ℕₚ.*-comm (suc k) (suc m)) x) 
 --- Other utiliies
 
 hasBit : Expression State Γ (bits (suc m)) → Expression State Γ (fin (suc m)) → Expression State Γ bool
-hasBit {n} x i = index x i ≟ lit true
+hasBit {n} x i = index x i
 
 sliceⁱ : ℕ → Expression State Γ int → Expression State Γ (bits m)
 sliceⁱ {m = zero}  n i = lit []
@@ -188,10 +188,10 @@ VPTAdvance = declare (fin div2 (tup (var 0F ∷ []))) (
       declare (lit false) (
         -- 0:inv 1:vptState 2:maskId 3:beat
         cons (var 1F) (cons (var 0F) nil) ≔ call (LSL-C 0) (var 1F ∷ []) ∙
-        if var 0F ≟ lit true
+        if var 0F
         then
           *elem 4 VPR-P0 (var 3F) ≔ not (elem 4 (! VPR-P0) (var 3F)))) ∙
-    if getBit 0 (asInt (var 2F)) ≟ lit true
+    if getBit 0 (asInt (var 2F))
     then
       *elem 4 VPR-mask (var 1F) ≔ var 0F))
     ∙end

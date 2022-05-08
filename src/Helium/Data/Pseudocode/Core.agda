@@ -30,9 +30,11 @@ data Type : Set where
   int   : Type
   fin   : (n : ℕ) → Type
   real  : Type
-  bit   : Type
   tuple : Vec Type n → Type
   array : Type → (n : ℕ) → Type
+
+bit : Type
+bit = bool
 
 bits : ℕ → Type
 bits = array bit
@@ -47,7 +49,6 @@ data HasEquality : Type → Set where
   instance int   : HasEquality int
   instance fin   : HasEquality (fin n)
   instance real  : HasEquality real
-  instance bit   : HasEquality bit
   instance array : ∀ {t n} → ⦃ HasEquality t ⦄ → HasEquality (array t n)
 
 data Ordered : Type → Set where
@@ -71,7 +72,6 @@ literalType bool        = Bool
 literalType int         = ℤ
 literalType (fin n)     = Fin n
 literalType real        = ℤ
-literalType bit         = Bool
 literalType (tuple ts)  = literalTypes ts
 literalType (array t n) = Vec (literalType t) n
 
@@ -207,19 +207,17 @@ getBit i x = if x - x >> suc i << suc i <? lit (ℤ.+ (2 ℕ.^ i)) then lit fals
 
 uint : Expression Σ Γ (bits m) → Expression Σ Γ int
 uint {m = 0}           x = lit ℤ.0ℤ
-uint {m = 1}           x = if x ≟ lit (true ∷ []) then lit ℤ.1ℤ else lit ℤ.0ℤ
+uint {m = 1}           x = if unbox x then lit ℤ.1ℤ else lit ℤ.0ℤ
 uint {m = suc (suc m)} x =
   lit (ℤ.+ 2) * uint (slice {n = _} {n = 1} x (lit 1F)) +
   uint (cut {n = _} {n = 1} x (lit 1F))
 
 sint : Expression Σ Γ (bits m) → Expression Σ Γ int
 sint {m = 0}           x = lit ℤ.0ℤ
-sint {m = 1}           x = if x ≟ lit (true ∷ []) then lit ℤ.-1ℤ else lit ℤ.0ℤ
+sint {m = 1}           x = if unbox x then lit ℤ.-1ℤ else lit ℤ.0ℤ
 sint {m = suc (suc m)} x =
   lit (ℤ.+ 2) * sint {m = m} (slice x (lit 1F)) +
-  ( if cut x (lit 1F) ≟ lit (true ∷ [])
-    then lit ℤ.1ℤ
-    else lit ℤ.0ℤ)
+  uint (cut {n = _} {n = 1} x (lit 1F))
 
 !_ : Reference Σ Γ t → Expression Σ Γ t
 ! state i          = state i

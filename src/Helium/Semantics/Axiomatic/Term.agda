@@ -625,7 +625,7 @@ subst e (head ref)         val = subst e ref (cons val (↓ ! tail ref))
 subst e (tail ref)         val = subst e ref (cons (↓ ! head ref) val)
 
 module Semantics (2≉0 : 2≉0) {Σ : Vec Type i} {Γ : Vec Type j} {Δ : Vec Type k} where
-  ⟦_⟧ : Term Σ Γ Δ t → ⟦ Σ ⟧ₜ′ → ⟦ Γ ⟧ₜ′ → ⟦ Δ ⟧ₜ′ → ⟦ t ⟧ₜ
+  ⟦_⟧ : Term Σ Γ Δ t → ⟦ Σ ⟧ₜₛ → ⟦ Γ ⟧ₜₛ → ⟦ Δ ⟧ₜₛ → ⟦ t ⟧ₜ
   ⟦ lit x ⟧                σ γ δ = x
   ⟦ state i ⟧              σ γ δ = fetch i Σ σ
   ⟦ var i ⟧                σ γ δ = fetch i Γ γ
