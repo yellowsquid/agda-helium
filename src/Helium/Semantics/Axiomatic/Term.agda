@@ -18,32 +18,31 @@ open RawPseudocode rawPseudocode
 
 import Data.Bool as Bool
 open import Data.Empty using (⊥-elim)
-open import Data.Fin as Fin using (Fin; suc; punchOut)
+open import Data.Fin as Fin using (Fin; suc; punchIn; punchOut)
 open import Data.Fin.Patterns
 import Data.Integer as 𝕀
 import Data.Fin.Properties as Finₚ
-open import Data.Nat as ℕ using (ℕ; suc; _≤_; z≤n; s≤s; _⊔_)
+open import Data.Nat as ℕ using (ℕ; suc)
 import Data.Nat.Properties as ℕₚ
-open import Data.Product using (∃; _,_; dmap)
-open import Data.Vec as Vec using (Vec; []; _∷_; _++_; length; lookup; insert; remove; map; zipWith; take; drop)
+open import Data.Product using (_,_)
+open import Data.Vec as Vec using (Vec; []; _∷_; _++_; length; lookup; insert; remove; map; zipWith)
 import Data.Vec.Properties as Vecₚ
-open import Data.Vec.Recursive as Vecᵣ using (2+_)
-open import Data.Vec.Relation.Unary.All as All using (All; []; _∷_)
+open import Data.Vec.Relation.Unary.All as All using (All; []; _∷_; tabulate)
 open import Function
 open import Helium.Data.Pseudocode.Core
-open import Helium.Data.Pseudocode.Manipulate hiding (module Cast)
 open import Helium.Semantics.Core rawPseudocode
-open import Level as L using (lift; lower)
+import Helium.Semantics.Denotational.Core rawPseudocode as Den
+open import Level using (_⊔_; lift; lower)
 open import Relation.Binary.PropositionalEquality hiding (subst)
 open import Relation.Nullary using (does; yes; no)
 
 private
   variable
-    t t′ t₁ t₂  : Type
-    i j k m n o : ℕ
-    Γ Δ Σ ts    : Vec Type m
+    t t′ t₁ t₂   : Type
+    i j k m n o  : ℕ
+    Γ Δ Σ ts ts₁ : Vec Type m
 
-  ℓ = i₁ L.⊔ r₁
+  ℓ = i₁ ⊔ r₁
 
   punchOut-insert : ∀ {a} {A : Set a} (xs : Vec A n) {i j} (i≢j : i ≢ j) x → lookup xs (punchOut i≢j) ≡ lookup (insert xs i x) j
   punchOut-insert xs {i} {j} i≢j x = begin
@@ -51,32 +50,6 @@ private
     lookup (remove (insert xs i x) i) (punchOut i≢j) ≡⟨  Vecₚ.remove-punchOut (insert xs i x) i≢j ⟩
     lookup (insert xs i x) j                         ∎
     where open ≡-Reasoning
-
-  ⨆[_]_ : ∀ n → ℕ Vecᵣ.^ n → ℕ
-  ⨆[_]_ = Vecᵣ.foldl (const ℕ) 0 id (const (flip ℕ._⊔_))
-
-  ⨆-step : ∀ m x xs → ⨆[ 2+ m ] (x , xs) ≡ x ⊔ ⨆[ suc m ] xs
-  ⨆-step 0       x xs       = refl
-  ⨆-step (suc m) x (y , xs) = begin-equality
-    ⨆[ 2+ suc m ] (x , y , xs) ≡⟨  ⨆-step m (x ⊔ y) xs ⟩
-    x ⊔ y ⊔ ⨆[ suc m ] xs      ≡⟨  ℕₚ.⊔-assoc x y _ ⟩
-    x ⊔ (y ⊔ ⨆[ suc m ] xs)    ≡˘⟨ cong (_ ⊔_) (⨆-step m y xs) ⟩
-    x ⊔ ⨆[ 2+ m ] (y , xs)     ∎
-    where open ℕₚ.≤-Reasoning
-
-  lookup-⨆-≤ : ∀ i (xs : ℕ Vecᵣ.^ n) → Vecᵣ.lookup i xs ≤ ⨆[ n ] xs
-  lookup-⨆-≤ {1}    0F      x        = ℕₚ.≤-refl
-  lookup-⨆-≤ {2+ n} 0F      (x , xs) = begin
-    x                  ≤⟨  ℕₚ.m≤m⊔n x _ ⟩
-    x ⊔ ⨆[ suc n ] xs  ≡˘⟨ ⨆-step n x xs ⟩
-    ⨆[ 2+ n ] (x , xs) ∎
-    where open ℕₚ.≤-Reasoning
-  lookup-⨆-≤ {2+ n} (suc i) (x , xs) = begin
-    Vecᵣ.lookup i xs   ≤⟨  lookup-⨆-≤ i xs ⟩
-    ⨆[ suc n ] xs      ≤⟨  ℕₚ.m≤n⊔m x _ ⟩
-    x ⊔ ⨆[ suc n ] xs  ≡˘⟨ ⨆-step n x xs ⟩
-    ⨆[ 2+ n ] (x , xs) ∎
-    where open ℕₚ.≤-Reasoning
 
 data Term (Σ : Vec Type i) (Γ : Vec Type j) (Δ : Vec Type k) : Type → Set ℓ where
   lit           : ⟦ t ⟧ₜ → Term Σ Γ Δ t
@@ -109,506 +82,226 @@ data Term (Σ : Vec Type i) (Γ : Vec Type j) (Δ : Vec Type k) : Type → Set �
   cons          : Term Σ Γ Δ t → Term Σ Γ Δ (tuple ts) → Term Σ Γ Δ (tuple (t ∷ ts))
   head          : Term Σ Γ Δ (tuple (t ∷ ts)) → Term Σ Γ Δ t
   tail          : Term Σ Γ Δ (tuple (t ∷ ts)) → Term Σ Γ Δ (tuple ts)
+  call          : Function ts ts₁ t → All (Term Σ Γ Δ) ts → All (Term Σ Γ Δ) ts₁ → Term Σ Γ Δ t
   if_then_else_ : Term Σ Γ Δ bool → Term Σ Γ Δ t → Term Σ Γ Δ t → Term Σ Γ Δ t
 
 ↓_ : Expression Σ Γ t → Term Σ Γ Δ t
-↓ e = go (Flatten.expr e) (Flatten.expr-depth e)
-  where
-  ⊔-inj : ∀ i xs → ⨆[ n ] xs ≡ 0 → Vecᵣ.lookup i xs ≡ 0
-  ⊔-inj i xs eq = ℕₚ.n≤0⇒n≡0 (ℕₚ.≤-trans (lookup-⨆-≤ i xs) (ℕₚ.≤-reflexive eq))
+↓s_ : All (Expression Σ Γ) ts → All (Term Σ Γ Δ) ts
 
-  go : ∀ (e : Expression Σ Γ t) → CallDepth.expr e ≡ 0 → Term Σ Γ Δ t
-  go (lit {t} x)            ≡0 = lit (Κ[ t ] x)
-  go (state i)              ≡0 = state i
-  go (var i)                ≡0 = var i
-  go (e ≟ e₁)               ≡0 = go e (⊔-inj 0F (CallDepth.expr e , CallDepth.expr e₁) ≡0) ≟ go e₁ (⊔-inj 1F (CallDepth.expr e , CallDepth.expr e₁) ≡0)
-  go (e <? e₁)              ≡0 = go e (⊔-inj 0F (CallDepth.expr e , CallDepth.expr e₁) ≡0) <? go e₁ (⊔-inj 1F (CallDepth.expr e , CallDepth.expr e₁) ≡0)
-  go (inv e)                ≡0 = inv (go e ≡0)
-  go (e && e₁)              ≡0 = go e (⊔-inj 0F (CallDepth.expr e , CallDepth.expr e₁) ≡0) && go e₁ (⊔-inj 1F (CallDepth.expr e , CallDepth.expr e₁) ≡0)
-  go (e || e₁)              ≡0 = go e (⊔-inj 0F (CallDepth.expr e , CallDepth.expr e₁) ≡0) || go e₁ (⊔-inj 1F (CallDepth.expr e , CallDepth.expr e₁) ≡0)
-  go (not e)                ≡0 = not (go e ≡0)
-  go (e and e₁)             ≡0 = go e (⊔-inj 0F (CallDepth.expr e , CallDepth.expr e₁) ≡0) and go e₁ (⊔-inj 1F (CallDepth.expr e , CallDepth.expr e₁) ≡0)
-  go (e or e₁)              ≡0 = go e (⊔-inj 0F (CallDepth.expr e , CallDepth.expr e₁) ≡0) or go e₁ (⊔-inj 1F (CallDepth.expr e , CallDepth.expr e₁) ≡0)
-  go [ e ]                  ≡0 = [ go e ≡0 ]
-  go (unbox e)              ≡0 = unbox (go e ≡0)
-  go (merge e e₁ e₂)        ≡0 = merge (go e (⊔-inj 0F (CallDepth.expr e , CallDepth.expr e₁ , CallDepth.expr e₂) ≡0)) (go e₁ (⊔-inj 1F (CallDepth.expr e , CallDepth.expr e₁ , CallDepth.expr e₂) ≡0)) (go e₂ (⊔-inj 2F (CallDepth.expr e , CallDepth.expr e₁ , CallDepth.expr e₂) ≡0))
-  go (slice e e₁)           ≡0 = slice (go e (⊔-inj 0F (CallDepth.expr e , CallDepth.expr e₁) ≡0)) (go e₁ (⊔-inj 1F (CallDepth.expr e , CallDepth.expr e₁) ≡0))
-  go (cut e e₁)             ≡0 = cut (go e (⊔-inj 0F (CallDepth.expr e , CallDepth.expr e₁) ≡0)) (go e₁ (⊔-inj 1F (CallDepth.expr e , CallDepth.expr e₁) ≡0))
-  go (cast eq e)            ≡0 = cast eq (go e ≡0)
-  go (- e)                  ≡0 = - go e ≡0
-  go (e + e₁)               ≡0 = go e (⊔-inj 0F (CallDepth.expr e , CallDepth.expr e₁) ≡0) + go e₁ (⊔-inj 1F (CallDepth.expr e , CallDepth.expr e₁) ≡0)
-  go (e * e₁)               ≡0 = go e (⊔-inj 0F (CallDepth.expr e , CallDepth.expr e₁) ≡0) * go e₁ (⊔-inj 1F (CallDepth.expr e , CallDepth.expr e₁) ≡0)
-  go (e ^ x)                ≡0 = go e ≡0 ^ x
-  go (e >> n)               ≡0 = go e ≡0 >> n
-  go (rnd e)                ≡0 = rnd (go e ≡0)
-  go (fin f e)              ≡0 = fin f (go e ≡0)
-  go (asInt e)              ≡0 = asInt (go e ≡0)
-  go nil                    ≡0 = nil
-  go (cons e e₁)            ≡0 = cons (go e (⊔-inj 0F (CallDepth.expr e , CallDepth.expr e₁) ≡0)) (go e₁ (⊔-inj 1F (CallDepth.expr e , CallDepth.expr e₁) ≡0))
-  go (head e)               ≡0 = head (go e ≡0)
-  go (tail e)               ≡0 = tail (go e ≡0)
-  go (call f es)            ≡0 = ⊥-elim (ℕₚ.>⇒≢ (CallDepth.call>0 f es) ≡0)
-  go (if e then e₁ else e₂) ≡0 = if go e (⊔-inj 0F (CallDepth.expr e , CallDepth.expr e₁ , CallDepth.expr e₂) ≡0) then go e₁ (⊔-inj 1F (CallDepth.expr e , CallDepth.expr e₁ , CallDepth.expr e₂) ≡0) else go e₂ (⊔-inj 2F (CallDepth.expr e , CallDepth.expr e₁ , CallDepth.expr e₂) ≡0)
+↓ lit {t} x              = lit (Κ[ t ] x)
+↓ state i                = state i
+↓ var i                  = var i
+↓ (e ≟ e₁)               = ↓ e ≟ ↓ e₁
+↓ (e <? e₁)              = ↓ e <? ↓ e₁
+↓ inv e                  = inv (↓ e)
+↓ (e && e₁)              = ↓ e && ↓ e₁
+↓ (e || e₁)              = ↓ e || ↓ e₁
+↓ not e                  = not (↓ e)
+↓ (e and e₁)             = ↓ e and ↓ e₁
+↓ (e or e₁)              = ↓ e or ↓ e₁
+↓ [ e ]                  = [ ↓ e ]
+↓ unbox e                = unbox (↓ e)
+↓ merge e e₁ e₂          = merge (↓ e) (↓ e₁) (↓ e₂)
+↓ slice e e₁             = slice (↓ e) (↓ e₁)
+↓ cut e e₁               = cut (↓ e) (↓ e₁)
+↓ cast eq e              = cast eq (↓ e)
+↓ (- e)                  = - ↓ e
+↓ (e + e₁)               = ↓ e + ↓ e₁
+↓ (e * e₁)               = ↓ e * ↓ e₁
+↓ (e ^ x)                = ↓ e ^ x
+↓ (e >> n)               = ↓ e >> n
+↓ rnd e                  = rnd (↓ e)
+↓ fin f e                = fin f (↓ e)
+↓ asInt e                = asInt (↓ e)
+↓ nil                    = nil
+↓ cons e e₁              = cons (↓ e) (↓ e₁)
+↓ head e                 = head (↓ e)
+↓ tail e                 = tail (↓ e)
+↓ call f es              = call f (tabulate state) (↓s es)
+↓ (if e then e₁ else e₂) = if ↓ e then ↓ e₁ else ↓ e₂
+
+↓s []       = []
+↓s (e ∷ es) = ↓ e ∷ ↓s es
+
+record RecBuilder (Σ′ : Vec Type i) (Γ′ : Vec Type j) (Δ′ : Vec Type k)
+                  (Σ : Vec Type m)  (Γ : Vec Type n)  (Δ : Vec Type o)
+                  : Set ℓ where
+  field
+    onState : ∀ i → Term Σ Γ Δ (lookup Σ′ i)
+    onVar   : ∀ i → Term Σ Γ Δ (lookup Γ′ i)
+    onMeta  : ∀ i → Term Σ Γ Δ (lookup Δ′ i)
+
+  extend : Term Σ′ Γ′ Δ′ t → Term Σ Γ Δ t
+  extends : All (Term Σ′ Γ′ Δ′) ts → All (Term Σ Γ Δ) ts
+
+  extend (lit x)                = lit x
+  extend (state i)              = onState i
+  extend (var i)                = onVar i
+  extend (meta i)               = onMeta i
+  extend (e ≟ e₁)               = extend e ≟ extend e₁
+  extend (e <? e₁)              = extend e <? extend e₁
+  extend (inv e)                = inv (extend e)
+  extend (e && e₁)              = extend e && extend e₁
+  extend (e || e₁)              = extend e || extend e₁
+  extend (not e)                = not (extend e)
+  extend (e and e₁)             = extend e and extend e₁
+  extend (e or e₁)              = extend e or extend e₁
+  extend [ e ]                  = [ extend e ]
+  extend (unbox e)              = unbox (extend e)
+  extend (merge e e₁ e₂)        = merge (extend e) (extend e₁) (extend e₂)
+  extend (slice e e₁)           = slice (extend e) (extend e₁)
+  extend (cut e e₁)             = cut (extend e) (extend e₁)
+  extend (cast eq e)            = cast eq (extend e)
+  extend (- e)                  = - extend e
+  extend (e + e₁)               = extend e + extend e₁
+  extend (e * e₁)               = extend e * extend e₁
+  extend (e ^ x)                = extend e ^ x
+  extend (e >> n)               = extend e >> n
+  extend (rnd e)                = rnd (extend e)
+  extend (fin f e)              = fin f (extend e)
+  extend (asInt e)              = asInt (extend e)
+  extend nil                    = nil
+  extend (cons e e₁)            = cons (extend e) (extend e₁)
+  extend (head e)               = head (extend e)
+  extend (tail e)               = tail (extend e)
+  extend (call f es es₁)        = call f (extends es) (extends es₁)
+  extend (if e then e₁ else e₂) = if extend e then extend e₁ else extend e₂
+
+  extends []       = []
+  extends (e ∷ es) = extend e ∷ extends es
 
 module Cast where
   type : t ≡ t′ → Term Σ Γ Δ t → Term Σ Γ Δ t′
   type refl = id
 
 module State where
-  subst : ∀ i → Term Σ Γ Δ t → Term Σ Γ Δ (lookup Σ i) → Term Σ Γ Δ t
-  subst i (lit x)                e′ = lit x
-  subst i (state j)              e′ with i Fin.≟ j
-  ...                              | yes refl = e′
-  ...                              | no i≢j   = state j
-  subst i (var j)                e′ = var j
-  subst i (meta j)               e′ = meta j
-  subst i (e ≟ e₁)               e′ = subst i e e′ ≟ subst i e₁ e′
-  subst i (e <? e₁)              e′ = subst i e e′ <? subst i e₁ e′
-  subst i (inv e)                e′ = inv (subst i e e′)
-  subst i (e && e₁)              e′ = subst i e e′ && subst i e₁ e′
-  subst i (e || e₁)              e′ = subst i e e′ || subst i e₁ e′
-  subst i (not e)                e′ = not (subst i e e′)
-  subst i (e and e₁)             e′ = subst i e e′ and subst i e₁ e′
-  subst i (e or e₁)              e′ = subst i e e′ or subst i e₁ e′
-  subst i [ e ]                  e′ = [ subst i e e′ ]
-  subst i (unbox e)              e′ = unbox (subst i e e′)
-  subst i (merge e e₁ e₂)        e′ = merge (subst i e e′) (subst i e₁ e′) (subst i e₂ e′)
-  subst i (slice e e₁)           e′ = slice (subst i e e′) (subst i e₁ e′)
-  subst i (cut e e₁)             e′ = cut (subst i e e′) (subst i e₁ e′)
-  subst i (cast eq e)            e′ = cast eq (subst i e e′)
-  subst i (- e)                  e′ = - subst i e e′
-  subst i (e + e₁)               e′ = subst i e e′ + subst i e₁ e′
-  subst i (e * e₁)               e′ = subst i e e′ * subst i e₁ e′
-  subst i (e ^ x)                e′ = subst i e e′ ^ x
-  subst i (e >> n)               e′ = subst i e e′ >> n
-  subst i (rnd e)                e′ = rnd (subst i e e′)
-  subst i (fin f e)              e′ = fin f (subst i e e′)
-  subst i (asInt e)              e′ = asInt (subst i e e′)
-  subst i nil                    e′ = nil
-  subst i (cons e e₁)            e′ = cons (subst i e e′) (subst i e₁ e′)
-  subst i (head e)               e′ = head (subst i e e′)
-  subst i (tail e)               e′ = tail (subst i e e′)
-  subst i (if e then e₁ else e₂) e′ = if subst i e e′ then subst i e₁ e′ else subst i e₂ e′
+  substBuilder : ∀ i → Term Σ Γ Δ (lookup Σ i) → RecBuilder Σ Γ Δ Σ Γ Δ
+  substBuilder {Σ = Σ} i e = record
+    { onState = onState
+    ; onVar   = var
+    ; onMeta  = meta
+    }
+    where
+    onState : ∀ j → Term _ _ _ (lookup Σ j)
+    onState j with i Fin.≟ j
+    ...       | yes refl = e
+    ...       | no i≢j   = state j
 
-module Var {Γ : Vec Type o} where
+  subst : ∀ i → Term Σ Γ Δ t → Term Σ Γ Δ (lookup Σ i) → Term Σ Γ Δ t
+  subst i e e′ = RecBuilder.extend (substBuilder i e′) e
+
+module Var where
+  weakenBuilder : ∀ i → RecBuilder Σ Γ Δ Σ (insert Γ i t) Δ
+  weakenBuilder {Γ = Γ} i = record
+    { onState = state
+    ; onVar   = λ j → Cast.type (Vecₚ.insert-punchIn Γ i _ j) (var (punchIn i j))
+    ; onMeta  = meta
+    }
+
   weaken : ∀ i → Term Σ Γ Δ t → Term Σ (insert Γ i t′) Δ t
-  weaken i (lit x)                = lit x
-  weaken i (state j)              = state j
-  weaken i (var j)                = Cast.type (Vecₚ.insert-punchIn _ i _ j) (var (Fin.punchIn i j))
-  weaken i (meta j)               = meta j
-  weaken i (e ≟ e₁)               = weaken i e ≟ weaken i e₁
-  weaken i (e <? e₁)              = weaken i e <? weaken i e₁
-  weaken i (inv e)                = inv (weaken i e)
-  weaken i (e && e₁)              = weaken i e && weaken i e₁
-  weaken i (e || e₁)              = weaken i e || weaken i e₁
-  weaken i (not e)                = not (weaken i e)
-  weaken i (e and e₁)             = weaken i e and weaken i e₁
-  weaken i (e or e₁)              = weaken i e or weaken i e₁
-  weaken i [ e ]                  = [ weaken i e ]
-  weaken i (unbox e)              = unbox (weaken i e)
-  weaken i (merge e e₁ e₂)        = merge (weaken i e) (weaken i e₁) (weaken i e₂)
-  weaken i (slice e e₁)           = slice (weaken i e) (weaken i e₁)
-  weaken i (cut e e₁)             = cut (weaken i e) (weaken i e₁)
-  weaken i (cast eq e)            = cast eq (weaken i e)
-  weaken i (- e)                  = - weaken i e
-  weaken i (e + e₁)               = weaken i e + weaken i e₁
-  weaken i (e * e₁)               = weaken i e * weaken i e₁
-  weaken i (e ^ x)                = weaken i e ^ x
-  weaken i (e >> n)               = weaken i e >> n
-  weaken i (rnd e)                = rnd (weaken i e)
-  weaken i (fin f e)              = fin f (weaken i e)
-  weaken i (asInt e)              = asInt (weaken i e)
-  weaken i nil                    = nil
-  weaken i (cons e e₁)            = cons (weaken i e) (weaken i e₁)
-  weaken i (head e)               = head (weaken i e)
-  weaken i (tail e)               = tail (weaken i e)
-  weaken i (if e then e₁ else e₂) = if weaken i e then weaken i e₁ else weaken i e₂
+  weaken i e = RecBuilder.extend (weakenBuilder i) e
+
+  weakenAllBuilder : RecBuilder Σ [] Δ Σ Γ Δ
+  weakenAllBuilder = record
+    { onState = state
+    ; onVar   = λ ()
+    ; onMeta  = meta
+    }
 
   weakenAll : Term Σ [] Δ t → Term Σ Γ Δ t
-  weakenAll (lit x)                = lit x
-  weakenAll (state j)              = state j
-  weakenAll (meta j)               = meta j
-  weakenAll (e ≟ e₁)               = weakenAll e ≟ weakenAll e₁
-  weakenAll (e <? e₁)              = weakenAll e <? weakenAll e₁
-  weakenAll (inv e)                = inv (weakenAll e)
-  weakenAll (e && e₁)              = weakenAll e && weakenAll e₁
-  weakenAll (e || e₁)              = weakenAll e || weakenAll e₁
-  weakenAll (not e)                = not (weakenAll e)
-  weakenAll (e and e₁)             = weakenAll e and weakenAll e₁
-  weakenAll (e or e₁)              = weakenAll e or weakenAll e₁
-  weakenAll [ e ]                  = [ weakenAll e ]
-  weakenAll (unbox e)              = unbox (weakenAll e)
-  weakenAll (merge e e₁ e₂)        = merge (weakenAll e) (weakenAll e₁) (weakenAll e₂)
-  weakenAll (slice e e₁)           = slice (weakenAll e) (weakenAll e₁)
-  weakenAll (cut e e₁)             = cut (weakenAll e) (weakenAll e₁)
-  weakenAll (cast eq e)            = cast eq (weakenAll e)
-  weakenAll (- e)                  = - weakenAll e
-  weakenAll (e + e₁)               = weakenAll e + weakenAll e₁
-  weakenAll (e * e₁)               = weakenAll e * weakenAll e₁
-  weakenAll (e ^ x)                = weakenAll e ^ x
-  weakenAll (e >> n)               = weakenAll e >> n
-  weakenAll (rnd e)                = rnd (weakenAll e)
-  weakenAll (fin f e)              = fin f (weakenAll e)
-  weakenAll (asInt e)              = asInt (weakenAll e)
-  weakenAll nil                    = nil
-  weakenAll (cons e e₁)            = cons (weakenAll e) (weakenAll e₁)
-  weakenAll (head e)               = head (weakenAll e)
-  weakenAll (tail e)               = tail (weakenAll e)
-  weakenAll (if e then e₁ else e₂) = if weakenAll e then weakenAll e₁ else weakenAll e₂
+  weakenAll e = RecBuilder.extend weakenAllBuilder e
 
-  inject : ∀ (ts : Vec Type n) → Term Σ Γ Δ t → Term Σ (Γ ++ ts) Δ t
-  inject ts (lit x)                = lit x
-  inject ts (state j)              = state j
-  inject ts (var j)                = Cast.type (Vecₚ.lookup-++ˡ Γ ts j) (var (Fin.inject+ _ j))
-  inject ts (meta j)               = meta j
-  inject ts (e ≟ e₁)               = inject ts e ≟ inject ts e₁
-  inject ts (e <? e₁)              = inject ts e <? inject ts e₁
-  inject ts (inv e)                = inv (inject ts e)
-  inject ts (e && e₁)              = inject ts e && inject ts e₁
-  inject ts (e || e₁)              = inject ts e || inject ts e₁
-  inject ts (not e)                = not (inject ts e)
-  inject ts (e and e₁)             = inject ts e and inject ts e₁
-  inject ts (e or e₁)              = inject ts e or inject ts e₁
-  inject ts [ e ]                  = [ inject ts e ]
-  inject ts (unbox e)              = unbox (inject ts e)
-  inject ts (merge e e₁ e₂)        = merge (inject ts e) (inject ts e₁) (inject ts e₂)
-  inject ts (slice e e₁)           = slice (inject ts e) (inject ts e₁)
-  inject ts (cut e e₁)             = cut (inject ts e) (inject ts e₁)
-  inject ts (cast eq e)            = cast eq (inject ts e)
-  inject ts (- e)                  = - inject ts e
-  inject ts (e + e₁)               = inject ts e + inject ts e₁
-  inject ts (e * e₁)               = inject ts e * inject ts e₁
-  inject ts (e ^ x)                = inject ts e ^ x
-  inject ts (e >> n)               = inject ts e >> n
-  inject ts (rnd e)                = rnd (inject ts e)
-  inject ts (fin f e)              = fin f (inject ts e)
-  inject ts (asInt e)              = asInt (inject ts e)
-  inject ts nil                    = nil
-  inject ts (cons e e₁)            = cons (inject ts e) (inject ts e₁)
-  inject ts (head e)               = head (inject ts e)
-  inject ts (tail e)               = tail (inject ts e)
-  inject ts (if e then e₁ else e₂) = if inject ts e then inject ts e₁ else inject ts e₂
-
-  raise : ∀ (ts : Vec Type n) → Term Σ Γ Δ t → Term Σ (ts ++ Γ) Δ t
-  raise ts (lit x)                = lit x
-  raise ts (state j)              = state j
-  raise ts (var j)                = Cast.type (Vecₚ.lookup-++ʳ ts Γ j) (var (Fin.raise _ j))
-  raise ts (meta j)               = meta j
-  raise ts (e ≟ e₁)               = raise ts e ≟ raise ts e₁
-  raise ts (e <? e₁)              = raise ts e <? raise ts e₁
-  raise ts (inv e)                = inv (raise ts e)
-  raise ts (e && e₁)              = raise ts e && raise ts e₁
-  raise ts (e || e₁)              = raise ts e || raise ts e₁
-  raise ts (not e)                = not (raise ts e)
-  raise ts (e and e₁)             = raise ts e and raise ts e₁
-  raise ts (e or e₁)              = raise ts e or raise ts e₁
-  raise ts [ e ]                  = [ raise ts e ]
-  raise ts (unbox e)              = unbox (raise ts e)
-  raise ts (merge e e₁ e₂)        = merge (raise ts e) (raise ts e₁) (raise ts e₂)
-  raise ts (slice e e₁)           = slice (raise ts e) (raise ts e₁)
-  raise ts (cut e e₁)             = cut (raise ts e) (raise ts e₁)
-  raise ts (cast eq e)            = cast eq (raise ts e)
-  raise ts (- e)                  = - raise ts e
-  raise ts (e + e₁)               = raise ts e + raise ts e₁
-  raise ts (e * e₁)               = raise ts e * raise ts e₁
-  raise ts (e ^ x)                = raise ts e ^ x
-  raise ts (e >> n)               = raise ts e >> n
-  raise ts (rnd e)                = rnd (raise ts e)
-  raise ts (fin f e)              = fin f (raise ts e)
-  raise ts (asInt e)              = asInt (raise ts e)
-  raise ts nil                    = nil
-  raise ts (cons e e₁)            = cons (raise ts e) (raise ts e₁)
-  raise ts (head e)               = head (raise ts e)
-  raise ts (tail e)               = tail (raise ts e)
-  raise ts (if e then e₁ else e₂) = if raise ts e then raise ts e₁ else raise ts e₂
-
-  elim : ∀ i → Term Σ (insert Γ i t′) Δ t → Term Σ Γ Δ t′ → Term Σ Γ Δ t
-  elim i (lit x)                e′ = lit x
-  elim i (state j)              e′ = state j
-  elim i (var j)                e′ with i Fin.≟ j
-  ...                              | yes refl = Cast.type (sym (Vecₚ.insert-lookup Γ i _)) e′
-  ...                              | no i≢j   = Cast.type (punchOut-insert Γ i≢j _) (var (Fin.punchOut i≢j))
-  elim i (meta j)               e′ = meta j
-  elim i (e ≟ e₁)               e′ = elim i e e′ ≟ elim i e₁ e′
-  elim i (e <? e₁)              e′ = elim i e e′ <? elim i e₁ e′
-  elim i (inv e)                e′ = inv (elim i e e′)
-  elim i (e && e₁)              e′ = elim i e e′ && elim i e₁ e′
-  elim i (e || e₁)              e′ = elim i e e′ || elim i e₁ e′
-  elim i (not e)                e′ = not (elim i e e′)
-  elim i (e and e₁)             e′ = elim i e e′ and elim i e₁ e′
-  elim i (e or e₁)              e′ = elim i e e′ or elim i e₁ e′
-  elim i [ e ]                  e′ = [ elim i e e′ ]
-  elim i (unbox e)              e′ = unbox (elim i e e′)
-  elim i (merge e e₁ e₂)        e′ = merge (elim i e e′) (elim i e₁ e′) (elim i e₂ e′)
-  elim i (slice e e₁)           e′ = slice (elim i e e′) (elim i e₁ e′)
-  elim i (cut e e₁)             e′ = cut (elim i e e′) (elim i e₁ e′)
-  elim i (cast eq e)            e′ = cast eq (elim i e e′)
-  elim i (- e)                  e′ = - elim i e e′
-  elim i (e + e₁)               e′ = elim i e e′ + elim i e₁ e′
-  elim i (e * e₁)               e′ = elim i e e′ * elim i e₁ e′
-  elim i (e ^ x)                e′ = elim i e e′ ^ x
-  elim i (e >> n)               e′ = elim i e e′ >> n
-  elim i (rnd e)                e′ = rnd (elim i e e′)
-  elim i (fin f e)              e′ = fin f (elim i e e′)
-  elim i (asInt e)              e′ = asInt (elim i e e′)
-  elim i nil                    e′ = nil
-  elim i (cons e e₁)            e′ = cons (elim i e e′) (elim i e₁ e′)
-  elim i (head e)               e′ = head (elim i e e′)
-  elim i (tail e)               e′ = tail (elim i e e′)
-  elim i (if e then e₁ else e₂) e′ = if elim i e e′ then elim i e₁ e′ else elim i e₂ e′
+  elimAllBuilder : All (Term Σ ts Δ) Γ → RecBuilder Σ Γ Δ Σ ts Δ
+  elimAllBuilder es = record
+    { onState = state
+    ; onVar   = flip All.lookup es
+    ; onMeta  = meta
+    }
 
   elimAll : Term Σ Γ Δ t → All (Term Σ ts Δ) Γ → Term Σ ts Δ t
-  elimAll (lit x)                es = lit x
-  elimAll (state j)              es = state j
-  elimAll (var j)                es = All.lookup j es
-  elimAll (meta j)               es = meta j
-  elimAll (e ≟ e₁)               es = elimAll e es ≟ elimAll e₁ es
-  elimAll (e <? e₁)              es = elimAll e es <? elimAll e₁ es
-  elimAll (inv e)                es = inv (elimAll e es)
-  elimAll (e && e₁)              es = elimAll e es && elimAll e₁ es
-  elimAll (e || e₁)              es = elimAll e es || elimAll e₁ es
-  elimAll (not e)                es = not (elimAll e es)
-  elimAll (e and e₁)             es = elimAll e es and elimAll e₁ es
-  elimAll (e or e₁)              es = elimAll e es or elimAll e₁ es
-  elimAll [ e ]                  es = [ elimAll e es ]
-  elimAll (unbox e)              es = unbox (elimAll e es)
-  elimAll (merge e e₁ e₂)        es = merge (elimAll e es) (elimAll e₁ es) (elimAll e₂ es)
-  elimAll (slice e e₁)           es = slice (elimAll e es) (elimAll e₁ es)
-  elimAll (cut e e₁)             es = cut (elimAll e es) (elimAll e₁ es)
-  elimAll (cast eq e)            es = cast eq (elimAll e es)
-  elimAll (- e)                  es = - elimAll e es
-  elimAll (e + e₁)               es = elimAll e es + elimAll e₁ es
-  elimAll (e * e₁)               es = elimAll e es * elimAll e₁ es
-  elimAll (e ^ x)                es = elimAll e es ^ x
-  elimAll (e >> n)               es = elimAll e es >> n
-  elimAll (rnd e)                es = rnd (elimAll e es)
-  elimAll (fin f e)              es = fin f (elimAll e es)
-  elimAll (asInt e)              es = asInt (elimAll e es)
-  elimAll nil                    es = nil
-  elimAll (cons e e₁)            es = cons (elimAll e es) (elimAll e₁ es)
-  elimAll (head e)               es = head (elimAll e es)
-  elimAll (tail e)               es = tail (elimAll e es)
-  elimAll (if e then e₁ else e₂) es = if elimAll e es then elimAll e₁ es else elimAll e₂ es
+  elimAll e es = RecBuilder.extend (elimAllBuilder es) e
+
+  substBuilder : ∀ i → Term Σ Γ Δ (lookup Γ i) → RecBuilder Σ Γ Δ Σ Γ Δ
+  substBuilder {Γ = Γ} i e = record
+    { onState = state
+    ; onVar   = onVar
+    ; onMeta  = meta
+    }
+    where
+    onVar : ∀ j → Term _ _ _ (lookup Γ j)
+    onVar j with i Fin.≟ j
+    ...     | yes refl = e
+    ...     | no i≢j   = var j
 
   subst : ∀ i → Term Σ Γ Δ t → Term Σ Γ Δ (lookup Γ i) → Term Σ Γ Δ t
-  subst i (lit x)                e′ = lit x
-  subst i (state j)              e′ = state j
-  subst i (var j)                e′ with i Fin.≟ j
-  ...                              | yes refl = e′
-  ...                              | no i≢j   = var j
-  subst i (meta j)               e′ = meta j
-  subst i (e ≟ e₁)               e′ = subst i e e′ ≟ subst i e₁ e′
-  subst i (e <? e₁)              e′ = subst i e e′ <? subst i e₁ e′
-  subst i (inv e)                e′ = inv (subst i e e′)
-  subst i (e && e₁)              e′ = subst i e e′ && subst i e₁ e′
-  subst i (e || e₁)              e′ = subst i e e′ || subst i e₁ e′
-  subst i (not e)                e′ = not (subst i e e′)
-  subst i (e and e₁)             e′ = subst i e e′ and subst i e₁ e′
-  subst i (e or e₁)              e′ = subst i e e′ or subst i e₁ e′
-  subst i [ e ]                  e′ = [ subst i e e′ ]
-  subst i (unbox e)              e′ = unbox (subst i e e′)
-  subst i (merge e e₁ e₂)        e′ = merge (subst i e e′) (subst i e₁ e′) (subst i e₂ e′)
-  subst i (slice e e₁)           e′ = slice (subst i e e′) (subst i e₁ e′)
-  subst i (cut e e₁)             e′ = cut (subst i e e′) (subst i e₁ e′)
-  subst i (cast eq e)            e′ = cast eq (subst i e e′)
-  subst i (- e)                  e′ = - subst i e e′
-  subst i (e + e₁)               e′ = subst i e e′ + subst i e₁ e′
-  subst i (e * e₁)               e′ = subst i e e′ * subst i e₁ e′
-  subst i (e ^ x)                e′ = subst i e e′ ^ x
-  subst i (e >> n)               e′ = subst i e e′ >> n
-  subst i (rnd e)                e′ = rnd (subst i e e′)
-  subst i (fin f e)              e′ = fin f (subst i e e′)
-  subst i (asInt e)              e′ = asInt (subst i e e′)
-  subst i nil                    e′ = nil
-  subst i (cons e e₁)            e′ = cons (subst i e e′) (subst i e₁ e′)
-  subst i (head e)               e′ = head (subst i e e′)
-  subst i (tail e)               e′ = tail (subst i e e′)
-  subst i (if e then e₁ else e₂) e′ = if subst i e e′ then subst i e₁ e′ else subst i e₂ e′
+  subst i e e′ = RecBuilder.extend (substBuilder i e′) e
 
-module Meta {Δ : Vec Type o} where
+module Meta where
+  weakenBuilder : ∀ i → RecBuilder Σ Γ Δ Σ Γ (insert Δ i t)
+  weakenBuilder {Δ = Δ} i = record
+    { onState = state
+    ; onVar   = var
+    ; onMeta  = λ j → Cast.type (Vecₚ.insert-punchIn Δ i _ j) (meta (punchIn i j))
+    }
+
   weaken : ∀ i → Term Σ Γ Δ t → Term Σ Γ (insert Δ i t′) t
-  weaken i (lit x)                = lit x
-  weaken i (state j)              = state j
-  weaken i (var j)                = var j
-  weaken i (meta j)               = Cast.type (Vecₚ.insert-punchIn _ i _ j) (meta (Fin.punchIn i j))
-  weaken i (e ≟ e₁)               = weaken i e ≟ weaken i e₁
-  weaken i (e <? e₁)              = weaken i e <? weaken i e₁
-  weaken i (inv e)                = inv (weaken i e)
-  weaken i (e && e₁)              = weaken i e && weaken i e₁
-  weaken i (e || e₁)              = weaken i e || weaken i e₁
-  weaken i (not e)                = not (weaken i e)
-  weaken i (e and e₁)             = weaken i e and weaken i e₁
-  weaken i (e or e₁)              = weaken i e or weaken i e₁
-  weaken i [ e ]                  = [ weaken i e ]
-  weaken i (unbox e)              = unbox (weaken i e)
-  weaken i (merge e e₁ e₂)        = merge (weaken i e) (weaken i e₁) (weaken i e₂)
-  weaken i (slice e e₁)           = slice (weaken i e) (weaken i e₁)
-  weaken i (cut e e₁)             = cut (weaken i e) (weaken i e₁)
-  weaken i (cast eq e)            = cast eq (weaken i e)
-  weaken i (- e)                  = - weaken i e
-  weaken i (e + e₁)               = weaken i e + weaken i e₁
-  weaken i (e * e₁)               = weaken i e * weaken i e₁
-  weaken i (e ^ x)                = weaken i e ^ x
-  weaken i (e >> n)               = weaken i e >> n
-  weaken i (rnd e)                = rnd (weaken i e)
-  weaken i (fin f e)              = fin f (weaken i e)
-  weaken i (asInt e)              = asInt (weaken i e)
-  weaken i nil                    = nil
-  weaken i (cons e e₁)            = cons (weaken i e) (weaken i e₁)
-  weaken i (head e)               = head (weaken i e)
-  weaken i (tail e)               = tail (weaken i e)
-  weaken i (if e then e₁ else e₂) = if weaken i e then weaken i e₁ else weaken i e₂
+  weaken i e = RecBuilder.extend (weakenBuilder i) e
+
+  weakenAllBuilder : ∀ (Δ′ : Vec Type k) (ts : Vec Type m) → RecBuilder Σ Γ (Δ′ ++ Δ) Σ Γ (Δ′ ++ ts ++ Δ)
+  weakenAllBuilder {Δ = Δ} Δ′ ts = record
+    { onState = state
+    ; onVar   = var
+    ; onMeta  = onMeta
+    }
+    where
+    onMeta : ∀ i → Term Σ Γ (Δ′ ++ ts ++ Δ) (lookup (Δ′ ++ Δ) i)
+    onMeta i with Fin.toℕ i ℕ.<? length Δ′
+    ...      | yes i<|Δ′| = Cast.type
+      (begin
+        lookup (Δ′ ++ ts ++ Δ) _      ≡⟨  Vecₚ.lookup-++ˡ Δ′ (ts ++ Δ) (Fin.fromℕ< i<|Δ′|) ⟩
+        lookup Δ′ (Fin.fromℕ< i<|Δ′|) ≡˘⟨ Vecₚ.lookup-++-< Δ′ Δ i i<|Δ′| ⟩
+        lookup (Δ′ ++ Δ) i            ∎)
+      (meta _)
+      where open ≡-Reasoning
+    ...      | no i≮|Δ′|  = Cast.type
+      (begin
+        lookup (Δ′ ++ ts ++ Δ) _        ≡⟨  Vecₚ.lookup-++ʳ Δ′ (ts ++ Δ) (Fin.raise _ (Fin.reduce≥ i i≥|Δ′|)) ⟩
+        lookup (ts ++ Δ) _              ≡⟨  Vecₚ.lookup-++ʳ ts Δ (Fin.reduce≥ i i≥|Δ′|) ⟩
+        lookup Δ (Fin.reduce≥ i i≥|Δ′|) ≡˘⟨ Vecₚ.lookup-++-≥ Δ′ Δ i i≥|Δ′| ⟩
+        lookup (Δ′ ++ Δ) i              ∎)
+      (meta _)
+      where
+      open ≡-Reasoning
+      i≥|Δ′| = ℕₚ.≮⇒≥ i≮|Δ′|
+
 
   weakenAll : ∀ (Δ′ : Vec Type k) (ts : Vec Type m) → Term Σ Γ (Δ′ ++ Δ) t → Term Σ Γ (Δ′ ++ ts ++ Δ) t
-  weakenAll Δ′ ts (lit x)                = lit x
-  weakenAll Δ′ ts (state j)              = state j
-  weakenAll Δ′ ts (var j)                = var j
-  weakenAll Δ′ ts (meta j)               with Fin.toℕ j ℕ.<? length Δ′
-  ...                                    | yes j<∣Δ′∣ = Cast.type
-    (begin
-      lookup (Δ′ ++ ts ++ Δ) _      ≡⟨  Vecₚ.lookup-++ˡ Δ′ (ts ++ Δ) (Fin.fromℕ< j<∣Δ′∣) ⟩
-      lookup Δ′ (Fin.fromℕ< j<∣Δ′∣) ≡˘⟨ Vecₚ.lookup-++-< Δ′ Δ j j<∣Δ′∣ ⟩
-      lookup (Δ′ ++ Δ) j            ∎)
-    (meta _)
-    where open ≡-Reasoning
-  ...                                    | no j≮∣Δ′∣  = Cast.type
-    (begin
-      lookup (Δ′ ++ ts ++ Δ) _        ≡⟨  Vecₚ.lookup-++ʳ Δ′ (ts ++ Δ) (Fin.raise _ (Fin.reduce≥ j j≥∣Δ′∣)) ⟩
-      lookup (ts ++ Δ) _              ≡⟨  Vecₚ.lookup-++ʳ ts Δ (Fin.reduce≥ j j≥∣Δ′∣) ⟩
-      lookup Δ (Fin.reduce≥ j j≥∣Δ′∣) ≡˘⟨ Vecₚ.lookup-++-≥ Δ′ Δ j j≥∣Δ′∣ ⟩
-      lookup (Δ′ ++ Δ) j              ∎)
-    (meta _)
-    where
-    open ≡-Reasoning
-    j≥∣Δ′∣ = ℕₚ.≮⇒≥ j≮∣Δ′∣
-  weakenAll Δ′ ts (e ≟ e₁)               = weakenAll Δ′ ts e ≟ weakenAll Δ′ ts e₁
-  weakenAll Δ′ ts (e <? e₁)              = weakenAll Δ′ ts e <? weakenAll Δ′ ts e₁
-  weakenAll Δ′ ts (inv e)                = inv (weakenAll Δ′ ts e)
-  weakenAll Δ′ ts (e && e₁)              = weakenAll Δ′ ts e && weakenAll Δ′ ts e₁
-  weakenAll Δ′ ts (e || e₁)              = weakenAll Δ′ ts e || weakenAll Δ′ ts e₁
-  weakenAll Δ′ ts (not e)                = not (weakenAll Δ′ ts e)
-  weakenAll Δ′ ts (e and e₁)             = weakenAll Δ′ ts e and weakenAll Δ′ ts e₁
-  weakenAll Δ′ ts (e or e₁)              = weakenAll Δ′ ts e or weakenAll Δ′ ts e₁
-  weakenAll Δ′ ts [ e ]                  = [ weakenAll Δ′ ts e ]
-  weakenAll Δ′ ts (unbox e)              = unbox (weakenAll Δ′ ts e)
-  weakenAll Δ′ ts (merge e e₁ e₂)        = merge (weakenAll Δ′ ts e) (weakenAll Δ′ ts e₁) (weakenAll Δ′ ts e₂)
-  weakenAll Δ′ ts (slice e e₁)           = slice (weakenAll Δ′ ts e) (weakenAll Δ′ ts e₁)
-  weakenAll Δ′ ts (cut e e₁)             = cut (weakenAll Δ′ ts e) (weakenAll Δ′ ts e₁)
-  weakenAll Δ′ ts (cast eq e)            = cast eq (weakenAll Δ′ ts e)
-  weakenAll Δ′ ts (- e)                  = - weakenAll Δ′ ts e
-  weakenAll Δ′ ts (e + e₁)               = weakenAll Δ′ ts e + weakenAll Δ′ ts e₁
-  weakenAll Δ′ ts (e * e₁)               = weakenAll Δ′ ts e * weakenAll Δ′ ts e₁
-  weakenAll Δ′ ts (e ^ x)                = weakenAll Δ′ ts e ^ x
-  weakenAll Δ′ ts (e >> n)               = weakenAll Δ′ ts e >> n
-  weakenAll Δ′ ts (rnd e)                = rnd (weakenAll Δ′ ts e)
-  weakenAll Δ′ ts (fin f e)              = fin f (weakenAll Δ′ ts e)
-  weakenAll Δ′ ts (asInt e)              = asInt (weakenAll Δ′ ts e)
-  weakenAll Δ′ ts nil                    = nil
-  weakenAll Δ′ ts (cons e e₁)            = cons (weakenAll Δ′ ts e) (weakenAll Δ′ ts e₁)
-  weakenAll Δ′ ts (head e)               = head (weakenAll Δ′ ts e)
-  weakenAll Δ′ ts (tail e)               = tail (weakenAll Δ′ ts e)
-  weakenAll Δ′ ts (if e then e₁ else e₂) = if weakenAll Δ′ ts e then weakenAll Δ′ ts e₁ else weakenAll Δ′ ts e₂
+  weakenAll Δ′ ts e = RecBuilder.extend (weakenAllBuilder Δ′ ts) e
+
+  injectBuilder : ∀ (ts : Vec Type n) → RecBuilder Σ Γ Δ Σ Γ (Δ ++ ts)
+  injectBuilder {Δ = Δ} ts = record
+    { onState = state
+    ; onVar   = var
+    ; onMeta  = λ i → Cast.type (Vecₚ.lookup-++ˡ Δ ts i) (meta _)
+    }
 
   inject : ∀ (ts : Vec Type n) → Term Σ Γ Δ t → Term Σ Γ (Δ ++ ts) t
-  inject ts (lit x)                = lit x
-  inject ts (state j)              = state j
-  inject ts (var j)                = var j
-  inject ts (meta j)               = Cast.type (Vecₚ.lookup-++ˡ Δ ts j) (meta (Fin.inject+ _ j))
-  inject ts (e ≟ e₁)               = inject ts e ≟ inject ts e₁
-  inject ts (e <? e₁)              = inject ts e <? inject ts e₁
-  inject ts (inv e)                = inv (inject ts e)
-  inject ts (e && e₁)              = inject ts e && inject ts e₁
-  inject ts (e || e₁)              = inject ts e || inject ts e₁
-  inject ts (not e)                = not (inject ts e)
-  inject ts (e and e₁)             = inject ts e and inject ts e₁
-  inject ts (e or e₁)              = inject ts e or inject ts e₁
-  inject ts [ e ]                  = [ inject ts e ]
-  inject ts (unbox e)              = unbox (inject ts e)
-  inject ts (merge e e₁ e₂)        = merge (inject ts e) (inject ts e₁) (inject ts e₂)
-  inject ts (slice e e₁)           = slice (inject ts e) (inject ts e₁)
-  inject ts (cut e e₁)             = cut (inject ts e) (inject ts e₁)
-  inject ts (cast eq e)            = cast eq (inject ts e)
-  inject ts (- e)                  = - inject ts e
-  inject ts (e + e₁)               = inject ts e + inject ts e₁
-  inject ts (e * e₁)               = inject ts e * inject ts e₁
-  inject ts (e ^ x)                = inject ts e ^ x
-  inject ts (e >> n)               = inject ts e >> n
-  inject ts (rnd e)                = rnd (inject ts e)
-  inject ts (fin f e)              = fin f (inject ts e)
-  inject ts (asInt e)              = asInt (inject ts e)
-  inject ts nil                    = nil
-  inject ts (cons e e₁)            = cons (inject ts e) (inject ts e₁)
-  inject ts (head e)               = head (inject ts e)
-  inject ts (tail e)               = tail (inject ts e)
-  inject ts (if e then e₁ else e₂) = if inject ts e then inject ts e₁ else inject ts e₂
+  inject ts e = RecBuilder.extend (injectBuilder ts) e
 
-  raise : ∀ (ts : Vec Type n) → Term Σ Γ Δ t → Term Σ Γ (ts ++ Δ) t
-  raise ts (lit x)                = lit x
-  raise ts (state j)              = state j
-  raise ts (var j)                = var j
-  raise ts (meta j)               = Cast.type (Vecₚ.lookup-++ʳ ts Δ j) (meta (Fin.raise _ j))
-  raise ts (e ≟ e₁)               = raise ts e ≟ raise ts e₁
-  raise ts (e <? e₁)              = raise ts e <? raise ts e₁
-  raise ts (inv e)                = inv (raise ts e)
-  raise ts (e && e₁)              = raise ts e && raise ts e₁
-  raise ts (e || e₁)              = raise ts e || raise ts e₁
-  raise ts (not e)                = not (raise ts e)
-  raise ts (e and e₁)             = raise ts e and raise ts e₁
-  raise ts (e or e₁)              = raise ts e or raise ts e₁
-  raise ts [ e ]                  = [ raise ts e ]
-  raise ts (unbox e)              = unbox (raise ts e)
-  raise ts (merge e e₁ e₂)        = merge (raise ts e) (raise ts e₁) (raise ts e₂)
-  raise ts (slice e e₁)           = slice (raise ts e) (raise ts e₁)
-  raise ts (cut e e₁)             = cut (raise ts e) (raise ts e₁)
-  raise ts (cast eq e)            = cast eq (raise ts e)
-  raise ts (- e)                  = - raise ts e
-  raise ts (e + e₁)               = raise ts e + raise ts e₁
-  raise ts (e * e₁)               = raise ts e * raise ts e₁
-  raise ts (e ^ x)                = raise ts e ^ x
-  raise ts (e >> n)               = raise ts e >> n
-  raise ts (rnd e)                = rnd (raise ts e)
-  raise ts (fin f e)              = fin f (raise ts e)
-  raise ts (asInt e)              = asInt (raise ts e)
-  raise ts nil                    = nil
-  raise ts (cons e e₁)            = cons (raise ts e) (raise ts e₁)
-  raise ts (head e)               = head (raise ts e)
-  raise ts (tail e)               = tail (raise ts e)
-  raise ts (if e then e₁ else e₂) = if raise ts e then raise ts e₁ else raise ts e₂
+  elimBuilder : ∀ i → Term Σ Γ Δ t → RecBuilder Σ Γ (insert Δ i t) Σ Γ Δ
+  elimBuilder {Δ = Δ} i e = record
+    { onState = state
+    ; onVar   = var
+    ; onMeta  = onMeta
+    }
+    where
+    onMeta : ∀ j → Term _ _ Δ (lookup (insert Δ i _) j)
+    onMeta j with i Fin.≟ j
+    ...      | yes refl = Cast.type (sym (Vecₚ.insert-lookup Δ i _)) e
+    ...      | no i≢j   = Cast.type (punchOut-insert Δ i≢j _) (meta _)
 
   elim : ∀ i → Term Σ Γ (insert Δ i t′) t → Term Σ Γ Δ t′ → Term Σ Γ Δ t
-  elim i (lit x)                e′ = lit x
-  elim i (state j)              e′ = state j
-  elim i (var j)                e′ = var j
-  elim i (meta j)               e′ with i Fin.≟ j
-  ...                              | yes refl = Cast.type (sym (Vecₚ.insert-lookup Δ i _)) e′
-  ...                              | no i≢j   = Cast.type (punchOut-insert Δ i≢j _) (meta (Fin.punchOut i≢j))
-  elim i (e ≟ e₁)               e′ = elim i e e′ ≟ elim i e₁ e′
-  elim i (e <? e₁)              e′ = elim i e e′ <? elim i e₁ e′
-  elim i (inv e)                e′ = inv (elim i e e′)
-  elim i (e && e₁)              e′ = elim i e e′ && elim i e₁ e′
-  elim i (e || e₁)              e′ = elim i e e′ || elim i e₁ e′
-  elim i (not e)                e′ = not (elim i e e′)
-  elim i (e and e₁)             e′ = elim i e e′ and elim i e₁ e′
-  elim i (e or e₁)              e′ = elim i e e′ or elim i e₁ e′
-  elim i [ e ]                  e′ = [ elim i e e′ ]
-  elim i (unbox e)              e′ = unbox (elim i e e′)
-  elim i (merge e e₁ e₂)        e′ = merge (elim i e e′) (elim i e₁ e′) (elim i e₂ e′)
-  elim i (slice e e₁)           e′ = slice (elim i e e′) (elim i e₁ e′)
-  elim i (cut e e₁)             e′ = cut (elim i e e′) (elim i e₁ e′)
-  elim i (cast eq e)            e′ = cast eq (elim i e e′)
-  elim i (- e)                  e′ = - elim i e e′
-  elim i (e + e₁)               e′ = elim i e e′ + elim i e₁ e′
-  elim i (e * e₁)               e′ = elim i e e′ * elim i e₁ e′
-  elim i (e ^ x)                e′ = elim i e e′ ^ x
-  elim i (e >> n)               e′ = elim i e e′ >> n
-  elim i (rnd e)                e′ = rnd (elim i e e′)
-  elim i (fin f e)              e′ = fin f (elim i e e′)
-  elim i (asInt e)              e′ = asInt (elim i e e′)
-  elim i nil                    e′ = nil
-  elim i (cons e e₁)            e′ = cons (elim i e e′) (elim i e₁ e′)
-  elim i (head e)               e′ = head (elim i e e′)
-  elim i (tail e)               e′ = tail (elim i e e′)
-  elim i (if e then e₁ else e₂) e′ = if elim i e e′ then elim i e₁ e′ else elim i e₂ e′
+  elim i e e′ = RecBuilder.extend (elimBuilder i e′) e
 
 subst : Term Σ Γ Δ t → Reference Σ Γ t′ → Term Σ Γ Δ t′ → Term Σ Γ Δ t
 subst e (state i)          val = State.subst i e val
@@ -625,7 +318,9 @@ subst e (head ref)         val = subst e ref (cons val (↓ ! tail ref))
 subst e (tail ref)         val = subst e ref (cons (↓ ! head ref) val)
 
 module Semantics (2≉0 : 2≉0) {Σ : Vec Type i} {Γ : Vec Type j} {Δ : Vec Type k} where
-  ⟦_⟧ : Term Σ Γ Δ t → ⟦ Σ ⟧ₜₛ → ⟦ Γ ⟧ₜₛ → ⟦ Δ ⟧ₜₛ → ⟦ t ⟧ₜ
+  ⟦_⟧  : Term Σ Γ Δ t → ⟦ Σ ⟧ₜₛ → ⟦ Γ ⟧ₜₛ → ⟦ Δ ⟧ₜₛ → ⟦ t ⟧ₜ
+  ⟦_⟧ₛ : All (Term Σ Γ Δ) ts → ⟦ Σ ⟧ₜₛ → ⟦ Γ ⟧ₜₛ → ⟦ Δ ⟧ₜₛ → ⟦ ts ⟧ₜₛ
+
   ⟦ lit x ⟧                σ γ δ = x
   ⟦ state i ⟧              σ γ δ = fetch i Σ σ
   ⟦ var i ⟧                σ γ δ = fetch i Γ γ
@@ -656,4 +351,9 @@ module Semantics (2≉0 : 2≉0) {Σ : Vec Type i} {Γ : Vec Type j} {Δ : Vec T
   ⟦ cons {ts = ts} e e₁ ⟧  σ γ δ = cons′ ts (⟦ e ⟧ σ γ δ) (⟦ e₁ ⟧ σ γ δ)
   ⟦ head {ts = ts} e ⟧     σ γ δ = head′ ts (⟦ e ⟧ σ γ δ)
   ⟦ tail {ts = ts} e ⟧     σ γ δ = tail′ ts (⟦ e ⟧ σ γ δ)
+  ⟦ call f es es₁ ⟧        σ γ δ = Den.Semantics.fun 2≉0 f (⟦ es ⟧ₛ σ γ δ , ⟦ es₁ ⟧ₛ σ γ δ)
   ⟦ if e then e₁ else e₂ ⟧ σ γ δ = Bool.if lower (⟦ e ⟧ σ γ δ) then ⟦ e₁ ⟧ σ γ δ else ⟦ e₂ ⟧ σ γ δ
+
+  ⟦ [] ⟧ₛ          σ γ δ = _
+  ⟦ e ∷ [] ⟧ₛ      σ γ δ = ⟦ e ⟧ σ γ δ
+  ⟦ e ∷ e₁ ∷ es ⟧ₛ σ γ δ = ⟦ e ⟧ σ γ δ , ⟦ e₁ ∷ es ⟧ₛ σ γ δ

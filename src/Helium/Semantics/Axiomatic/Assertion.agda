@@ -88,50 +88,6 @@ module Var where
   weaken i (P ∨ Q)     = weaken i P ∨ weaken i Q
   weaken i (P ⟶ Q)     = weaken i P ⟶ weaken i Q
 
-  weakenAll : Assertion Σ [] Δ → Assertion Σ Γ Δ
-  weakenAll (all P)     = all (weakenAll P)
-  weakenAll (some P)    = some (weakenAll P)
-  weakenAll (pred p)    = pred (Term.Var.weakenAll p)
-  weakenAll true        = true
-  weakenAll false       = false
-  weakenAll (¬ P)       = ¬ (weakenAll P)
-  weakenAll (P ∧ Q)     = weakenAll P ∧ weakenAll Q
-  weakenAll (P ∨ Q)     = weakenAll P ∨ weakenAll Q
-  weakenAll (P ⟶ Q)     = weakenAll P ⟶ weakenAll Q
-
-  inject : ∀ (ts : Vec Type n) → Assertion Σ Γ Δ → Assertion Σ (Γ ++ ts) Δ
-  inject ts (all P)     = all (inject ts P)
-  inject ts (some P)    = some (inject ts P)
-  inject ts (pred p)    = pred (Term.Var.inject ts p)
-  inject ts true        = true
-  inject ts false       = false
-  inject ts (¬ P)       = ¬ (inject ts P)
-  inject ts (P ∧ Q)     = inject ts P ∧ inject ts Q
-  inject ts (P ∨ Q)     = inject ts P ∨ inject ts Q
-  inject ts (P ⟶ Q)     = inject ts P ⟶ inject ts Q
-
-  raise : ∀ (ts : Vec Type n) → Assertion Σ Γ Δ → Assertion Σ (ts ++ Γ) Δ
-  raise ts (all P)     = all (raise ts P)
-  raise ts (some P)    = some (raise ts P)
-  raise ts (pred p)    = pred (Term.Var.raise ts p)
-  raise ts true        = true
-  raise ts false       = false
-  raise ts (¬ P)       = ¬ (raise ts P)
-  raise ts (P ∧ Q)     = raise ts P ∧ raise ts Q
-  raise ts (P ∨ Q)     = raise ts P ∨ raise ts Q
-  raise ts (P ⟶ Q)     = raise ts P ⟶ raise ts Q
-
-  elim : ∀ i → Assertion Σ (insert Γ i t) Δ → Term Σ Γ Δ t → Assertion Σ Γ Δ
-  elim i (all P)     e = all (elim i P (Term.Meta.weaken 0F e))
-  elim i (some P)    e = some (elim i P (Term.Meta.weaken 0F e))
-  elim i (pred p)    e = pred (Term.Var.elim i p e)
-  elim i true        e = true
-  elim i false       e = false
-  elim i (¬ P)       e = ¬ (elim i P e)
-  elim i (P ∧ Q)     e = elim i P e ∧ elim i Q e
-  elim i (P ∨ Q)     e = elim i P e ∨ elim i Q e
-  elim i (P ⟶ Q)     e = elim i P e ⟶ elim i Q e
-
   elimAll : Assertion Σ Γ Δ → All (Term Σ ts Δ) Γ → Assertion Σ ts Δ
   elimAll (all P)     es = all (elimAll P (map (Term.Meta.weaken 0F) es))
   elimAll (some P)    es = some (elimAll P (map (Term.Meta.weaken 0F) es))
