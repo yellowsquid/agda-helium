@@ -22,9 +22,8 @@ import Helium.Semantics.Core rawPseudocode as Core′
 import Helium.Semantics.Axiomatic.Term rawPseudocode as Term′
 import Helium.Semantics.Axiomatic.Assertion rawPseudocode as Assertion′
 
-private
-  proof-2≉0 : Core′.2≉0
-  proof-2≉0 = ℝ.<⇒≉ (ℝ.n≢0∧x>0⇒n×x>0 2 (ℝ.≤∧≉⇒< ℝ.0≤1 (ℝ.1≉0 ∘ ℝ.Eq.sym))) ∘ ℝ.Eq.sym
+proof-2≉0 : Core′.2≉0
+proof-2≉0 = ℝ.<⇒≉ (ℝ.n≢0∧x>0⇒n×x>0 2 (ℝ.≤∧≉⇒< ℝ.0≤1 (ℝ.1≉0 ∘ ℝ.Eq.sym))) ∘ ℝ.Eq.sym
 
 module Core where
   open Core′ public hiding (shift)
@@ -38,9 +37,9 @@ module Term where
   open Term′ public hiding (module Semantics)
   module Semantics {i} {j} {k} where
     open Term′.Semantics {i} {j} {k} proof-2≉0 public
-  open Semantics public using (⟦_⟧)
+  open Semantics public using (⟦_⟧; ⟦_⟧ₛ)
 
-open Term public using (Term; ↓_) hiding (module Term)
+open Term public using (Term; ↓_; ↓s_) hiding (module Term)
 open Term.Term public
 
 module Assertion where

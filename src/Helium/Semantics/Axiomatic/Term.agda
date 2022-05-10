@@ -354,6 +354,5 @@ module Semantics (2≉0 : 2≉0) {Σ : Vec Type i} {Γ : Vec Type j} {Δ : Vec T
   ⟦ call f es es₁ ⟧        σ γ δ = Den.Semantics.fun 2≉0 f (⟦ es ⟧ₛ σ γ δ , ⟦ es₁ ⟧ₛ σ γ δ)
   ⟦ if e then e₁ else e₂ ⟧ σ γ δ = Bool.if lower (⟦ e ⟧ σ γ δ) then ⟦ e₁ ⟧ σ γ δ else ⟦ e₂ ⟧ σ γ δ
 
-  ⟦ [] ⟧ₛ          σ γ δ = _
-  ⟦ e ∷ [] ⟧ₛ      σ γ δ = ⟦ e ⟧ σ γ δ
-  ⟦ e ∷ e₁ ∷ es ⟧ₛ σ γ δ = ⟦ e ⟧ σ γ δ , ⟦ e₁ ∷ es ⟧ₛ σ γ δ
+  ⟦_⟧ₛ               []            σ γ δ = _
+  ⟦_⟧ₛ {ts = _ ∷ ts} (e ∷ es)      σ γ δ = cons′ ts (⟦ e ⟧ σ γ δ) (⟦ es ⟧ₛ σ γ δ)

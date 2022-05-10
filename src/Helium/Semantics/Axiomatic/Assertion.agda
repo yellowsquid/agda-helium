@@ -25,7 +25,7 @@ open import Data.Product using (∃; _×_; _,_; uncurry)
 open import Data.Sum using (_⊎_)
 open import Data.Unit using (⊤)
 open import Data.Vec as Vec using (Vec; []; _∷_; _++_; insert)
-open import Data.Vec.Relation.Unary.All using (All; map)
+open import Data.Vec.Relation.Unary.All using (All)
 import Data.Vec.Recursive as Vecᵣ
 open import Function hiding (_⟶_)
 open import Helium.Data.Pseudocode.Core
@@ -89,8 +89,8 @@ module Var where
   weaken i (P ⟶ Q)     = weaken i P ⟶ weaken i Q
 
   elimAll : Assertion Σ Γ Δ → All (Term Σ ts Δ) Γ → Assertion Σ ts Δ
-  elimAll (all P)     es = all (elimAll P (map (Term.Meta.weaken 0F) es))
-  elimAll (some P)    es = some (elimAll P (map (Term.Meta.weaken 0F) es))
+  elimAll (all P)     es = all (elimAll P (Term.RecBuilder.extends (Term.Meta.weakenBuilder 0F) es))
+  elimAll (some P)    es = some (elimAll P (Term.RecBuilder.extends (Term.Meta.weakenBuilder 0F) es))
   elimAll (pred p)    es = pred (Term.Var.elimAll p es)
   elimAll true        es = true
   elimAll false       es = false

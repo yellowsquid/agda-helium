@@ -82,16 +82,6 @@ castVec {m = .suc m} {suc n} eq (x ∷ xs) = x ∷ castVec (ℕₚ.suc-injective
 ⟦ t ∷ [] ⟧ₜₛ      = ⟦ t ⟧ₜ
 ⟦ t ∷ t₁ ∷ ts ⟧ₜₛ = ⟦ t ⟧ₜ × ⟦ t₁ ∷ ts ⟧ₜₛ
 
-fetch : ∀ (i : Fin n) Γ → ⟦ Γ ⟧ₜₛ → ⟦ lookup Γ i ⟧ₜ
-fetch 0F      (t ∷ [])     x        = x
-fetch 0F      (t ∷ t₁ ∷ Γ) (x , xs) = x
-fetch (suc i) (t ∷ t₁ ∷ Γ) (x , xs) = fetch i (t₁ ∷ Γ) xs
-
-updateAt : ∀ (i : Fin n) Γ → ⟦ lookup Γ i ⟧ₜ → ⟦ Γ ⟧ₜₛ → ⟦ Γ ⟧ₜₛ
-updateAt 0F      (t ∷ [])     v x        = v
-updateAt 0F      (t ∷ t₁ ∷ Γ) v (x , xs) = v , xs
-updateAt (suc i) (t ∷ t₁ ∷ Γ) v (x , xs) = x , updateAt i (t₁ ∷ Γ) v xs
-
 cons′ : ∀ (ts : Vec Type n) → ⟦ t ⟧ₜ → ⟦ tuple ts ⟧ₜ → ⟦ tuple (t ∷ ts) ⟧ₜ
 cons′ []      x xs = x
 cons′ (_ ∷ _) x xs = x , xs
@@ -103,6 +93,22 @@ head′ (_ ∷ _) (x , xs) = x
 tail′ : ∀ (ts : Vec Type n) → ⟦ tuple (t ∷ ts) ⟧ₜ → ⟦ tuple ts ⟧ₜ
 tail′ []      x        = _
 tail′ (_ ∷ _) (x , xs) = xs
+
+fetch : ∀ (i : Fin n) Γ → ⟦ Γ ⟧ₜₛ → ⟦ lookup Γ i ⟧ₜ
+fetch 0F      (_ ∷ ts) xs = head′ ts xs
+fetch (suc i) (_ ∷ ts) xs = fetch i ts (tail′ ts xs)
+
+updateAt : ∀ (i : Fin n) Γ → ⟦ lookup Γ i ⟧ₜ → ⟦ Γ ⟧ₜₛ → ⟦ Γ ⟧ₜₛ
+updateAt 0F      (_ ∷ ts) v xs = cons′ ts v (tail′ ts xs)
+updateAt (suc i) (_ ∷ ts) v xs = cons′ ts (head′ ts xs) (updateAt i ts v (tail′ ts xs))
+
+insert′ : ∀ i (ts : Vec Type n) → ⟦ ts ⟧ₜₛ → ⟦ t ⟧ₜ → ⟦ Vec.insert ts i t ⟧ₜₛ
+insert′ 0F      ts       xs x = cons′ ts x xs
+insert′ (suc i) (t ∷ ts) xs x = cons′ (Vec.insert ts i _) (head′ ts xs) (insert′ i ts (tail′ ts xs) x)
+
+append : ∀ (ts : Vec Type m) (ts₁ : Vec Type n) → ⟦ ts ⟧ₜₛ → ⟦ ts₁ ⟧ₜₛ → ⟦ ts ++ ts₁ ⟧ₜₛ
+append []       ts₁ xs ys = ys
+append (_ ∷ ts) ts₁ xs ys = cons′ (ts ++ ts₁) (head′ ts xs) (append ts ts₁ (tail′ ts xs) ys)
 
 _≈_ : ⦃ HasEquality t ⦄ → Rel ⟦ t ⟧ₜ  ℓ₁
 _≈_ ⦃ bool ⦄  = Lift ℓ₁ ∘₂ _≡_ on lower
