@@ -66,5 +66,5 @@ data HoareTriple {Σ : Vec Type i} {Γ : Vec Type j} {Δ : Vec Type k} : Asserti
     HoareTriple (varsToMetas P ∧ equal (↓ tup (All.tabulate var)) (termVarsToMetas (↓ tup es))) s (varsToMetas Q) →
     HoareTriple P (invoke (s ∙end) es) Q
   if      : HoareTriple (P ∧ pred (↓ e)) s Q → P ∧ pred (↓ inv e) ⊆ Q → HoareTriple P (if e then s) Q
-  if-else : HoareTriple (P ∧ pred (↓ e)) s Q → HoareTriple (P ∧ pred (↓ inv e)) s Q → HoareTriple P (if e then s) Q
+  if-else : HoareTriple (P ∧ pred (↓ e)) s Q → HoareTriple (P ∧ pred (↓ inv e)) s₁ Q → HoareTriple P (if e then s else s₁) Q
   for     : ∀ (I : Assertion _ _ (fin _ ∷ _)) → P ⊆ Meta.elim 0F I (↓ lit 0F) → HoareTriple {Δ = fin _ ∷ Δ} (Var.weaken 0F (Meta.elim 1F (Meta.weaken 0F I) (fin inject₁ (cons (meta 0F) nil)))) s (Var.weaken 0F (Meta.elim 1F (Meta.weaken 0F I) (fin suc (cons (meta 0F) nil)))) → Meta.elim 0F I (↓ lit (fromℕ m)) ⊆ Q → HoareTriple P (for m s) Q
