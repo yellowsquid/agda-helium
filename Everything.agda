@@ -100,14 +100,23 @@ import Helium.Semantics.Axiomatic
 -- Definition of assertions used in correctness triples
 import Helium.Semantics.Axiomatic.Assertion
 
+-- Properties of the Assertion type.
+import Helium.Semantics.Axiomatic.Assertion.Properties
+
 -- Definition of terms for use in assertions
 import Helium.Semantics.Axiomatic.Term
+
+-- Properties of the Term type.
+import Helium.Semantics.Axiomatic.Term.Properties
 
 -- Definition of Hoare triples
 import Helium.Semantics.Axiomatic.Triple
 
 -- Base definitions for semantics
 import Helium.Semantics.Core
+
+-- Properties of core semantic components.
+import Helium.Semantics.Core.Properties
 
 -- Base definitions for the denotational semantics.
 import Helium.Semantics.Denotational.Core

@@ -60,6 +60,9 @@ data Assertion (Σ : Vec Type o) (Γ : Vec Type n) (Δ : Vec Type m) : Set (L.su
   _⟶_    : Assertion Σ Γ Δ → Assertion Σ Γ Δ → Assertion Σ Γ Δ
 
 module Construct where
+  index : Term Σ Γ Δ (array t (suc n)) → Term Σ Γ (fin (suc n) ∷ Δ) t
+  index t = unbox (slice (cast (ℕₚ.+-comm 1 _) (Term.Meta.weaken 0F t)) (meta 0F))
+
   equal : Term Σ Γ Δ t → Term Σ Γ Δ t → Assertion Σ Γ Δ
   equal {t = bool}                x y = pred (x ≟ y)
   equal {t = int}                 x y = pred (x ≟ y)
@@ -70,9 +73,6 @@ module Construct where
   equal {t = tuple (t ∷ t₁ ∷ ts)} x y = equal (head x) (head y) ∧ equal (tail x) (tail y)
   equal {t = array t 0}           x y = true
   equal {t = array t (suc n)}     x y = all (equal (index x) (index y))
-    where
-    index : Term Σ Γ Δ (array t (suc n)) → Term Σ Γ (fin (suc n) ∷ Δ) t
-    index t = unbox (slice (cast (ℕₚ.+-comm 1 _) (Term.Meta.weaken 0F t)) (meta 0F))
 
 open Construct public
 
