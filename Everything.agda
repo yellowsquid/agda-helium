@@ -82,9 +82,6 @@ import Helium.Data.Pseudocode.Algebra.Properties
 -- Definition of the Armv8-M pseudocode.
 import Helium.Data.Pseudocode.Core
 
--- Ways to modify pseudocode statements and expressions.
-import Helium.Data.Pseudocode.Manipulate
-
 -- Definition of instructions using the Armv8-M pseudocode.
 import Helium.Instructions.Base
 
