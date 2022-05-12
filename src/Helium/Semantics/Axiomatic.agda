@@ -52,4 +52,7 @@ open Assertion public using (Assertion) hiding (module Assertion)
 open Assertion.Assertion public
 open Assertion.Construct public
 
-open import Helium.Semantics.Axiomatic.Triple rawPseudocode proof-2≉0 public
+module Triple where
+  open import Helium.Semantics.Axiomatic.Triple rawPseudocode proof-2≉0 public
+
+open Triple public using (_⊆_; _⊢_⊢_)
