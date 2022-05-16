@@ -89,3 +89,16 @@ data HoareTriple (P : Assertion Σ Γ Δ) (Q : Assertion Σ Γ Δ) : Statement �
 
 _⊢_⊢_ : Assertion Σ Γ Δ → Statement Σ Γ → Assertion Σ Γ Δ → Set (ℓsuc ℓ)
 P ⊢ s ⊢ Q = HoareTriple P Q s
+
+-- weakestPrecond : Statement Σ Γ → Assertion Σ Γ Δ → Assertion Σ Γ Δ
+-- weakestPrecond (s ∙ s₁)              Q = weakestPrecond s (weakestPrecond s₁ Q)
+-- weakestPrecond skip                  Q = Q
+-- weakestPrecond (ref ≔ val)           Q = subst Q ref (↓ val)
+-- weakestPrecond (declare e s)         Q = Var.elim 0F (weakestPrecond s (Var.weaken 0F Q)) (↓ e)
+-- weakestPrecond (invoke (s ∙end) es)  Q = {!Var.elimAll (weakestPrecond s (varsToMetas Q)) ?!}
+--   where
+--   metas = All.map (Term.Meta.inject {!!}) (All.tabulate meta)
+--   varsToMetas = λ P → Var.elimAll (Meta.weakenAll [] {!!} P) metas
+-- weakestPrecond (if e then s)         Q = pred (↓ e) ∧ weakestPrecond s Q ∨ pred (↓ inv e) ∧ Q
+-- weakestPrecond (if e then s else s₁) Q = pred (↓ e) ∧ weakestPrecond s Q ∨ pred (↓ inv e) ∧ weakestPrecond s₁ Q
+-- weakestPrecond (for n s)             Q = {!rec.foldl!}

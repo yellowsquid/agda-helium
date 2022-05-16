@@ -18,6 +18,7 @@ private
 
 open import Algebra.Core using (Op₁)
 open import Data.Bool as Bool using (Bool)
+open import Data.Empty using (⊥-elim)
 open import Data.Fin as Fin using (Fin; zero; suc)
 open import Data.Fin.Patterns
 import Data.Fin.Properties as Finₚ
@@ -29,6 +30,7 @@ open import Data.Product.Relation.Binary.Pointwise.NonDependent using (×-decida
 open import Data.Sign using (Sign)
 open import Data.Unit using (⊤)
 open import Data.Vec as Vec using (Vec; []; _∷_; _++_; lookup; map; take; drop)
+import Data.Vec.Properties as Vecₚ
 open import Data.Vec.Relation.Binary.Pointwise.Extensional using (Pointwise; decidable)
 open import Data.Vec.Relation.Unary.All as All using (All; []; _∷_)
 open import Function
@@ -55,6 +57,17 @@ private
   Sign⇒- : Sign → Op₁ A → Op₁ A
   Sign⇒- Sign.+ f = id
   Sign⇒- Sign.- f = f
+
+punchOut-insert : ∀ {a} {A : Set a} (xs : Vec A n) {i j} (i≢j : i ≢ j) y → lookup xs (Fin.punchOut i≢j) ≡ lookup (Vec.insert xs i y) j
+punchOut-insert xs       {0F}    {0F}    i≢j y = ⊥-elim (i≢j refl)
+punchOut-insert xs       {0F}    {suc j} i≢j y = refl
+punchOut-insert (x ∷ xs) {suc i} {0F}    i≢j y = refl
+punchOut-insert (x ∷ xs) {suc i} {suc j} i≢j y = punchOut-insert xs (i≢j ∘ cong suc) y
+-- begin
+--   lookup xs (Fin.punchOut i≢j)                                 ≡˘⟨ cong (flip lookup (Fin.punchOut i≢j)) (Vecₚ.remove-insert xs i x) ⟩
+--   lookup (Vec.remove (Vec.insert xs i x) i) (Fin.punchOut i≢j) ≡⟨  Vecₚ.remove-punchOut (Vec.insert xs i x) i≢j ⟩
+--   lookup (Vec.insert xs i x) j                                 ∎
+--   where open ≡-Reasoning
 
 open ℕₚ.≤-Reasoning
 

@@ -103,6 +103,9 @@ import Helium.Semantics.Axiomatic.Assertion
 -- Properties of the Assertion type.
 import Helium.Semantics.Axiomatic.Assertion.Properties
 
+-- Properties of the Hoare logic semantics.
+import Helium.Semantics.Axiomatic.Properties
+
 -- Definition of terms for use in assertions
 import Helium.Semantics.Axiomatic.Term
 
@@ -120,6 +123,9 @@ import Helium.Semantics.Core.Properties
 
 -- Base definitions for the denotational semantics.
 import Helium.Semantics.Denotational.Core
+
+-- Properties of the denotational semantics.
+import Helium.Semantics.Denotational.Properties
 
 -- Ring solver tactic using integers as coefficients
 import Helium.Tactic.CommutativeRing.NonReflective

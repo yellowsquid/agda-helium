@@ -19,7 +19,7 @@ open import Data.Fin as Fin using (suc; punchIn)
 open import Data.Fin.Patterns using (0F)
 open import Data.Nat using (ℕ; suc)
 import Data.Nat.Properties as ℕₚ
-open import Data.Product as × using (_,_; map₂)
+open import Data.Product as × using (_,_; uncurry; map₂)
 import Data.Sum as ⊎
 open import Data.Vec as Vec using (Vec; []; _∷_; lookup; insert; map; zipWith)
 import Data.Vec.Properties as Vecₚ
@@ -67,7 +67,7 @@ module Construct where
   equal-refl {t = tuple (t ∷ t₁ ∷ ts)} e₁ e₂ σ γ δ eq = equal-refl (head e₁) (head e₂) σ γ δ (cong ×.proj₁ eq) , equal-refl (tail e₁) (tail e₂) σ γ δ (cong ×.proj₂ eq)
   equal-refl {t = array t 0}           e₁ e₂ σ γ δ eq = _
   equal-refl {Δ = Δ} {t = array t (suc n)}     e₁ e₂ σ γ δ eq = λ x →
-    equal-refl (index e₁) (index e₂) σ γ (Core.cons′ Δ x δ)
+    equal-refl (Assertion.indexTerm e₁) (Assertion.indexTerm e₂) σ γ (Core.cons′ Δ x δ)
       (cong (Vec.head ∘ flip Core.sliceVec (lower (Core.fetch 0F (fin (suc n) ∷ Δ) (Core.cons′ Δ x δ))) ∘ Core.castVec (ℕₚ.+-comm 1 _)) (begin
         Term.⟦ Term.Meta.weaken 0F e₁ ⟧ σ γ (Core.cons′ Δ x δ)
           ≡⟨ Termₚ.RecBuilder⇒.extend (Termₚ.Meta.weakenBuilder 0F x) e₁ σ γ δ ⟩
@@ -121,3 +121,68 @@ module Var where
   elimAll⇐         (P ∧ Q)  es σ γ δ deriv = ×.map (elimAll⇐ P es σ γ δ) (elimAll⇐ Q es σ γ δ) deriv
   elimAll⇐         (P ∨ Q)  es σ γ δ deriv = ⊎.map (elimAll⇐ P es σ γ δ) (elimAll⇐ Q es σ γ δ) deriv
   elimAll⇐         (P ⟶ Q)  es σ γ δ deriv = elimAll⇐ Q es σ γ δ ∘ deriv ∘ elimAll⇒ P es σ γ δ
+
+module Meta where
+  weaken⇒ : ∀ i t (v : ⟦ t ⟧ₜ) (P : Assertion Σ Γ Δ) σ γ δ → Assertion.⟦ Assertion.Meta.weaken {t = t} i P ⟧ σ γ (Core.insert′ i Δ δ v) → Assertion.⟦ P ⟧ σ γ δ
+  weaken⇐ : ∀ i t (v : ⟦ t ⟧ₜ) (P : Assertion Σ Γ Δ) σ γ δ → Assertion.⟦ P ⟧ σ γ δ → Assertion.⟦ Assertion.Meta.weaken {t = t} i P ⟧ σ γ (Core.insert′ i Δ δ v)
+
+  weaken⇒ {Δ = Δ} i t v (all P)  σ γ δ deriv = weaken⇒ (suc i) t v P σ γ (Core.cons′ Δ _ δ) ∘ subst (Assertion.⟦ _ ⟧ σ γ) (sym (Coreₚ.insert′-cons′ i Δ δ _ v)) ∘ deriv
+  weaken⇒ {Δ = Δ} i t v (some P) σ γ δ deriv = map₂ (weaken⇒ (suc i) t v P σ γ (Core.cons′ Δ _ δ) ∘ subst (Assertion.⟦ _ ⟧ σ γ) (sym (Coreₚ.insert′-cons′ i Δ δ _ v))) deriv
+  weaken⇒         i t v (pred p) σ γ δ deriv = subst (Lift ℓ ∘ Bool.T ∘ lower) (Termₚ.RecBuilder⇒.extend (Termₚ.Meta.weakenBuilder i v) p σ γ δ) deriv
+  weaken⇒         i t v true     σ γ δ deriv = deriv
+  weaken⇒         i t v (¬ P)    σ γ δ deriv = deriv ∘ weaken⇐ i t v P σ γ δ
+  weaken⇒         i t v (P ∧ Q)  σ γ δ deriv = ×.map (weaken⇒ i t v P σ γ δ) (weaken⇒ i t v Q σ γ δ) deriv
+  weaken⇒         i t v (P ∨ Q)  σ γ δ deriv = ⊎.map (weaken⇒ i t v P σ γ δ) (weaken⇒ i t v Q σ γ δ) deriv
+  weaken⇒         i t v (P ⟶ Q)  σ γ δ deriv = weaken⇒ i t v Q σ γ δ ∘ deriv ∘ weaken⇐ i t v P σ γ δ
+
+  weaken⇐ {Δ = Δ} i t v (all P)  σ γ δ deriv = subst (Assertion.⟦ _ ⟧ σ γ) (Coreₚ.insert′-cons′ i Δ δ _ v) ∘ weaken⇐ (suc i) t v P σ γ (Core.cons′ Δ _ δ) ∘ deriv
+  weaken⇐ {Δ = Δ} i t v (some P) σ γ δ deriv = map₂ (subst (Assertion.⟦ _ ⟧ σ γ) (Coreₚ.insert′-cons′ i Δ δ _ v) ∘ weaken⇐ (suc i) t v P σ γ (Core.cons′ Δ _ δ)) deriv
+  weaken⇐         i t v (pred p) σ γ δ deriv = subst (Lift ℓ ∘ Bool.T ∘ lower) (sym (Termₚ.RecBuilder⇒.extend (Termₚ.Meta.weakenBuilder i v) p σ γ δ)) deriv
+  weaken⇐         i t v true     σ γ δ deriv = deriv
+  weaken⇐         i t v (¬ P)    σ γ δ deriv = deriv ∘ weaken⇒ i t v P σ γ δ
+  weaken⇐         i t v (P ∧ Q)  σ γ δ deriv = ×.map (weaken⇐ i t v P σ γ δ) (weaken⇐ i t v Q σ γ δ) deriv
+  weaken⇐         i t v (P ∨ Q)  σ γ δ deriv = ⊎.map (weaken⇐ i t v P σ γ δ) (weaken⇐ i t v Q σ γ δ) deriv
+  weaken⇐         i t v (P ⟶ Q)  σ γ δ deriv = weaken⇐ i t v Q σ γ δ ∘ deriv ∘ weaken⇒ i t v P σ γ δ
+
+  elim⇒ : ∀ i (e : Term Σ Γ Δ t) (P : Assertion Σ Γ (insert Δ i t)) σ γ δ → Assertion.⟦ Assertion.Meta.elim i P e ⟧ σ γ δ → Assertion.⟦ P ⟧ σ γ (Core.insert′ i Δ δ (Term.⟦ e ⟧ σ γ δ))
+  elim⇐ : ∀ i (e : Term Σ Γ Δ t) (P : Assertion Σ Γ (insert Δ i t)) σ γ δ → Assertion.⟦ P ⟧ σ γ (Core.insert′ i Δ δ (Term.⟦ e ⟧ σ γ δ)) → Assertion.⟦ Assertion.Meta.elim i P e ⟧ σ γ δ
+
+  elim⇒ {Δ = Δ} i e (all P)  σ γ δ deriv = subst (Assertion.⟦ _ ⟧ σ γ) (trans (cong (Core.insert′ (suc i) (_ ∷ Δ) (Core.cons′ Δ _ δ)) (Termₚ.RecBuilder⇒.extend (Termₚ.Meta.weakenBuilder 0F _) e σ γ δ)) (Coreₚ.insert′-cons′ i Δ δ _ (Term.⟦ e ⟧ σ γ δ))) ∘ elim⇒ (suc i) (Term.Meta.weaken 0F e) P σ γ (Core.cons′ Δ _ δ) ∘ deriv
+  elim⇒ {Δ = Δ} i e (some P) σ γ δ deriv = map₂ (subst (Assertion.⟦ _ ⟧ σ γ) (trans (cong (Core.insert′ (suc i) (_ ∷ Δ) (Core.cons′ Δ _ δ)) (Termₚ.RecBuilder⇒.extend (Termₚ.Meta.weakenBuilder 0F _) e σ γ δ)) (Coreₚ.insert′-cons′ i Δ δ _ (Term.⟦ e ⟧ σ γ δ))) ∘ elim⇒ (suc i) (Term.Meta.weaken 0F e) P σ γ (Core.cons′ Δ _ δ)) deriv
+  elim⇒         i e (pred p) σ γ δ deriv = subst (Lift ℓ ∘ Bool.T ∘ lower) (Termₚ.RecBuilder⇐.extend (Termₚ.Meta.elimBuilder i e) p σ γ δ) deriv
+  elim⇒         i e true     σ γ δ deriv = deriv
+  elim⇒         i e (¬ P)    σ γ δ deriv = deriv ∘ elim⇐ i e P σ γ δ
+  elim⇒         i e (P ∧ Q)  σ γ δ deriv = ×.map (elim⇒ i e P σ γ δ) (elim⇒ i e Q σ γ δ) deriv
+  elim⇒         i e (P ∨ Q)  σ γ δ deriv = ⊎.map (elim⇒ i e P σ γ δ) (elim⇒ i e Q σ γ δ) deriv
+  elim⇒         i e (P ⟶ Q)  σ γ δ deriv = elim⇒ i e Q σ γ δ ∘ deriv ∘ elim⇐ i e P σ γ δ
+
+  elim⇐ {Δ = Δ} i e (all P)  σ γ δ deriv = elim⇐ (suc i) (Term.Meta.weaken 0F e) P σ γ (Core.cons′ Δ _ δ) ∘ subst (Assertion.⟦ _ ⟧ σ γ) (sym (trans (cong (Core.insert′ (suc i) (_ ∷ Δ) (Core.cons′ Δ _ δ)) (Termₚ.RecBuilder⇒.extend (Termₚ.Meta.weakenBuilder 0F _) e σ γ δ)) (Coreₚ.insert′-cons′ i Δ δ _ (Term.⟦ e ⟧ σ γ δ)))) ∘ deriv
+  elim⇐ {Δ = Δ} i e (some P) σ γ δ deriv = map₂ (elim⇐ (suc i) (Term.Meta.weaken 0F e) P σ γ (Core.cons′ Δ _ δ) ∘ subst (Assertion.⟦ _ ⟧ σ γ) (sym (trans (cong (Core.insert′ (suc i) (_ ∷ Δ) (Core.cons′ Δ _ δ)) (Termₚ.RecBuilder⇒.extend (Termₚ.Meta.weakenBuilder 0F _) e σ γ δ)) (Coreₚ.insert′-cons′ i Δ δ _ (Term.⟦ e ⟧ σ γ δ))))) deriv
+  elim⇐         i e (pred p) σ γ δ deriv = subst (Lift ℓ ∘ Bool.T ∘ lower) (sym (Termₚ.RecBuilder⇐.extend (Termₚ.Meta.elimBuilder i e) p σ γ δ)) deriv
+  elim⇐         i e true     σ γ δ deriv = deriv
+  elim⇐         i e (¬ P)    σ γ δ deriv = deriv ∘ elim⇒ i e P σ γ δ
+  elim⇐         i e (P ∧ Q)  σ γ δ deriv = ×.map (elim⇐ i e P σ γ δ) (elim⇐ i e Q σ γ δ) deriv
+  elim⇐         i e (P ∨ Q)  σ γ δ deriv = ⊎.map (elim⇐ i e P σ γ δ) (elim⇐ i e Q σ γ δ) deriv
+  elim⇐         i e (P ⟶ Q)  σ γ δ deriv = elim⇐ i e Q σ γ δ ∘ deriv ∘ elim⇒ i e P σ γ δ
+
+module Soundness where
+  subst⇒ : ∀ (P : Assertion Σ Γ Δ) (ref : Reference Σ Γ t) (val : Expression Σ Γ t) σ γ δ → Assertion.⟦ Assertion.subst P ref (Term.↓ val) ⟧ σ γ δ → uncurry Assertion.⟦ P ⟧ (Semantics.stmt (ref ≔ val) (σ , γ)) δ
+  subst⇐ : ∀ (P : Assertion Σ Γ Δ) (ref : Reference Σ Γ t) (val : Expression Σ Γ t) σ γ δ → uncurry Assertion.⟦ P ⟧ (Semantics.stmt (ref ≔ val) (σ , γ)) δ → Assertion.⟦ Assertion.subst P ref (Term.↓ val) ⟧ σ γ δ
+
+  subst⇒ {Δ = Δ} (all P)  ref val σ γ δ deriv = subst⇒ P ref val σ γ (Core.cons′ Δ _ δ) ∘ subst (λ t → Assertion.⟦ Assertion.subst P ref t ⟧ σ γ (Core.cons′ Δ _ δ)) (Termₚ.Meta.weaken-↓ Δ _ 0F val) ∘ deriv
+  subst⇒ {Δ = Δ} (some P) ref val σ γ δ deriv = map₂ (subst⇒ P ref val σ γ (Core.cons′ Δ _ δ) ∘ subst (λ t → Assertion.⟦ Assertion.subst P ref t ⟧ σ γ (Core.cons′ Δ _ δ)) (Termₚ.Meta.weaken-↓ Δ _ 0F val)) deriv
+  subst⇒ (pred p) ref val σ γ δ deriv = subst (Lift ℓ ∘ Bool.T ∘ lower) (Termₚ.Soundness.subst-sound p ref val σ γ δ) deriv
+  subst⇒ true     ref val σ γ δ deriv = deriv
+  subst⇒ (¬ P)    ref val σ γ δ deriv = deriv ∘ subst⇐ P ref val σ γ δ
+  subst⇒ (P ∧ Q)  ref val σ γ δ deriv = ×.map (subst⇒ P ref val σ γ δ) (subst⇒ Q ref val σ γ δ) deriv
+  subst⇒ (P ∨ Q)  ref val σ γ δ deriv = ⊎.map (subst⇒ P ref val σ γ δ) (subst⇒ Q ref val σ γ δ) deriv
+  subst⇒ (P ⟶ Q)  ref val σ γ δ deriv = subst⇒ Q ref val σ γ δ ∘ deriv ∘ subst⇐ P ref val σ γ δ
+
+  subst⇐ {Δ = Δ} (all P)  ref val σ γ δ deriv = subst (λ t → Assertion.⟦ Assertion.subst P ref t ⟧ σ γ (Core.cons′ Δ _ δ)) (sym (Termₚ.Meta.weaken-↓ Δ _ 0F val)) ∘ subst⇐ P ref val σ γ (Core.cons′ Δ _ δ) ∘ deriv
+  subst⇐ {Δ = Δ} (some P) ref val σ γ δ deriv = map₂ (subst (λ t → Assertion.⟦ Assertion.subst P ref t ⟧ σ γ (Core.cons′ Δ _ δ)) (sym (Termₚ.Meta.weaken-↓ Δ _ 0F val)) ∘ subst⇐ P ref val σ γ (Core.cons′ Δ _ δ)) deriv
+  subst⇐ (pred p) ref val σ γ δ deriv = subst (Lift ℓ ∘ Bool.T ∘ lower) (sym (Termₚ.Soundness.subst-sound p ref val σ γ δ)) deriv
+  subst⇐ true     ref val σ γ δ deriv = deriv
+  subst⇐ (¬ P)    ref val σ γ δ deriv = deriv ∘ subst⇒ P ref val σ γ δ
+  subst⇐ (P ∧ Q)  ref val σ γ δ deriv = ×.map (subst⇐ P ref val σ γ δ) (subst⇐ Q ref val σ γ δ) deriv
+  subst⇐ (P ∨ Q)  ref val σ γ δ deriv = ⊎.map (subst⇐ P ref val σ γ δ) (subst⇐ Q ref val σ γ δ) deriv
+  subst⇐ (P ⟶ Q)  ref val σ γ δ deriv = subst⇐ Q ref val σ γ δ ∘ deriv ∘ subst⇒ P ref val σ γ δ

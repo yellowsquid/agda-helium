@@ -44,13 +44,6 @@ private
 
   ℓ = i₁ ⊔ r₁
 
-  punchOut-insert : ∀ {a} {A : Set a} (xs : Vec A n) {i j} (i≢j : i ≢ j) x → lookup xs (punchOut i≢j) ≡ lookup (insert xs i x) j
-  punchOut-insert xs {i} {j} i≢j x = begin
-    lookup xs (punchOut i≢j)                         ≡˘⟨ cong (flip lookup (punchOut i≢j)) (Vecₚ.remove-insert xs i x) ⟩
-    lookup (remove (insert xs i x) i) (punchOut i≢j) ≡⟨  Vecₚ.remove-punchOut (insert xs i x) i≢j ⟩
-    lookup (insert xs i x) j                         ∎
-    where open ≡-Reasoning
-
 data Term (Σ : Vec Type i) (Γ : Vec Type j) (Δ : Vec Type k) : Type → Set ℓ where
   lit           : ⟦ t ⟧ₜ → Term Σ Γ Δ t
   state         : ∀ i → Term Σ Γ Δ (lookup Σ i)
@@ -211,6 +204,21 @@ module Var where
   weakenAll : Term Σ [] Δ t → Term Σ Γ Δ t
   weakenAll e = RecBuilder.extend weakenAllBuilder e
 
+  elimBuilder : ∀ i → Term Σ Γ Δ t → RecBuilder Σ (insert Γ i t) Δ Σ Γ Δ
+  elimBuilder {Γ = Γ} i e = record
+    { onState = state
+    ; onVar   = onVar
+    ; onMeta  = meta
+    }
+    where
+    onVar : ∀ j → Term _ Γ _ (lookup (insert Γ i _) j)
+    onVar j with i Fin.≟ j
+    ...     | yes refl = Cast.type (sym (Vecₚ.insert-lookup Γ i _)) e
+    ...     | no i≢j   = Cast.type (punchOut-insert Γ i≢j _) (var _)
+
+  elim : ∀ i → Term Σ (insert Γ i t′) Δ t → Term Σ Γ Δ t′ → Term Σ Γ Δ t
+  elim i e e′ = RecBuilder.extend (elimBuilder i e′) e
+
   elimAllBuilder : All (Term Σ ts Δ) Γ → RecBuilder Σ Γ Δ Σ ts Δ
   elimAllBuilder es = record
     { onState = state
@@ -308,12 +316,9 @@ subst e (state i)          val = State.subst i e val
 subst e (var i)            val = Var.subst i e val
 subst e [ ref ]            val = subst e ref (unbox val)
 subst e (unbox ref)        val = subst e ref [ val ]
-subst e (merge ref ref₁ x) val = subst (subst e ref (slice val (↓ x))) ref₁ (cut val (↓ x))
 subst e (slice ref x)      val = subst e ref (merge val (↓ ! cut ref x) (↓ x))
 subst e (cut ref x)        val = subst e ref (merge (↓ ! slice ref x) val (↓ x))
 subst e (cast eq ref)      val = subst e ref (cast (sym eq) val)
-subst e nil                val = e
-subst e (cons ref ref₁)    val = subst (subst e ref (head val)) ref₁ (tail val)
 subst e (head ref)         val = subst e ref (cons val (↓ ! tail ref))
 subst e (tail ref)         val = subst e ref (cons (↓ ! head ref) val)
 

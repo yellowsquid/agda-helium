@@ -15,7 +15,7 @@ module Helium.Semantics.Core.Properties
 open import Helium.Data.Pseudocode.Algebra.Properties pseudocode
 
 open import Data.Empty using (⊥-elim)
-open import Data.Fin as Fin using (suc; punchIn)
+open import Data.Fin as Fin using (suc; punchIn; punchOut)
 open import Data.Fin.Patterns using (0F)
 open import Data.Nat using (ℕ)
 open import Data.Product using (_,_)
@@ -31,8 +31,8 @@ open import Helium.Semantics.Core rawPseudocode
 
 private
   variable
-    m n : ℕ
-    t : Type
+    m n  : ℕ
+    t t′ : Type
 
 open ≡-Reasoning
 
@@ -51,6 +51,32 @@ cons′-head′-tail′ (_ ∷ ts) vs = refl
 append-cons′ : ∀ (ts : Vec Type m) (ts₁ : Vec Type n) (xs : ⟦ ts ⟧ₜₛ) (ys : ⟦ ts₁ ⟧ₜₛ) (z : ⟦ t ⟧ₜ) →
                append (t ∷ ts) ts₁ (cons′ ts z xs) ys ≡ cons′ (ts ++ ts₁) z (append ts ts₁ xs ys)
 append-cons′ ts ts₁ xs ys z = cong₂ (λ x y → cons′ (ts ++ ts₁) x (append ts ts₁ y ys)) (head′-cons′ ts z xs) (tail′-cons′ ts z xs)
+
+insert′-cons′ : ∀ i (ts : Vec Type m) (xs : ⟦ ts ⟧ₜₛ) (y : ⟦ t ⟧ₜ) (z : ⟦ t′ ⟧ₜ) →
+               insert′ (suc i) (t ∷ ts) (cons′ ts y xs) z ≡ cons′ (insert ts i t′) y (insert′ i ts xs z)
+insert′-cons′ i ts xs y z = cong₂ (λ x y → cons′ (insert ts i _) x (insert′ i ts y z)) (head′-cons′ ts y xs) (tail′-cons′ ts y xs)
+
+fetch-insert′ : ∀ i (ts : Vec Type n) vs v → subst ⟦_⟧ₜ (Vecₚ.insert-lookup ts i t) (fetch i (insert ts i t) (insert′ i ts vs v)) ≡ v
+fetch-insert′ 0F      ts       vs v = head′-cons′ ts v vs
+fetch-insert′ (suc i) (_ ∷ ts) vs v = begin
+  subst ⟦_⟧ₜ (Vecₚ.insert-lookup ts i _) (fetch (suc i) (_ ∷ insert ts i _) (insert′ (suc i) (_ ∷ ts) vs v))
+    ≡⟨ cong (subst ⟦_⟧ₜ (Vecₚ.insert-lookup ts i _) ∘ fetch i (insert ts i _)) (tail′-cons′ (insert ts i _) (head′ ts vs) (insert′ i ts (tail′ ts vs) v)) ⟩
+  subst ⟦_⟧ₜ (Vecₚ.insert-lookup ts i _) (fetch i (insert ts i _) (insert′ i ts (tail′ ts vs) v))
+    ≡⟨ fetch-insert′ i ts (tail′ ts vs) v ⟩
+  v
+    ∎
+
+fetch-punchOut : ∀ {i j} (i≢j : i ≢ j) (ts : Vec Type n) vs v → fetch j (insert ts i t) (insert′ i ts vs v) ≡ subst ⟦_⟧ₜ (punchOut-insert ts i≢j t) (fetch (punchOut i≢j) ts vs)
+fetch-punchOut {i = 0F}    {j = 0F}    i≢j ts       vs v = ⊥-elim (i≢j refl)
+fetch-punchOut {i = 0F}    {j = suc j} i≢j ts       vs v = cong (fetch j ts) (tail′-cons′ ts v vs)
+fetch-punchOut {i = suc i} {j = 0F}    i≢j (_ ∷ ts) vs v = head′-cons′ (insert ts i _) (head′ ts vs) (insert′ i ts (tail′ ts vs) v)
+fetch-punchOut {i = suc i} {j = suc j} i≢j (_ ∷ ts) vs v = begin
+  fetch j (insert ts i _) (tail′ (insert ts i _) (cons′ (insert ts i _) (head′ ts vs) (insert′ i ts (tail′ ts vs) v)))
+    ≡⟨ cong (fetch j (insert ts i _)) (tail′-cons′ (insert ts i _) (head′ ts vs) (insert′ i ts (tail′ ts vs) v)) ⟩
+  fetch j (insert ts i _) (insert′ i ts (tail′ ts vs) v)
+    ≡⟨ fetch-punchOut (i≢j ∘ cong suc) ts (tail′ ts vs) v ⟩
+  subst ⟦_⟧ₜ (punchOut-insert ts (i≢j ∘ cong suc) _) (fetch (punchOut (i≢j ∘ cong suc)) ts (tail′ ts vs))
+    ∎
 
 fetch-punchIn : ∀ (ts : Vec Type n) i t j vs v →
                 subst ⟦_⟧ₜ

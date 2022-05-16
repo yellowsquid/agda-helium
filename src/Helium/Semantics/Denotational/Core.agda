@@ -43,8 +43,8 @@ module Semantics (2≉0 : 2≉0) where
   exprs     : All (Expression Σ Γ) ts → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ ts ⟧ₜₛ
   ref       : Reference Σ Γ t → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ t ⟧ₜ
   locRef    : LocalReference Σ Γ t → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ t ⟧ₜ
-  assign    : Reference Σ Γ t → ⟦ t ⟧ₜ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ
-  locAssign : LocalReference Σ Γ t → ⟦ t ⟧ₜ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ Γ ⟧ₜₛ → ⟦ Γ ⟧ₜₛ
+  assign    : Reference Σ Γ t → ⟦ t ⟧ₜ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ
+  locAssign : LocalReference Σ Γ t → ⟦ t ⟧ₜ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ Γ ⟧ₜₛ
   stmt      : Statement Σ Γ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ
   locStmt   : LocalStatement Σ Γ → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ Γ ⟧ₜₛ
   fun       : Function Σ Γ t → ⟦ Σ ⟧ₜₛ × ⟦ Γ ⟧ₜₛ → ⟦ t ⟧ₜ
@@ -90,55 +90,43 @@ module Semantics (2≉0 : 2≉0) where
   ref {Γ = Γ} (var i)       = fetch i Γ ∘ proj₂
   ref [ r ]                 = (_∷ []) ∘ ref r
   ref (unbox r)             = Vec.head ∘ ref r
-  ref (merge r r₁ e)        = uncurry (uncurry mergeVec) ∘ < < ref r , ref r₁ > , lower ∘ expr e >
   ref (slice r e)           = uncurry sliceVec ∘ < ref r , lower ∘ expr e >
   ref (cut r e)             = uncurry cutVec ∘ < ref r , lower ∘ expr e >
   ref (cast eq r)           = castVec eq ∘ ref r
-  ref nil                   = const _
-  ref (cons {ts = ts} r r₁) = uncurry (cons′ ts) ∘ < ref r , ref r₁ >
   ref (head {ts = ts} r)    = head′ ts ∘ ref r
   ref (tail {ts = ts} r)    = tail′ ts ∘ ref r
 
   locRef {Γ = Γ} (var i)       = fetch i Γ ∘ proj₂
   locRef [ r ]                 = (_∷ []) ∘ locRef r
   locRef (unbox r)             = Vec.head ∘ locRef r
-  locRef (merge r r₁ e)        = uncurry (uncurry mergeVec) ∘ < < locRef r , locRef r₁ > , lower ∘ expr e >
   locRef (slice r e)           = uncurry sliceVec ∘ < locRef r , lower ∘ expr e >
   locRef (cut r e)             = uncurry cutVec ∘ < locRef r , lower ∘ expr e >
   locRef (cast eq r)           = castVec eq ∘ locRef r
-  locRef nil                   = const _
-  locRef (cons {ts = ts} r r₁) = uncurry (cons′ ts) ∘ < locRef r , locRef r₁ >
   locRef (head {ts = ts} r)    = head′ ts ∘ locRef r
   locRef (tail {ts = ts} r)    = tail′ ts ∘ locRef r
 
-  assign {Σ = Σ} (state i)     val σ,γ = < updateAt i Σ val ∘ proj₁ , proj₂ > 
-  assign {Γ = Γ} (var i)       val σ,γ = < proj₁ , updateAt i Γ val ∘ proj₂ >
-  assign [ r ]                 val σ,γ = assign r (Vec.head val) σ,γ
-  assign (unbox r)             val σ,γ = assign r (val ∷ []) σ,γ
-  assign (merge r r₁ e)        val σ,γ = assign r₁ (cutVec val (lower (expr e σ,γ))) σ,γ ∘ assign r (sliceVec val (lower (expr e σ,γ))) σ,γ
-  assign (slice r e)           val σ,γ = assign r (mergeVec val (cutVec (ref r σ,γ) (lower (expr e σ,γ))) (lower (expr e σ,γ))) σ,γ
-  assign (cut r e)             val σ,γ = assign r (mergeVec (sliceVec (ref r σ,γ) (lower (expr e σ,γ))) val (lower (expr e σ,γ))) σ,γ
-  assign (cast eq r)           val σ,γ = assign r (castVec (sym eq) val) σ,γ
-  assign nil                   val σ,γ = id
-  assign (cons {ts = ts} r r₁) val σ,γ = assign r₁ (tail′ ts val) σ,γ ∘ assign r (head′ ts val) σ,γ
-  assign (head {ts = ts} r)    val σ,γ = assign r (cons′ ts val (ref (tail r) σ,γ)) σ,γ
-  assign (tail {ts = ts} r)    val σ,γ = assign r (cons′ ts (ref (head r) σ,γ) val) σ,γ
+  assign {Σ = Σ} (state i)     val = < updateAt i Σ val ∘ proj₁ , proj₂ >
+  assign {Γ = Γ} (var i)       val = < proj₁ , updateAt i Γ val ∘ proj₂ >
+  assign [ r ]                 val = assign r (Vec.head val)
+  assign (unbox r)             val = assign r (val ∷ [])
+  assign (slice r e)           val = uncurry (assign r) ∘ < uncurry (mergeVec val) ∘ < uncurry cutVec , proj₂ > ∘ < ref r , lower ∘ expr e > , id >
+  assign (cut r e)             val = uncurry (assign r) ∘ < uncurry (flip mergeVec val) ∘ < uncurry sliceVec , proj₂ > ∘ < ref r , lower ∘ expr e > , id >
+  assign (cast eq r)           val = assign r (castVec (sym eq) val)
+  assign (head {ts = ts} r)    val = uncurry (assign r) ∘ < cons′ ts val ∘ ref (tail r) , id >
+  assign (tail {ts = ts} r)    val = uncurry (assign r) ∘ < flip (cons′ ts) val ∘ ref (head r) , id >
 
-  locAssign {Γ = Γ} (var i)       val σ,γ = updateAt i Γ val
-  locAssign [ r ]                 val σ,γ = locAssign r (Vec.head val) σ,γ
-  locAssign (unbox r)             val σ,γ = locAssign r (val ∷ []) σ,γ
-  locAssign (merge r r₁ e)        val σ,γ = locAssign r₁ (cutVec val (lower (expr e σ,γ))) σ,γ ∘ locAssign r (sliceVec val (lower (expr e σ,γ))) σ,γ
-  locAssign (slice r e)           val σ,γ = locAssign r (mergeVec val (cutVec (locRef r σ,γ) (lower (expr e σ,γ))) (lower (expr e σ,γ))) σ,γ
-  locAssign (cut r e)             val σ,γ = locAssign r (mergeVec (sliceVec (locRef r σ,γ) (lower (expr e σ,γ))) val (lower (expr e σ,γ))) σ,γ
-  locAssign (cast eq r)           val σ,γ = locAssign r (castVec (sym eq) val) σ,γ
-  locAssign nil                   val σ,γ = id
-  locAssign (cons {ts = ts} r r₁) val σ,γ = locAssign r₁ (tail′ ts val) σ,γ ∘ locAssign r (head′ ts val) σ,γ
-  locAssign (head {ts = ts} r)    val σ,γ = locAssign r (cons′ ts val (locRef (tail r) σ,γ)) σ,γ
-  locAssign (tail {ts = ts} r)    val σ,γ = locAssign r (cons′ ts (locRef (head r) σ,γ) val) σ,γ
+  locAssign {Γ = Γ} (var i)       val = updateAt i Γ val ∘ proj₂
+  locAssign [ r ]                 val = locAssign r (Vec.head val)
+  locAssign (unbox r)             val = locAssign r (val ∷ [])
+  locAssign (slice r e)           val = uncurry (locAssign r) ∘ < uncurry (mergeVec val) ∘ < uncurry cutVec , proj₂ > ∘ < locRef r , lower ∘ expr e > , id >
+  locAssign (cut r e)             val = uncurry (locAssign r) ∘ < uncurry (flip mergeVec val) ∘ < uncurry sliceVec , proj₂ > ∘ < locRef r , lower ∘ expr e > , id >
+  locAssign (cast eq r)           val = locAssign r (castVec (sym eq) val)
+  locAssign (head {ts = ts} r)    val = uncurry (locAssign r) ∘ < cons′ ts val ∘ locRef (tail r) , id >
+  locAssign (tail {ts = ts} r)    val = uncurry (locAssign r) ∘ < flip (cons′ ts) val ∘ locRef (head r) , id >
 
   stmt (s ∙ s₁)              = stmt s₁ ∘ stmt s
   stmt skip                  = id
-  stmt (ref ≔ val)           = uncurry (uncurry (assign ref)) ∘ < < expr val , id > , id >
+  stmt (ref ≔ val)           = uncurry (assign ref) ∘ < expr val , id >
   stmt {Γ = Γ} (declare e s) = < proj₁ , tail′ Γ ∘ proj₂ > ∘ stmt s ∘ < proj₁ , uncurry (cons′ Γ) ∘ < expr e , proj₂ > >
   stmt (invoke p es)         = < proc p ∘ < proj₁ , exprs es > , proj₂ >
   stmt (if e then s)         = uncurry (uncurry Bool.if_then_else_) ∘ < < lower ∘ expr e , stmt s > , id >
@@ -147,7 +135,7 @@ module Semantics (2≉0 : 2≉0) where
 
   locStmt (s ∙ s₁)              = locStmt s₁ ∘ < proj₁ , locStmt s >
   locStmt skip                  = proj₂
-  locStmt (ref ≔ val)           = uncurry (uncurry (locAssign ref)) ∘ < < expr val , id > , proj₂ >
+  locStmt (ref ≔ val)           = uncurry (locAssign ref) ∘ < expr val , id >
   locStmt {Γ = Γ} (declare e s) = tail′ Γ ∘ locStmt s ∘ < proj₁ , uncurry (cons′ Γ) ∘ < expr e , proj₂ > >
   locStmt (if e then s)         = uncurry (uncurry Bool.if_then_else_) ∘ < < lower ∘ expr e , locStmt s > , proj₂ >
   locStmt (if e then s else s₁) = uncurry (uncurry Bool.if_then_else_) ∘ < < lower ∘ expr e , locStmt s > , locStmt s₁ >

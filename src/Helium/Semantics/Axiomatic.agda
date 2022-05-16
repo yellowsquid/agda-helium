@@ -50,9 +50,10 @@ module Assertion where
 
 open Assertion public using (Assertion) hiding (module Assertion)
 open Assertion.Assertion public
-open Assertion.Construct public
+open Assertion.Construct public hiding (indexTerm)
 
 module Triple where
   open import Helium.Semantics.Axiomatic.Triple rawPseudocode proof-2≉0 public
 
-open Triple public using (_⊆_; _⊢_⊢_)
+open Triple public using (_⊆_; _⊢_⊢_; arr; implies)
+open Triple.HoareTriple public

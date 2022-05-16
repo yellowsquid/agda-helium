@@ -28,7 +28,7 @@ private
   variable
     k m n : ℕ
     t : Type
-    Γ : Vec Type n
+    Σ Γ : Vec Type n
 
 --- Types
 
@@ -77,13 +77,7 @@ BeatId = state 6F
 
 -- Indirect
 
-index : Expression State Γ (array t (suc m)) → Expression State Γ (fin (suc m)) → Expression State Γ t
-index {m = m} x i = unbox (slice (cast (ℕₚ.+-comm 1 m) x) i)
-
-*index : Reference State Γ (array t (suc m)) → Expression State Γ (fin (suc m)) → Reference State Γ t
-*index {m = m} x i = unbox (slice (cast (ℕₚ.+-comm 1 m) x) i)
-
-*index-group : Reference State Γ (array t (k ℕ.* suc m)) → Expression State Γ (fin (suc m)) → Reference State Γ (array t k)
+*index-group : Reference Σ Γ (array t (k ℕ.* suc m)) → Expression Σ Γ (fin (suc m)) → Reference Σ Γ (array t k)
 *index-group {k = k} {m = m} x i = slice (cast eq x) (fin reindex (tup (i ∷ [])))
   where
   eq = P.trans (ℕₚ.*-comm k (suc m)) (ℕₚ.+-comm k (m ℕ.* k))
@@ -92,7 +86,7 @@ index {m = m} x i = unbox (slice (cast (ℕₚ.+-comm 1 m) x) i)
   reindex {m}     {n} 0F      = Fin.inject+ (m ℕ.* n) 0F
   reindex {suc m} {n} (suc i) = Fin.cast (ℕₚ.+-suc n (m ℕ.* n)) (Fin.raise n (reindex i))
 
-index-group : Expression State Γ (array t (k ℕ.* suc m)) → Expression State Γ (fin (suc m)) → Expression State Γ (array t k)
+index-group : Expression Σ Γ (array t (k ℕ.* suc m)) → Expression Σ Γ (fin (suc m)) → Expression Σ Γ (array t k)
 index-group {k = k} {m = m} x i = slice (cast eq x) (fin reindex (tup (i ∷ [])))
   where
   eq = P.trans (ℕₚ.*-comm k (suc m)) (ℕₚ.+-comm k (m ℕ.* k))
@@ -104,60 +98,87 @@ index-group {k = k} {m = m} x i = slice (cast eq x) (fin reindex (tup (i ∷ [])
 Q[_,_] : Expression State Γ (fin 8) → Expression State Γ (fin 4) → Reference State Γ (bits 32)
 Q[ i , j ] = *index S (fin (uncurry Fin.combine) (tup (i ∷ j ∷ [])))
 
-elem : ∀ m → Expression State Γ (array t (suc k ℕ.* m)) → Expression State Γ (fin (suc k)) → Expression State Γ (array t m)
+elem : ∀ m → Expression Σ Γ (array t (suc k ℕ.* m)) → Expression Σ Γ (fin (suc k)) → Expression Σ Γ (array t m)
 elem {k = k} zero    x i = cast (ℕₚ.*-comm k 0) x
 elem {k = k} (suc m) x i = index-group (cast (ℕₚ.*-comm (suc k) (suc m)) x) i
 
-*elem : ∀ m → Reference State Γ (array t (suc k ℕ.* m)) → Expression State Γ (fin (suc k)) → Reference State Γ (array t m)
+*elem : ∀ m → Reference Σ Γ (array t (suc k ℕ.* m)) → Expression Σ Γ (fin (suc k)) → Reference Σ Γ (array t m)
 *elem {k = k} zero    x i = cast (ℕₚ.*-comm k 0) x
 *elem {k = k} (suc m) x i = *index-group (cast (ℕₚ.*-comm (suc k) (suc m)) x) i
 
 --- Other utiliies
 
-hasBit : Expression State Γ (bits (suc m)) → Expression State Γ (fin (suc m)) → Expression State Γ bool
-hasBit {n} x i = index x i
+hasBit : Expression Σ Γ (bits (suc m)) → Expression Σ Γ (fin (suc m)) → Expression Σ Γ bool
+hasBit = index
 
-sliceⁱ : ℕ → Expression State Γ int → Expression State Γ (bits m)
-sliceⁱ {m = zero}  n i = lit []
-sliceⁱ {m = suc m} n i = sliceⁱ (suc n) i ∶ [ getBit n i ]
+sliceⁱ : ℕ → Function Σ (int ∷ []) (bits m)
+sliceⁱ {m = 0}     offset = init lit [] ∙ skip end
+sliceⁱ {m = suc m} offset =
+  init
+    lit (Vec.replicate false) ∙ (
+    var 1F ≔ var 1F >> offset ∙
+    for (suc m) (
+      let x = var 2F in
+      let ret = var 1F in
+      let i = var 0F in
+      **index ret i ≔ lit {t = int} ℤ.0ℤ <? !! x - lit (ℤ.+ 2) * (!! x >> 1) ∙
+      x ≔ !! x >> 1
+    ))
+  end
 
 --- Functions
 
-Int : Function State (bits n ∷ bool ∷ []) int
-Int = init if var 1F then uint (var 0F) else sint (var 0F) ∙ skip end
+Int : Function Σ (bits n ∷ bool ∷ []) int
+Int =
+  init (
+    let x = var 0F in
+    let unsigned = var 1F in
+    if unsigned
+    then
+      call uint (x ∷ [])
+    else
+      call sint (x ∷ [])
+    )
+    ∙
+    skip
+  end
 
 -- arguments swapped, pred n
-SignedSatQ : ∀ n → Function State (int ∷ []) (tuple (bits (suc n) ∷ bool ∷ []))
+SignedSatQ : ∀ n → Function Σ (int ∷ []) (tuple (bits (suc n) ∷ bool ∷ []))
 SignedSatQ n =
   init
-    lit (Vec.replicate false , true) ∙
-    ( if max <? var 1F
+    lit (Vec.replicate false , true)
+    ∙ (
+      let x = var 1F in
+      let ret₁ = head (var 0F) in
+      let ret₂ = head (tail (var 0F)) in
+      if max <? !! x
       then
-        var 1F ≔ max
-      else if var 1F <? min
+        x ≔ max
+      else if !! x <? min
       then
-        var 1F ≔ min
+        x ≔ min
       else
-        head (tail (var 0F)) ≔ lit false ∙
-      head (var 0F) ≔ sliceⁱ 0 (var 1F))
+        ret₂ ≔ lit false ∙
+      ret₁ ≔ call (sliceⁱ 0) (!! x ∷ []))
   end
   where
   max = lit (ℤ.+ (2 ℕ.^ n) ℤ.+ -1ℤ)
   min = lit (ℤ.- ℤ.+ (2 ℕ.^ n))
 
--- actual shift is 'shift + 1'
-LSL-C : ∀ (shift : ℕ) → Function State (bits n ∷ []) (tuple (bits n ∷ bit ∷ []))
-LSL-C {n} shift =
+LSL-C : (shift-1 : ℕ) → Function State (bits n ∷ []) (tuple (bits n ∷ bit ∷ []))
+LSL-C {n} shift-1 =
   init
-    lit (Vec.replicate false , false) ∙
-    declare (var 1F ∶ lit (Vec.replicate {n = suc shift} false)) (
+    lit (Vec.replicate false , false)
+    ∙
+    declare (var 1F ∶ lit (Vec.replicate {n = suc shift-1} false)) (
       var 1F ≔ tup (
         slice (var 0F) (lit 0F) ∷
-        unbox (slice (cast eq (var 0F)) (lit (Fin.inject+ shift (Fin.fromℕ n)))) ∷
+        unbox (slice (cast eq (var 0F)) (lit (Fin.inject+ shift-1 (Fin.fromℕ n)))) ∷
         []))
   end
   where
-  eq = P.trans (ℕₚ.+-comm 1 (shift ℕ.+ n)) (P.cong (ℕ._+ 1) (ℕₚ.+-comm shift n))
+  eq = P.trans (ℕₚ.+-comm 1 (shift-1 ℕ.+ n)) (P.cong (ℕ._+ 1) (ℕₚ.+-comm shift-1 n))
 
 --- Procedures
 
@@ -169,43 +190,62 @@ private
   div2 3F = 1F
 
 copyMasked : Procedure State (fin 8 ∷ bits 32 ∷ beat ∷ elmtMask ∷ [])
-copyMasked = for 4
-  -- 0:e 1:dest 2:result 3:beat 4:elmtMask
-  ( if hasBit (var 4F) (var 0F)
+copyMasked =
+  for 4 (
+    let e = var 0F in
+    let dst = var 1F in
+    let src = var 2F in
+    let beat = var 3F in
+    let elmtMask = var 4F in
+    if hasBit elmtMask e
     then
-      *elem 8 Q[ var 1F , var 3F ] (var 0F) ≔ elem 8 (var 2F) (var 0F)
-  ) ∙end
+      *elem 8 Q[ dst , beat ] e ≔ elem 8 src beat)
+  ∙end
 
 VPTAdvance : Procedure State (beat ∷ [])
-VPTAdvance = declare (fin div2 (tup (var 0F ∷ []))) (
+VPTAdvance =
+  declare (fin div2 (tup (var 0F ∷ []))) (
   declare (elem 4 (! VPR-mask) (var 0F)) (
-    -- 0:vptState 1:maskId 2:beat
-    if var 0F ≟ lit (true ∷ false ∷ false ∷ false ∷ [])
+    let vptState = var 0F in
+    let maskId = var 1F in
+    let beat = var 2F in
+    if ! vptState ≟ lit (true ∷ false ∷ false ∷ false ∷ [])
     then
-      var 0F ≔ lit (Vec.replicate false)
-    else if inv (var 0F ≟ lit (Vec.replicate false))
+      vptState ≔ lit (Vec.replicate false)
+    else if inv (! vptState ≟ lit (Vec.replicate false))
     then (
-      declare (lit false) (
-        -- 0:inv 1:vptState 2:maskId 3:beat
-        cons (var 1F) (cons (var 0F) nil) ≔ call (LSL-C 0) (var 1F ∷ []) ∙
-        if var 0F
+      declare (call (LSL-C 0) (! vptState ∷ [])) (
+        let vptState′,i = var 0F in
+        let vptState = var 1F in
+        -- let maskId = var 2F in
+        let beat = var 3F in
+        vptState ≔ head vptState′,i ∙
+        if head (tail vptState′,i)
         then
-          *elem 4 VPR-P0 (var 3F) ≔ not (elem 4 (! VPR-P0) (var 3F)))) ∙
-    if getBit 0 (asInt (var 2F))
+          *elem 4 VPR-P0 beat ≔ not (elem 4 (! VPR-P0) beat))) ∙
+    if getBit 0 (asInt beat)
     then
-      *elem 4 VPR-mask (var 1F) ≔ var 0F))
-    ∙end
+      *elem 4 VPR-mask maskId ≔ ! vptState))
+  ∙end
 
 VPTActive : Function State (beat ∷ []) bool
-VPTActive = init inv (elem 4 (! VPR-mask) (fin div2 (tup (var 0F ∷ []))) ≟ lit (Vec.replicate false)) ∙ skip end
+VPTActive =
+  init
+    inv (elem 4 (! VPR-mask) (fin div2 (tup (var 0F ∷ []))) ≟ lit (Vec.replicate false))
+    ∙
+    skip
+  end
 
 GetCurInstrBeat : Function State [] (tuple (beat ∷ elmtMask ∷ []))
 GetCurInstrBeat =
   init
-    tup (! BeatId ∷ lit (Vec.replicate true) ∷ []) ∙
-    if call VPTActive (! BeatId ∷ [])
+    tup (! BeatId ∷ lit (Vec.replicate true) ∷ [])
+    ∙ (
+    let curBeat = head (var 0F) in
+    let elmtMask = head (tail (var 0F)) in
+    if call VPTActive (curBeat  ∷ [])
     then
-      head (tail (var 0F)) ≔ head (tail (var 0F)) and elem 4 (! VPR-P0) (head (var 0F))
+      elmtMask ≔ !! elmtMask and elem 4 (! VPR-P0) curBeat)
   end
 
 -- Assumes:
@@ -217,13 +257,13 @@ GetCurInstrBeat =
 ExecBeats : Procedure State [] → Procedure State []
 ExecBeats DecodeExec =
   for 4 (
-    -- 0:beatId
-    BeatId ≔ var 0F ∙
+    let beatId = var 0F in
+    BeatId ≔ beatId ∙
     AdvanceVPTState ≔ lit true ∙
     invoke DecodeExec [] ∙
     if ! AdvanceVPTState
     then
-      invoke VPTAdvance (var 0F ∷ []))
+      invoke VPTAdvance (beatId ∷ []))
   ∙end
 
 *index-32 : ∀ size → Reference State Γ (bits 32) → Expression State Γ (fin (toℕ (Instr.Size.elements size))) → Reference State Γ (bits (toℕ (Instr.Size.esize size)))
@@ -239,56 +279,73 @@ index-32 Instr.32bit = index-group
 module _ (d : Instr.VecOp₂) where
   open Instr.VecOp₂ d
 
- -- 0:op₂ 1:e 2:op₁ 3:result 4:elmtMask 5:curBeat
-  vec-op₂′ : Statement State (bits (toℕ esize) ∷ fin (toℕ elements) ∷ bits 32 ∷ bits 32 ∷ elmtMask ∷ beat ∷ []) → Procedure State []
-  vec-op₂′ op = declare (lit 0F) (
-    declare (lit (Vec.replicate false)) (
-    -- 0:elmtMask 1:curBeat
-    cons (var 1F) (cons (var 0F) nil) ≔ call GetCurInstrBeat [] ∙
-    declare (lit (Vec.replicate false)) (
-    declare (! Q[ lit src₁ , var 2F ]) (
-    -- 0:op₁ 1:result 2:elmtMask 3:curBeat
-    for (toℕ elements) (
-       -- 0:e 1:op₁ 2:result 3:elmtMask 4:curBeat
-      declare op₂ op ) ∙
-    -- 0:op₁ 1:result 2:elmtMask 3:curBeat
-    invoke copyMasked (lit dest ∷ var 1F ∷ var 3F ∷ var 2F ∷ [])))))
-    ∙end
+  private
+    VecOpLocals : Vec Type 5
+    VecOpLocals = bits (toℕ esize) ∷ fin (toℕ elements) ∷ bits 32 ∷ bits 32 ∷ tuple (beat ∷ elmtMask ∷ []) ∷ []
+
+  -- NOTE: we accept a statement as we need to modify global variables
+  --       and return a result value.
+  -- The statement _must_ assign into `index-32 size result e` and no other
+  -- local variable (expect those it declares itself).
+  vec-op₂′ : Statement State VecOpLocals → Procedure State []
+  vec-op₂′ op =
+    declare (call GetCurInstrBeat []) (
+      -- let elmtMast = head (tail (var 0F)) in
+      let curBeat = head (var 0F) in
+      declare (! Q[ lit src₁ , curBeat ]) (
+      declare (lit (Vec.replicate false)) (
+      let elmtMask = head (tail (var 2F)) in
+      let curBeat = head (var 2F) in
+      -- let op₁ = var 1F in
+      let result = var 0F in
+      for (toℕ elements) (
+        declare op₂ op) ∙
+      invoke copyMasked (lit dest ∷ result ∷ curBeat ∷ elmtMask ∷ [])
+      ))) ∙end
     where
-    -- 0:e 1:op₁ 2:result 3:elmtMask 4:curBeat
     op₂ =
-      [ (λ src₂ → index-32 size (index (! R) (lit src₂)) (lit 0F))
-      , (λ src₂ → index-32 size (! Q[ lit src₂ , var 4F ]) (var 0F))
+      -- let elmtMast = head (tail (var 3F)) in
+      let curBeat = head (var 3F) in
+      -- let op₁ = var 2F in
+      -- let result = var 1F in
+      let i = var 0F in
+      [ (λ src₂ → index-32 size (index (! R) (lit src₂)) i)
+      , (λ src₂ → index-32 size (! Q[ lit src₂ , curBeat ]) i)
       ]′ src₂
 
   vec-op₂ : Function State (bits (toℕ esize) ∷ bits (toℕ esize) ∷ []) (bits (toℕ esize)) → Procedure State []
-  vec-op₂ op = vec-op₂′ (*index-32 size (var 3F) (var 1F) ≔ call op (index-32 size (var 2F) (var 1F) ∷ var 0F ∷ []))
+  vec-op₂ op = vec-op₂′ (
+    let op₁ = var 3F in
+    let result = var 2F in
+    let i = var 1F in
+    let op₂ = var 0F in
+    *index-32 size result i ≔ call op (index-32 size op₁ i ∷ op₂ ∷ []))
 
 vadd : Instr.VAdd → Procedure State []
-vadd d = vec-op₂ d (init sliceⁱ 0 (uint (var 0F) + uint (var 1F)) ∙ skip end)
+vadd d = vec-op₂ d (init call (sliceⁱ 0) ((call uint (var 0F ∷ []) + call uint (var 1F ∷ [])) ∷ []) ∙ skip end)
 
 vsub : Instr.VSub → Procedure State []
-vsub d = vec-op₂ d (init sliceⁱ 0 (uint (var 0F) - uint (var 1F)) ∙ skip end)
+vsub d = vec-op₂ d (init call (sliceⁱ 0) ((call uint (var 0F ∷ []) - call uint (var 1F ∷ [])) ∷ []) ∙ skip end)
 
 vhsub : Instr.VHSub → Procedure State []
-vhsub d = vec-op₂ op₂ (init sliceⁱ 1 (toInt (var 0F) - toInt (var 1F)) ∙ skip end)
+vhsub d = vec-op₂ op₂ (init call (sliceⁱ 1) ((toInt (var 0F) - toInt (var 1F)) ∷ []) ∙ skip end)
   where open Instr.VHSub d; toInt = λ i → call Int (i ∷ lit unsigned ∷ [])
 
 vmul : Instr.VMul → Procedure State []
-vmul d = vec-op₂ d (init sliceⁱ 0 (sint (var 0F) * sint (var 1F)) ∙ skip end)
+vmul d = vec-op₂ d (init call (sliceⁱ 0) ((call sint (var 0F ∷ []) * call sint (var 1F ∷ [])) ∷ []) ∙ skip end)
 
 vmulh : Instr.VMulH → Procedure State []
-vmulh d = vec-op₂ op₂ (init sliceⁱ (toℕ esize) (toInt (var 0F) * toInt (var 1F)) ∙ skip end)
+vmulh d = vec-op₂ op₂ (init call (sliceⁱ (toℕ esize)) ((toInt (var 0F) * toInt (var 1F)) ∷ []) ∙ skip end)
   where
   open Instr.VMulH d; toInt = λ i → call Int (i ∷ lit unsigned ∷ [])
 
 vrmulh : Instr.VRMulH → Procedure State []
-vrmulh d = vec-op₂ op₂ (init sliceⁱ (toℕ esize) (toInt (var 0F) * toInt (var 1F) + lit 1ℤ << toℕ esize-1) ∙ skip end)
+vrmulh d = vec-op₂ op₂ (init call (sliceⁱ (toℕ esize)) ((toInt (var 0F) * toInt (var 1F) + lit 1ℤ << toℕ esize-1) ∷ []) ∙ skip end)
   where
   open Instr.VRMulH d; toInt = λ i → call Int (i ∷ lit unsigned ∷ [])
 
 vmla : Instr.VMlA → Procedure State []
-vmla d = vec-op₂ op₂ (init sliceⁱ (toℕ esize) (toInt (var 0F) * element₂ + toInt (var 1F))∙ skip end)
+vmla d = vec-op₂ op₂ (init call (sliceⁱ (toℕ esize)) ((toInt (var 0F) * element₂ + toInt (var 1F)) ∷ [])∙ skip end)
   where
   open Instr.VMlA d
   op₂ = record { size = size ; dest = acc ; src₁ = src₁ ; src₂ = inj₂ acc }
@@ -298,14 +355,21 @@ vmla d = vec-op₂ op₂ (init sliceⁱ (toℕ esize) (toInt (var 0F) * element�
 private
   vqr?dmulh : Instr.VQDMulH → Function State (int ∷ int ∷ []) int → Procedure State []
   vqr?dmulh d f = vec-op₂′ d (
-    -- 0:op₂ 1:e 2:op₁ 3:result 4:elmtMask 5:curBeat
-    declare (call f (sint (index-32 size (var 2F) (var 1F)) ∷ sint (var 0F) ∷ [])) (
-    declare (lit false) (
-      -- 0:sat 1:value 2:op₂ 3:e 4:op₁ 5:result 6:elmtMask 7:curBeat
-      cons (*index-32 size (var 5F) (var 3F)) (cons (var 0F) nil) ≔ call (SignedSatQ (toℕ esize-1)) (var 1F ∷ []) ∙
-      if var 0F && hasBit (var 6F) (fin e*esize>>3 (tup ((var 3F) ∷ [])))
+    let op₁ = var 3F in
+    let i = var 1F in
+    let op₂ = var 0F in
+    declare (call f (call sint (index-32 size op₁ i ∷ []) ∷ call sint (op₂ ∷ []) ∷ [])) (
+    declare (call (SignedSatQ (toℕ esize-1)) (var 0F ∷ [])) (
+      let elmtMask = head (tail (var 6F)) in
+      let result = var 4F in
+      let i = var 3F in
+      let sat = head (tail (var 0F)) in
+      let result′ = head (var 0F) in
+      *index-32 size result i ≔ result′ ∙
+      if sat && hasBit elmtMask (fin e*esize>>3 (tup (i ∷ [])))
       then
-        FPSCR-QC ≔ lit true)))
+        FPSCR-QC ≔ lit true)
+    ))
     where
     open Instr.VecOp₂ d
 

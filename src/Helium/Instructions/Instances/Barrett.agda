@@ -17,13 +17,13 @@ open import Helium.Instructions.Core
 
 -- Given:
 --   m     = ⌊ (1 << l) * n⁻¹ ⌋
---   -n    = n
+--   -n    = -n
 --   n     < 2 ^ 32
 --   | z | < 2 ^ 31
 -- Computes:
 --   z mod n
-barret : (m -n : Expression State [] (bits 32)) (t z : VecReg) (im : GenReg) → Procedure State []
-barret m -n t z im =
+barrett : (m -n : Expression State [] (bits 32)) (t z : VecReg) (im : GenReg) → Procedure State []
+barrett m -n t z im =
   *index R (lit im) ≔ m ∙
   invoke vqrdmulh-s32,t,z,m [] ∙
   *index R (lit im) ≔ -n ∙
@@ -44,3 +44,5 @@ barret m -n t z im =
       ; src₁     = t
       ; src₂     = im
       }))
+
+open import Data.Fin.Patterns

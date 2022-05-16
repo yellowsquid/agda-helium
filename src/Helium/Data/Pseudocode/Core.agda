@@ -136,12 +136,9 @@ data Reference Σ Γ where
   var   : ∀ i → Reference Σ Γ (lookup Γ i)
   [_]   : Reference Σ Γ t → Reference Σ Γ (array t 1)
   unbox : Reference Σ Γ (array t 1) → Reference Σ Γ t
-  merge : Reference Σ Γ (array t m) → Reference Σ Γ (array t n) → Expression Σ Γ (fin (suc n)) → Reference Σ Γ (array t (n ℕ.+ m))
   slice : Reference Σ Γ (array t (n ℕ.+ m)) → Expression Σ Γ (fin (suc n)) → Reference Σ Γ (array t m)
   cut   : Reference Σ Γ (array t (n ℕ.+ m)) → Expression Σ Γ (fin (suc n)) → Reference Σ Γ (array t n)
   cast  : .(eq : m ≡ n) → Reference Σ Γ (array t m) → Reference Σ Γ (array t n)
-  nil   : Reference Σ Γ (tuple [])
-  cons  : Reference Σ Γ t → Reference Σ Γ (tuple ts) → Reference Σ Γ (tuple (t ∷ ts))
   head  : Reference Σ Γ (tuple (t ∷ ts)) → Reference Σ Γ t
   tail  : Reference Σ Γ (tuple (t ∷ ts)) → Reference Σ Γ (tuple ts)
 
@@ -149,12 +146,9 @@ data LocalReference Σ Γ where
   var   : ∀ i → LocalReference Σ Γ (lookup Γ i)
   [_]   : LocalReference Σ Γ t → LocalReference Σ Γ (array t 1)
   unbox : LocalReference Σ Γ (array t 1) → LocalReference Σ Γ t
-  merge : LocalReference Σ Γ (array t m) → LocalReference Σ Γ (array t n) → Expression Σ Γ (fin (suc n)) → LocalReference Σ Γ (array t (n ℕ.+ m))
   slice : LocalReference Σ Γ (array t (n ℕ.+ m)) → Expression Σ Γ (fin (suc n)) → LocalReference Σ Γ (array t m)
   cut   : LocalReference Σ Γ (array t (n ℕ.+ m)) → Expression Σ Γ (fin (suc n)) → LocalReference Σ Γ (array t n)
   cast  : .(eq : m ≡ n) → LocalReference Σ Γ (array t m) → LocalReference Σ Γ (array t n)
-  nil   : LocalReference Σ Γ (tuple [])
-  cons  : LocalReference Σ Γ t → LocalReference Σ Γ (tuple ts) → LocalReference Σ Γ (tuple (t ∷ ts))
   head  : LocalReference Σ Γ (tuple (t ∷ ts)) → LocalReference Σ Γ t
   tail  : LocalReference Σ Γ (tuple (t ∷ ts)) → LocalReference Σ Γ (tuple ts)
 
@@ -183,6 +177,27 @@ data Function Σ Γ ret where
 data Procedure Σ Γ where
   _∙end : Statement Σ Γ → Procedure Σ Γ
 
+!_ : Reference Σ Γ t → Expression Σ Γ t
+! state i          = state i
+! var i            = var i
+! [ ref ]          = [ ! ref ]
+! unbox ref        = unbox (! ref)
+! slice ref x      = slice (! ref) x
+! cut ref x        = cut (! ref) x
+! cast eq ref      = cast eq (! ref)
+! head ref         = head (! ref)
+! tail ref         = tail (! ref)
+
+!!_ : LocalReference Σ Γ t → Expression Σ Γ t
+!! var i            = var i
+!! [ ref ]          = [ !! ref ]
+!! unbox ref        = unbox (!! ref)
+!! slice ref x      = slice (!! ref) x
+!! cut ref x        = cut (!! ref) x
+!! cast eq ref      = cast eq (!! ref)
+!! head ref         = head (!! ref)
+!! tail ref         = tail (!! ref)
+
 infixl 6 _<<_
 infixl 5 _-_ _∶_
 
@@ -203,45 +218,56 @@ _<<_ : Expression Σ Γ int → (n : ℕ) → Expression Σ Γ int
 e << n = e * lit (ℤ.+ (2 ℕ.^ n))
 
 getBit : ℕ → Expression Σ Γ int → Expression Σ Γ bit
-getBit i x = if x - x >> suc i << suc i <? lit (ℤ.+ (2 ℕ.^ i)) then lit false else lit true
+getBit i x = inv (x - ((x >> suc i) << suc i) <? lit (ℤ.+ (2 ℕ.^ i)))
 
-uint : Expression Σ Γ (bits m) → Expression Σ Γ int
-uint {m = 0}           x = lit ℤ.0ℤ
-uint {m = 1}           x = if unbox x then lit ℤ.1ℤ else lit ℤ.0ℤ
-uint {m = suc (suc m)} x =
-  lit (ℤ.+ 2) * uint (slice {n = _} {n = 1} x (lit 1F)) +
-  uint (cut {n = _} {n = 1} x (lit 1F))
+index : Expression Σ Γ (array t (suc m)) → Expression Σ Γ (fin (suc m)) → Expression Σ Γ t
+index {m = m} x i = unbox (slice (cast (+-comm 1 m) x) i)
 
-sint : Expression Σ Γ (bits m) → Expression Σ Γ int
-sint {m = 0}           x = lit ℤ.0ℤ
-sint {m = 1}           x = if unbox x then lit ℤ.-1ℤ else lit ℤ.0ℤ
-sint {m = suc (suc m)} x =
-  lit (ℤ.+ 2) * sint {m = m} (slice x (lit 1F)) +
-  uint (cut {n = _} {n = 1} x (lit 1F))
+*index : Reference Σ Γ (array t (suc m)) → Expression Σ Γ (fin (suc m)) → Reference Σ Γ t
+*index {m = m} x i = unbox (slice (cast (+-comm 1 m) x) i)
 
-!_ : Reference Σ Γ t → Expression Σ Γ t
-! state i          = state i
-! var i            = var i
-! [ ref ]          = [ ! ref ]
-! unbox ref        = unbox (! ref)
-! merge ref ref₁ e = merge (! ref) (! ref₁) e
-! slice ref x      = slice (! ref) x
-! cut ref x        = cut (! ref) x
-! cast eq ref      = cast eq (! ref)
-! nil              = nil
-! cons ref ref₁    = cons (! ref) (! ref₁)
-! head ref         = head (! ref)
-! tail ref         = tail (! ref)
+**index : LocalReference Σ Γ (array t (suc m)) → Expression Σ Γ (fin (suc m)) → LocalReference Σ Γ t
+**index {m = m} x i = unbox (slice (cast (+-comm 1 m) x) i)
 
-!!_ : LocalReference Σ Γ t → Expression Σ Γ t
-!! var i            = var i
-!! [ ref ]          = [ !! ref ]
-!! unbox ref        = unbox (!! ref)
-!! merge ref ref₁ x = merge (!! ref) (!! ref₁) x
-!! slice ref x      = slice (!! ref) x
-!! cut ref x        = cut (!! ref) x
-!! cast eq ref      = cast eq (!! ref)
-!! nil              = nil
-!! cons ref ref₁    = cons (!! ref) (!! ref₁)
-!! head ref         = head (!! ref)
-!! tail ref         = tail (!! ref)
+uint : Function Σ (bits m ∷ []) int
+uint {m = 0}     = init lit ℤ.0ℤ ∙ skip end
+uint {m = suc m} =
+  init
+    lit ℤ.0ℤ ∙
+    declare (lit ℤ.1ℤ) (
+    for (suc m) (
+      let x = var 3F in
+      let ret = var 2F in
+      let scale = var 1F in
+      let i = var 0F in
+      if index x i
+      then
+        ret ≔ !! ret + !! scale ∙
+      scale ≔ lit (ℤ.+ 2) * !! scale
+    ))
+  end
+
+sint : Function Σ (bits m ∷ []) int
+sint {m = 0}     = init lit ℤ.0ℤ ∙ skip end
+sint {m = suc m} =
+  init
+    lit ℤ.0ℤ ∙
+    declare (lit ℤ.1ℤ) (
+      for m (
+        let x = var 3F in
+        let ret = var 2F in
+        let scale = var 1F in
+        let i = var 0F in
+        if index x (fin Fin.inject₁ (tup (i ∷ [])))
+        then
+          ret ≔ !! ret + !! scale ∙
+        scale ≔ lit (ℤ.+ 2) * !! scale
+      ) ∙
+      let x = var 2F in
+      let ret = var 1F in
+      let scale = var 0F in
+      if index x (lit (Fin.fromℕ m))
+      then
+        ret ≔ !! ret - !! scale 
+    )
+  end

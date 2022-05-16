@@ -60,8 +60,8 @@ data Assertion (Σ : Vec Type o) (Γ : Vec Type n) (Δ : Vec Type m) : Set (L.su
   _⟶_    : Assertion Σ Γ Δ → Assertion Σ Γ Δ → Assertion Σ Γ Δ
 
 module Construct where
-  index : Term Σ Γ Δ (array t (suc n)) → Term Σ Γ (fin (suc n) ∷ Δ) t
-  index t = unbox (slice (cast (ℕₚ.+-comm 1 _) (Term.Meta.weaken 0F t)) (meta 0F))
+  indexTerm : Term Σ Γ Δ (array t (suc n)) → Term Σ Γ (fin (suc n) ∷ Δ) t
+  indexTerm t = unbox (slice (cast (ℕₚ.+-comm 1 _) (Term.Meta.weaken 0F t)) (meta 0F))
 
   equal : Term Σ Γ Δ t → Term Σ Γ Δ t → Assertion Σ Γ Δ
   equal {t = bool}                x y = pred (x ≟ y)
@@ -72,7 +72,7 @@ module Construct where
   equal {t = tuple (t ∷ [])}      x y = equal (head x) (head y)
   equal {t = tuple (t ∷ t₁ ∷ ts)} x y = equal (head x) (head y) ∧ equal (tail x) (tail y)
   equal {t = array t 0}           x y = true
-  equal {t = array t (suc n)}     x y = all (equal (index x) (index y))
+  equal {t = array t (suc n)}     x y = all (equal (indexTerm x) (indexTerm y))
 
 open Construct public
 
@@ -87,6 +87,17 @@ module Var where
   weaken i (P ∧ Q)     = weaken i P ∧ weaken i Q
   weaken i (P ∨ Q)     = weaken i P ∨ weaken i Q
   weaken i (P ⟶ Q)     = weaken i P ⟶ weaken i Q
+
+  elim : ∀ i → Assertion Σ (insert Γ i t) Δ → Term Σ Γ Δ t → Assertion Σ Γ Δ
+  elim i (all P)     e = all (elim i P (Term.Meta.weaken 0F e))
+  elim i (some P)    e = some (elim i P (Term.Meta.weaken 0F e))
+  elim i (pred p)    e = pred (Term.Var.elim i p e)
+  elim i true        e = true
+  elim i false       e = false
+  elim i (¬ P)       e = ¬ (elim i P e)
+  elim i (P ∧ Q)     e = elim i P e ∧ elim i Q e
+  elim i (P ∨ Q)     e = elim i P e ∨ elim i Q e
+  elim i (P ⟶ Q)     e = elim i P e ⟶ elim i Q e
 
   elimAll : Assertion Σ Γ Δ → All (Term Σ ts Δ) Γ → Assertion Σ ts Δ
   elimAll (all P)     es = all (elimAll P (Term.RecBuilder.extends (Term.Meta.weakenBuilder 0F) es))
