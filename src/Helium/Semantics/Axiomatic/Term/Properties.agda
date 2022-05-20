@@ -18,7 +18,7 @@ open import Data.Fin as Fin using (suc; punchIn)
 open import Data.Fin.Patterns using (0F)
 open import Data.Nat using (ℕ)
 open import Data.Product using (_,_; proj₁; proj₂; uncurry)
-open import Data.Vec as Vec using (Vec; []; _∷_; lookup; insert; map; zipWith)
+open import Data.Vec as Vec using (Vec; []; _∷_; _++_; lookup; insert; map; zipWith)
 import Data.Vec.Properties as Vecₚ
 open import Data.Vec.Relation.Unary.All as All using (All; []; _∷_)
 open import Function
@@ -294,6 +294,18 @@ module Meta where
       δ′ = Core.insert′ i Δ δ v
       eq = Vecₚ.insert-punchIn Δ i t j
 
+  weakenAllBuilder : ∀ (Δ′ : Vec Type k) (ts : Vec Type m) → ⟦ ts ⟧ₜₛ → RecBuilder⇒ (Term.Meta.weakenAllBuilder {Σ = Σ} {Γ = Γ} {Δ = Δ} Δ′ ts)
+  weakenAllBuilder {Δ = Δ} Δ′ ts vs = record
+    { onState⇒ = λ σ γ δ → σ
+    ; onVar⇒   = λ σ γ δ → γ
+    ; onMeta⇒  = λ σ γ δ →
+      let δ′,δ = Core.split Δ′ Δ δ in
+      Core.append Δ′ (ts ++ Δ) (proj₁ δ′,δ) (Core.append ts Δ vs (proj₂ δ′,δ))
+    ; onState-iso = λ _ _ _ _ → refl
+    ; onVar-iso   = λ _ _ _ _ → refl
+    ; onMeta-iso  = {!!}
+    }
+
   weaken-↓ : ∀ (Δ : Vec Type n) t′ i (e : Expression Σ Γ t) → Term.Meta.weaken {t′ = t′} i (Term.↓_ {Δ = Δ} e) ≡ Term.↓_ {Δ = insert Δ i t′} e
   weaken-↓s : ∀ (Δ : Vec Type n) t′ i (es : All (Expression Σ Γ) ts) → Term.RecBuilder.extends (Term.Meta.weakenBuilder {t = t′} i) (Term.↓s_ {Δ = Δ} es) ≡ Term.↓s_ {Δ = insert Δ i t′} es
 
@@ -373,7 +385,6 @@ module Meta where
         ≡˘⟨ Coreₚ.fetch-punchOut i≢j Δ δ (Term.⟦ e ⟧ σ γ δ) ⟩
       Core.fetch j (insert Δ i t) (Core.insert′ i Δ δ (Term.⟦ e ⟧ σ γ δ))
         ∎
-        
 
 import Helium.Semantics.Denotational.Core rawPseudocode as Den′
   renaming (module Semantics to Semantics′)

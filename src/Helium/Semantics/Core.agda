@@ -25,7 +25,7 @@ import Data.Fin.Properties as Finₚ
 open import Data.Integer as 𝕀 using () renaming (ℤ to 𝕀)
 open import Data.Nat as ℕ using (ℕ; suc)
 import Data.Nat.Properties as ℕₚ
-open import Data.Product using (_×_; _,_; proj₁; proj₂; _-×-_)
+open import Data.Product using (_×_; _,_; proj₁; proj₂; _-×-_; map₁)
 open import Data.Product.Relation.Binary.Pointwise.NonDependent using (×-decidable) renaming (Pointwise to ×-Pointwise)
 open import Data.Sign using (Sign)
 open import Data.Unit using (⊤)
@@ -122,6 +122,10 @@ insert′ (suc i) (t ∷ ts) xs x = cons′ (Vec.insert ts i _) (head′ ts xs) 
 append : ∀ (ts : Vec Type m) (ts₁ : Vec Type n) → ⟦ ts ⟧ₜₛ → ⟦ ts₁ ⟧ₜₛ → ⟦ ts ++ ts₁ ⟧ₜₛ
 append []       ts₁ xs ys = ys
 append (_ ∷ ts) ts₁ xs ys = cons′ (ts ++ ts₁) (head′ ts xs) (append ts ts₁ (tail′ ts xs) ys)
+
+split : ∀ (ts : Vec Type m) (ts₁ : Vec Type n) → ⟦ ts ++ ts₁ ⟧ₜₛ → ⟦ ts ⟧ₜₛ × ⟦ ts₁ ⟧ₜₛ
+split []       ts₁ xs = _ , xs
+split (_ ∷ ts) ts₁ xs = map₁ (cons′ ts (head′ (ts ++ ts₁) xs)) (split ts ts₁ (tail′ (ts ++ ts₁) xs))
 
 _≈_ : ⦃ HasEquality t ⦄ → Rel ⟦ t ⟧ₜ  ℓ₁
 _≈_ ⦃ bool ⦄  = Lift ℓ₁ ∘₂ _≡_ on lower
