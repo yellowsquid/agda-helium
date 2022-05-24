@@ -25,6 +25,7 @@ import Data.Fin.Properties as Finₚ
 open import Data.Nat as ℕ using (ℕ; suc)
 import Data.Nat.Properties as ℕₚ
 open import Data.Product using (_,_)
+open import Data.Sum using (inj₁; inj₂; [_,_]′)
 open import Data.Vec as Vec using (Vec; []; _∷_; _++_; length; lookup; insert; remove; map; zipWith)
 import Data.Vec.Properties as Vecₚ
 open import Data.Vec.Relation.Unary.All as All using (All; []; _∷_; tabulate)
@@ -310,6 +311,47 @@ module Meta where
 
   elim : ∀ i → Term Σ Γ (insert Δ i t′) t → Term Σ Γ Δ t′ → Term Σ Γ Δ t
   elim i e e′ = RecBuilder.extend (elimBuilder i e′) e
+
+  -- elimAllBuilder : ∀ (Δ′ : Vec Type k) → All (Term Σ Γ (Δ′ ++ Δ)) ts → RecBuilder Σ Γ (Δ′ ++ ts ++ Δ) Σ Γ (Δ′ ++ Δ)
+  -- elimAllBuilder {Σ = Σ} {Γ = Γ} {Δ = Δ} {ts = ts} Δ′ es = record
+  --   { onState = state
+  --   ; onVar   = var
+  --   ; onMeta  = onMeta
+  --   }
+  --   where
+  --   onMeta : ∀ i → Term Σ Γ (Δ′ ++ Δ) (lookup (Δ′ ++ ts ++ Δ) i)
+  --   onMeta i with Fin.splitAt (length Δ′) i in eq
+  --   ... | inj₁ j =
+  --     Cast.type
+  --       (begin
+  --         _ ≡⟨  Vecₚ.lookup-++ˡ Δ′ Δ j ⟩
+  --         _ ≡˘⟨ cong [ lookup Δ′ , lookup (ts ++ Δ) ]′ eq ⟩
+  --         _ ≡˘⟨ Vecₚ.lookup-splitAt (length Δ′) Δ′ (ts ++ Δ) i ⟩
+  --         _ ∎)
+  --       (meta _)
+  --     where open ≡-Reasoning
+  --   ... | inj₂ j with Fin.splitAt (length ts) j in eq₁
+  --   ... | inj₁ k =
+  --     Cast.type
+  --       (begin
+  --         _ ≡˘⟨ cong [ lookup ts , lookup Δ ]′ eq₁ ⟩
+  --         _ ≡˘⟨ Vecₚ.lookup-splitAt (length ts) ts Δ j ⟩
+  --         _ ≡˘⟨ cong [ lookup Δ′ , lookup (ts ++ Δ) ]′ eq ⟩
+  --         _ ≡˘⟨ Vecₚ.lookup-splitAt (length Δ′) Δ′ (ts ++ Δ) i ⟩
+  --         _ ∎ )
+  --       (All.lookup k es)
+  --     where open ≡-Reasoning
+  --   ... | inj₂ k =
+  --     Cast.type
+  --       (begin
+  --         _ ≡⟨  Vecₚ.lookup-++ʳ Δ′ Δ k ⟩
+  --         _ ≡˘⟨ cong [ lookup ts , lookup Δ ]′ eq₁ ⟩
+  --         _ ≡˘⟨ Vecₚ.lookup-splitAt (length ts) ts Δ j ⟩
+  --         _ ≡˘⟨ cong [ lookup Δ′ , lookup (ts ++ Δ) ]′ eq ⟩
+  --         _ ≡˘⟨ Vecₚ.lookup-splitAt (length Δ′) Δ′ (ts ++ Δ) i ⟩
+  --         _ ∎)
+  --       (meta _)
+  --     where open ≡-Reasoning
 
 subst : Term Σ Γ Δ t → Reference Σ Γ t′ → Term Σ Γ Δ t′ → Term Σ Γ Δ t
 subst e (state i)          val = State.subst i e val

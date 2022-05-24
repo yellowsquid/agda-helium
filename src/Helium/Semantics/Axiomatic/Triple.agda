@@ -27,7 +27,7 @@ open import Data.Vec.Relation.Unary.All as All using (All)
 open import Function using (_∘_)
 open import Helium.Data.Pseudocode.Core
 open import Helium.Semantics.Axiomatic.Assertion rawPseudocode as Asrt
-open import Helium.Semantics.Axiomatic.Term rawPseudocode as Term using (↓_)
+open import Helium.Semantics.Axiomatic.Term rawPseudocode as Term using (↓_; ↓s_)
 open import Level using (_⊔_; lift; lower) renaming (suc to ℓsuc)
 open import Relation.Nullary.Decidable.Core using (toWitness)
 
@@ -95,10 +95,13 @@ P ⊢ s ⊢ Q = HoareTriple P Q s
 -- weakestPrecond skip                  Q = Q
 -- weakestPrecond (ref ≔ val)           Q = subst Q ref (↓ val)
 -- weakestPrecond (declare e s)         Q = Var.elim 0F (weakestPrecond s (Var.weaken 0F Q)) (↓ e)
--- weakestPrecond (invoke (s ∙end) es)  Q = {!Var.elimAll (weakestPrecond s (varsToMetas Q)) ?!}
+-- weakestPrecond {Γ = Γ} {Δ = Δ} (invoke (s ∙end) es)  Q = {!Meta.elimAll!}
 --   where
---   metas = All.map (Term.Meta.inject {!!}) (All.tabulate meta)
---   varsToMetas = λ P → Var.elimAll (Meta.weakenAll [] {!!} P) metas
+--   metas = All.map (Term.Meta.inject Δ) (All.tabulate meta)
+--   varsToMetas = λ P → Var.elimAll (Meta.weakenAll [] Γ P) metas
+--   termVarsToMetas = λ t → Term.Var.elimAll (Term.Meta.weakenAll [] Γ t) metas
+--   sub = weakestPrecond s (varsToMetas Q)
+--   sub′ = Var.elimAll sub (All.map (Term.Meta.inject Δ) (↓s es))
 -- weakestPrecond (if e then s)         Q = pred (↓ e) ∧ weakestPrecond s Q ∨ pred (↓ inv e) ∧ Q
 -- weakestPrecond (if e then s else s₁) Q = pred (↓ e) ∧ weakestPrecond s Q ∨ pred (↓ inv e) ∧ weakestPrecond s₁ Q
 -- weakestPrecond (for n s)             Q = {!rec.foldl!}

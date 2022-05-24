@@ -313,3 +313,6 @@ sound {Σ = Σ} {Γ = Γ} {Δ = Δ} (for {m = m} {s = s} I (arr imp) p (arr imp�
 
   loop : Assertion.⟦ I ⟧ σ γ (Core.insert′ 0F Δ δ (lift 0F)) → uncurry Assertion.⟦ I ⟧ ((subst (λ _ → _ → _) (sym (Finₚ.toℕ-fromℕ m)) (Semantics.stmt (for m s))) (σ , γ)) (Core.insert′ 0F Δ δ (lift (fromℕ m)))
   loop = foldl⁺ _ (λ {i} → loop-pred {i}) step id (Vec.allFin m) (λ {i x} → step-deriv {i} {x})
+
+
+-- correct : ∀ {P Q : Assertion Σ Γ Δ} → (∀ σ γ δ → Assertion.⟦ P ⟧ σ γ δ → uncurry Assertion.⟦ Q ⟧ (Semantics.stmt s (σ , γ)) δ) → P ⊢ s ⊢ Q

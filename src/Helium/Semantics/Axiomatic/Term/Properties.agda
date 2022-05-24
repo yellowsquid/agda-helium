@@ -294,17 +294,17 @@ module Meta where
       δ′ = Core.insert′ i Δ δ v
       eq = Vecₚ.insert-punchIn Δ i t j
 
-  weakenAllBuilder : ∀ (Δ′ : Vec Type k) (ts : Vec Type m) → ⟦ ts ⟧ₜₛ → RecBuilder⇒ (Term.Meta.weakenAllBuilder {Σ = Σ} {Γ = Γ} {Δ = Δ} Δ′ ts)
-  weakenAllBuilder {Δ = Δ} Δ′ ts vs = record
-    { onState⇒ = λ σ γ δ → σ
-    ; onVar⇒   = λ σ γ δ → γ
-    ; onMeta⇒  = λ σ γ δ →
-      let δ′,δ = Core.split Δ′ Δ δ in
-      Core.append Δ′ (ts ++ Δ) (proj₁ δ′,δ) (Core.append ts Δ vs (proj₂ δ′,δ))
-    ; onState-iso = λ _ _ _ _ → refl
-    ; onVar-iso   = λ _ _ _ _ → refl
-    ; onMeta-iso  = {!!}
-    }
+  -- weakenAllBuilder : ∀ (Δ′ : Vec Type k) (ts : Vec Type m) → ⟦ ts ⟧ₜₛ → RecBuilder⇒ (Term.Meta.weakenAllBuilder {Σ = Σ} {Γ = Γ} {Δ = Δ} Δ′ ts)
+  -- weakenAllBuilder {Δ = Δ} Δ′ ts vs = record
+  --   { onState⇒ = λ σ γ δ → σ
+  --   ; onVar⇒   = λ σ γ δ → γ
+  --   ; onMeta⇒  = λ σ γ δ →
+  --     let δ′,δ = Core.split Δ′ Δ δ in
+  --     Core.append Δ′ (ts ++ Δ) (proj₁ δ′,δ) (Core.append ts Δ vs (proj₂ δ′,δ))
+  --   ; onState-iso = λ _ _ _ _ → refl
+  --   ; onVar-iso   = λ _ _ _ _ → refl
+  --   ; onMeta-iso  = {!!}
+  --   }
 
   weaken-↓ : ∀ (Δ : Vec Type n) t′ i (e : Expression Σ Γ t) → Term.Meta.weaken {t′ = t′} i (Term.↓_ {Δ = Δ} e) ≡ Term.↓_ {Δ = insert Δ i t′} e
   weaken-↓s : ∀ (Δ : Vec Type n) t′ i (es : All (Expression Σ Γ) ts) → Term.RecBuilder.extends (Term.Meta.weakenBuilder {t = t′} i) (Term.↓s_ {Δ = Δ} es) ≡ Term.↓s_ {Δ = insert Δ i t′} es
